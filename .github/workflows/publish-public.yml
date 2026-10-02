@@ -1,0 +1,70 @@
+name: Publish playable build
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-outrun-taipei
+  cancel-in-progress: true
+
+env:
+  PUBLIC_REPOSITORY: kevin781130-netizen/GAME-TEST-LAB
+  GAME_PATH: outrun-taipei
+  DEPLOY_TOKEN: ${{ secrets.PUBLIC_PAGES_TOKEN }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout private source
+        uses: actions/checkout@v6
+
+      - name: Check deploy secret
+        id: secret
+        shell: bash
+        run: |
+          if [ -n "$DEPLOY_TOKEN" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "PUBLIC_PAGES_TOKEN is not configured; publish skipped."
+          fi
+
+      - name: Checkout shared public game lab
+        if: steps.secret.outputs.configured == 'true'
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.PUBLIC_REPOSITORY }}
+          token: ${{ secrets.PUBLIC_PAGES_TOKEN }}
+          path: public-site
+          ref: main
+
+      - name: Update only this game's folder
+        if: steps.secret.outputs.configured == 'true'
+        shell: bash
+        run: |
+          mkdir -p "public-site/$GAME_PATH"
+          find "public-site/$GAME_PATH" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+          cp index.html "public-site/$GAME_PATH/index.html"
+          touch public-site/.nojekyll
+
+      - name: Commit and push public build
+        if: steps.secret.outputs.configured == 'true'
+        shell: bash
+        run: |
+          cd public-site
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GAME_PATH" .nojekyll
+          if git diff --cached --quiet; then
+            echo "Public build is already up to date."
+          else
+            git commit -m "Deploy $GAME_PATH from Outrun-Taipei"
+            git push origin main
+          fi
