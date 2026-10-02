@@ -1,0 +1,19 @@
+Taipei Sunset Drive V40 verification
+
+1. JavaScript syntax: PASS (Node new Function parse)
+2. Chromium page load/menu: PASS
+3. START -> radio selector -> drive: PASS
+4. Accelerate before drift: ~160.9 KM/H
+5. Right Shift drift: PASS
+   - driftAngle ~34.8 deg
+   - slipAngle ~15.0 deg
+   - driftState = drift
+6. Short countersteer: PASS
+   - drift remained active
+   - driftAngle reduced to ~13.1 deg
+   - lateral velocity reduced immediately
+7. Release Shift + neutral steering: PASS
+   - driftState returned to grip
+   - driftAngle returned to ~0 deg within ~0.46 s
+
+Note: physical controller/mobile feel was not tested in this environment.
