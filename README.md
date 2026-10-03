@@ -18,13 +18,13 @@
 
 ## V51
 
-- **Sideways Drift Pass**：甩尾時整台車使用獨立 visual yaw，把物理 drift angle + slip 放大成最高約 66° 的側身效果；後軸外甩位移、側面寬度、陰影與胎痕一起加強，但 collider / playerX 不跟著扭。
+- **Curve-Bound Sideways Drift**：整台車仍會明顯側身，但 visual yaw 會依實際彎道需求限制：小彎約 30–36°、中大彎逐步放大，最高 58°。車身側身與物理橫移完全解耦，避免道路其實不彎卻把車甩向牆。
 - **甩尾中同時放氮氣＋集氣**：boost 啟動後 drift charge 不停止；HUD 會顯示 BOOST + CHARGE，真實鍵盤測試會驗證 N 放氣期間氮氣表仍上升。
 - **速度堆疊感**：普通加速在 100 km/h 後進入 soft wall，越接近 285 越難往上爬；氮氣則有 28 km/h immediate impulse + 強力高速推進，讓 boost 明顯比自然加速爽。
-- **路邊破圖修復第二階段**：正式停用 V47 / V48 兩層重疊前景建築，只保留 V50 surface-aware / road-clipped 近景；高架下建物也加入 road clip、較小 scale 與更外側 anchor。
+- **破圖／穿模稽核**：正式停用 V47 / V48 / V49 重疊近景建築，只保留 V50 surface-aware / road-clipped 近景；新增 roadside clearance log、全 15 路線 screenshot smoke、極端側身車模 finite projection 與水面／高架 placement regression。
 - **地標重檢**：重畫圓山大飯店、關渡大橋、臺北大巨蛋、富貴角燈塔、九份阿妹茶樓、貓空纜車與台北101的量體／色彩／側面深度。
 - **15 路線地理稽核**：每段加入 real-anchor / real-corridor / compressed-link 標記；彩虹橋與貓空纜車明確只作視覺地標，不假裝成汽車道路。
-- **Clean-Room**：禁止 1:1 syntax/control-flow translation、ROM / binary asset、exact animation/camera curve copy、標誌性 mode/UI/licensed identity。
+- **Clean-Room**：參考只限黑箱可觀察的「小彎小甩、急彎大側身、反打調線、快速回正」高階手感；禁止 1:1 syntax/control-flow translation、ROM / binary asset、exact handling/animation/camera curve copy、標誌性 mode/UI/licensed identity。
 - 遊戲下方固定顯示 `CURRENT TEST BUILD · V51.0`。
 
 完整規範見 [V51 Sideways Drift & Taipei Reality Audit](docs/V51_Sideways_Drift_Reality_Audit.md)。
