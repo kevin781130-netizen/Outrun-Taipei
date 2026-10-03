@@ -33,8 +33,7 @@ walk(ROOT);
 const runtimePath=path.join(ROOT,'index.html');
 const runtime=fs.readFileSync(runtimePath,'utf8');
 const forbiddenRuntimeMarks=[
-  /OutRunners/i,
-  /OutRun\s*2/i,
+  /OutRun/i,
   /\bSEGA\b/i,
   /\bNEXON\b/i,
   /KartRider/i,
@@ -59,7 +58,8 @@ const forbiddenPresentation=[
   /Heart\s+Attack/i,
   /\b5-4-5\b/i,
   /\b6-5-6\b/i,
-  /licensed\s+Ferrari/i
+  /licensed\s+Ferrari/i,
+  /Last\s+Wave/i
 ];
 for(const rx of forbiddenPresentation) if(rx.test(runtime)) failures.push(`forbidden direct-translation or distinctive-presentation marker in runtime: ${rx}`);
 
