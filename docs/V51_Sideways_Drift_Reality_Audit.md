@@ -18,9 +18,11 @@ V51 separates **physics yaw** from **presentation yaw**.
 
 - Physics continues to use the independently authored DRIFT51 state.
 - `v51DriftVisualYaw()` combines the local drift angle and slip angle into a larger visual yaw.
-- The visual yaw is capped at 66 degrees.
-- The whole car gets a small rear-swing screen offset, wider side presentation, skewed shadow and longer tire trails.
-- Collider geometry, road position and traffic collision remain unchanged.
+- The visual cap is curve-bound: shallow bends stay around 30–36 degrees, while genuinely tight bends can rise toward 58 degrees.
+- The rear-swing screen offset and side-width exaggeration are intentionally small; the 3D mesh yaw does most of the visual work.
+- Physical drift path strength is separately scaled by actual bend demand, so shallow bends do not throw the vehicle laterally toward a wall.
+- Near the road edge, outward lateral velocity is damped rather than auto-steered inward; this is not an auto-rail or source-title drift-zone mechanic.
+- Collider geometry, road position and traffic collision remain independently simulated.
 
 This is an original presentation model, not a frame-by-frame animation copy.
 
@@ -49,9 +51,9 @@ Nitro is separate:
 
 This makes ordinary speed feel accumulated over time and nitro feel like a genuine forward launch.
 
-## Roadside building repair
+## Roadside building / clipping repair
 
-V51 retires active calls to the older overlapping V47 and V48 near-foreground building passes.
+V51 retires active calls to the older overlapping V47, V48 and V49 near-foreground building passes.
 
 The active near-road architecture path is now:
 
@@ -59,9 +61,12 @@ The active near-road architecture path is now:
 - `clipNearRoad()`;
 - water-side non-building props;
 - capped near scale;
-- anchors outside the projected road envelope.
+- anchors outside the projected road envelope;
+- runtime roadside-clearance logging used by regression tests;
+- water-side checks that reject urban building placement;
+- finite-projection checks for road strips and the player vehicle at extreme sideways yaw.
 
-Below elevated roads, building blocks are also road-clipped, reduced in scale and moved farther out from the deck envelope.
+Below elevated roads, building blocks are also road-clipped, reduced in scale and moved farther out from the deck envelope. Browser smoke now captures every one of the 15 Taipei routes plus shallow- and tight-drift frames so broken renders do not hide behind a partial route sample.
 
 ## Landmark visual audit
 
@@ -121,7 +126,11 @@ Before merge, V51 must pass:
 - zero forbidden runtime external marks;
 - all 15 route identities and reality-audit entries;
 - retired foreground-layer guard;
-- exaggerated sideways visual-yaw regression;
+- curve-bound shallow-vs-tight sideways visual-yaw regression;
+- shallow-bend physical-path wall-risk regression;
+- roadside clearance / water-placement / retired-layer clipping regressions;
+- finite projected-road and extreme-yaw vehicle-mesh regression;
+- screenshots for all 15 routes plus shallow/tight drift frames;
 - soft-wall speed curve regression;
 - nitro impulse regression;
 - simultaneous boost + drift-charge regression;
