@@ -3165,7 +3165,7 @@ function drawRivalCarFlatLegacy(car, x, y, s){
 
 function rivalVolumeProfile(car,x){
   const w=car.spec.w,h=car.spec.h,side=x<W/2?1:-1;
-  return {side,depth:Math.max(9,w*(car.spec.bus?.24:car.spec.scooter?.16:.19)),roofLift:h*(car.spec.bus?.08:.13)};
+  return {side,depth:Math.max(9,w*(car.spec.bus ? .24 : car.spec.scooter ? .16 : .19)),roofLift:h*(car.spec.bus ? .08 : .13)};
 }
 function drawRivalCar(car,x,y,s){
   ctx.save();ctx.translate(x,y);ctx.scale(s,s);
