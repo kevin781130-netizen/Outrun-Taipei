@@ -1,8 +1,8 @@
 {
   "name": "outrun-taipei",
   "private": true,
-  "version": "44.0.0",
-  "description": "Taipei arcade driving game with volumetric roadside art, skill-timed drift boost, collision guards and Twin Link netplay foundations",
+  "version": "45.0.0",
+  "description": "Taipei arcade racer with acceptance-hardened visible collisions, real gear torque, stronger drift/nitro feedback and volumetric street art",
   "scripts": {"test": "node tests/regression.cjs", "test:browser": "node tests/browser-smoke.cjs"},
   "devDependencies": {"@napi-rs/canvas": "0.1.100", "playwright": "1.62.1"}
 }
