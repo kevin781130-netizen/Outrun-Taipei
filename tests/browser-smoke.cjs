@@ -34,12 +34,17 @@ const {scenarios}=require('./scenarios.cjs');
   assert.equal(nitroProbe[0],true,'real keyboard N activates boost without requiring simultaneous throttle');
   assert(nitroProbe[1]>2.7&&nitroProbe[2]===0&&nitroProbe[3]>170&&nitroProbe[4], 'nitro stock produces immediate acceleration and latch');
   // Real keyboard simultaneous boost + drift-charge probe.
-  await run(`nitro=10;nitroStock=1;boostRemaining=0;nitroLatch=false;speed=185;driveGear='D';motionDirection=1;roadGrip=1;isDrifting=false;driftState='grip';driftAngle=0;slipAngle=0;keys.KeyN=false;`);
+  // Reset the drift input edge state as a real released-key frame would before beginning a new maneuver.
+  await run(`resetDrivingState();nitro=10;nitroStock=1;boostRemaining=0;nitroLatch=false;boosting=false;speed=185;driveGear='D';motionDirection=1;roadGrip=1;keys.KeyN=false;`);
   await page.keyboard.down('KeyW');await page.keyboard.down('ArrowRight');await page.keyboard.down('ShiftLeft');
   await run(`for(let i=0;i<20;i++)update(1/60);`);
-  const beforeSim=await run(`nitro`);
+  const preBoostDrift=await run(`[isDrifting,nitro,driftChargeRate,Math.abs(v51DriftVisualYaw())]`);
+  assert(preBoostDrift[0]&&preBoostDrift[2]>0,'real keyboard drift is active and charging before nitro release');
+  const beforeSim=preBoostDrift[1];
   await page.keyboard.down('KeyN');await run(`update(1/60);`);await page.keyboard.up('KeyN');
-  await run(`for(let i=0;i<24;i++)update(1/60);`);
+  const releaseFrame=await run(`[boosting,isDrifting,boostRemaining,nitro,driftChargeRate,speed]`);
+  assert(releaseFrame[0]&&releaseFrame[1]&&releaseFrame[2]>2.7,'nitro release does not interrupt an active drift');
+  await run(`for(let i=0;i<12;i++)update(1/60);`);
   const simultaneous=await run(`[boosting,isDrifting,nitro,driftChargeRate,speed,v51DriftVisualYaw()]`);
   await page.keyboard.up('ShiftLeft');await page.keyboard.up('ArrowRight');await page.keyboard.up('KeyW');
   assert(simultaneous[0]&&simultaneous[1],'boost remains active while the car is drifting');
