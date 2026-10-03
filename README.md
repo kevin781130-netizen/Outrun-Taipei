@@ -1,4 +1,4 @@
-# Taipei Sunset Drive V50
+# Taipei Sunset Drive V51
 
 原創台北街機公路遊戲。採用 1990 年代大型機公路賽車常見的高速景深構圖，以及現代甩尾集氣／加速循環；所有程式、美術與音效均採獨立實作。
 
@@ -15,6 +15,19 @@
 - 手把 X 起甩、Y 氮氣、RT 油門、LT 煞車；Start 出發／暫停／繼續。
 
 五段街機、十五條單段計時／巡航路線、AT / MT、夕陽／霓虹色調均保留。
+
+## V51
+
+- **Sideways Drift Pass**：甩尾時整台車使用獨立 visual yaw，把物理 drift angle + slip 放大成最高約 66° 的側身效果；後軸外甩位移、側面寬度、陰影與胎痕一起加強，但 collider / playerX 不跟著扭。
+- **甩尾中同時放氮氣＋集氣**：boost 啟動後 drift charge 不停止；HUD 會顯示 BOOST + CHARGE，真實鍵盤測試會驗證 N 放氣期間氮氣表仍上升。
+- **速度堆疊感**：普通加速在 100 km/h 後進入 soft wall，越接近 285 越難往上爬；氮氣則有 28 km/h immediate impulse + 強力高速推進，讓 boost 明顯比自然加速爽。
+- **路邊破圖修復第二階段**：正式停用 V47 / V48 兩層重疊前景建築，只保留 V50 surface-aware / road-clipped 近景；高架下建物也加入 road clip、較小 scale 與更外側 anchor。
+- **地標重檢**：重畫圓山大飯店、關渡大橋、臺北大巨蛋、富貴角燈塔、九份阿妹茶樓、貓空纜車與台北101的量體／色彩／側面深度。
+- **15 路線地理稽核**：每段加入 real-anchor / real-corridor / compressed-link 標記；彩虹橋與貓空纜車明確只作視覺地標，不假裝成汽車道路。
+- **Clean-Room**：禁止 1:1 syntax/control-flow translation、ROM / binary asset、exact animation/camera curve copy、標誌性 mode/UI/licensed identity。
+- 遊戲下方固定顯示 `CURRENT TEST BUILD · V51.0`。
+
+完整規範見 [V51 Sideways Drift & Taipei Reality Audit](docs/V51_Sideways_Drift_Reality_Audit.md)。
 
 ## V50
 
