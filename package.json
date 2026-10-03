@@ -1,8 +1,8 @@
 {
   "name": "outrun-taipei",
   "private": true,
-  "version": "43.0.0",
-  "description": "Standalone Taipei arcade driving game with hardened world geometry, drift nitro and browser regression checks",
+  "version": "44.0.0",
+  "description": "Taipei arcade driving game with volumetric roadside art, skill-timed drift boost, collision guards and Twin Link netplay foundations",
   "scripts": {"test": "node tests/regression.cjs", "test:browser": "node tests/browser-smoke.cjs"},
   "devDependencies": {"@napi-rs/canvas": "0.1.100", "playwright": "1.62.1"}
 }
