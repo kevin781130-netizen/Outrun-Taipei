@@ -62,6 +62,8 @@ async function scenarios(run,{render=true}={}){
  await run(reset+`gameStarted=true;raceActive=true;paused=false;gameOver=false;crashSequence=null;driveGear='D';motionDirection=1;speed=180;roadGrip=1;steer=.7;isDrifting=true;driftState='drift';driftDirection=1;driftAge=.5;slipAngle=9;nitro=12;nitroStock=1;boostRemaining=0;nitroLatch=false;window.__simulActivated=activateNitro();const before=nitro;stepBrakeDrift(1/60,false,true,.7,1.0);chargeDriftNitro(1/60);window.__simul=[window.__simulActivated,boostRemaining,nitro,before,driftChargeRate,nitroStock];`);
  await check(`window.__simul[0]&&window.__simul[1]>2.7&&window.__simul[2]>window.__simul[3]&&window.__simul[4]>35&&window.__simul[5]===0`,'V51 can release nitro and continue charging during the same drift');
  await check(`Object.keys(ROUTE_REALITY).length===15&&Object.values(ROUTE_REALITY).every(r=>r.note&&['real-anchor','real-corridor','compressed-link'].includes(r.grade))`,'V51 reality audit covers all 15 Taipei routes');
+ await check(`Object.keys(V51_LANDMARK_AUDIT).length===15&&Object.values(V51_LANDMARK_AUDIT).every(v=>v.status==='audited-v51'&&v.height>=6900&&v.silhouette)`,'V51 landmark scale and silhouette audit covers all 15 routes');
+ await check(`ROUTE_REALITY['4C'].note.includes('彩虹橋')&&ROUTE_REALITY['4C'].note.includes('不把人行橋當汽車道路')&&ROUTE_REALITY['5E'].note.includes('纜車')&&ROUTE_REALITY['5E'].note.includes('不是可駕駛路線')`,'V51 does not turn pedestrian or gondola landmarks into drivable roads');
 
 
 
