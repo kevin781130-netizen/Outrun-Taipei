@@ -4750,6 +4750,7 @@ try{
     if(STAGES[d.route?.level]?.[d.route?.column]) selectedRoute={level:d.route.level,column:d.route.column};
   }
 }catch(e){}
+if(!CAR_PROFILES[selectedCarId]){selectedCarId='red_roadster';carSelect.value=selectedCarId;}
 if(!profilesV39[selectedCarId]) profilesV39[selectedCarId]={...defaultTuning,paint:CAR_PROFILES[selectedCarId].color};
 wanganTuning=sanitizeTuning(profilesV39[selectedCarId]);
 function persistV39(){
