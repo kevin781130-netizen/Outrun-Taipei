@@ -1235,6 +1235,19 @@ const V49_ART=Object.freeze({
   paletteSource:'Taipei theme only',geometrySource:'projected Taipei road and local stage identity only',
   foreignStageMotifs:false,foreignVehicleIdentity:false,distinctiveUICopy:false,sourceAssetImport:false
 });
+const V50_CLEAN_ROOM_REFERENCE=Object.freeze({
+  observationOnly:true,sourceCode:false,sourceAssets:false,sourceAudio:false,sourceVehicleModels:false,
+  decompilation:false,instructionMapping:false,directSyntaxTranslation:false,exactHandlingCurveCopy:false,
+  stageCompositionCopy:false,cameraCurveCopy:false,distinctiveFeatureClone:false,distinctiveModeClone:false,
+  distinctiveRouteUICopy:false,licensedVehicleIdentity:false,patentedMechanicReplication:false,
+  independentImplementation:true,preserve:'Taipei routes, landmarks, route graph, drift nitro, gears, collisions and Twin Link'
+});
+const V50_ART=Object.freeze({
+  safeSetpieceStride:22,maxNearScale:1.10,roadClearance:.55,rushMin:190,
+  surfaceAware:true,roadClip:true,paletteSource:'Taipei theme only',
+  geometrySource:'projected Taipei road and district surface only',
+  foreignStageMotifs:false,foreignVehicleIdentity:false,sourceAssetImport:false
+});
 
 const V46_TAIPEI_ROUTE_GUARD=Object.freeze([
   ['1A','總統府 & 凱達格蘭大道','civic','urban'],
@@ -2712,7 +2725,7 @@ function drawRoad(){
   drawV46RoadEdgeRhythm(projected);
   drawV47ForegroundMass(projected);
   drawV48ForegroundSetpieces(projected);
-  drawV49NearOcclusion(projected);
+  drawV50SafeRoadsideDepth(projected);
   drawRoadside(Math.floor(playerZ / SEGMENT_LENGTH), t);
   drawStartingScene(Math.floor(playerZ / SEGMENT_LENGTH));
   drawForkObjects(Math.floor(playerZ / SEGMENT_LENGTH));
@@ -3440,7 +3453,7 @@ function drawRigidVehicle(yaw,braking){
 function drawPlayer(){
  const braking=inputHeld('ArrowDown')||inputHeld('KeyS')||gamepadInput.brake||helperPulse>0;
  let cx=W/2,cy=H-65+brakeVisual*2-wanganTuning.suspension*2+chassisPitch*.75,scale=1,yaw=driftAngle,roll=chassisRoll;
- if(Math.abs(playerX)>drivableHalf()&&!crashSequence)cy+=Math.sin(simulationTime*28)*3;
+ if(Math.abs(playerX)>drivableHalf()&&!crashSequence)cy+=Math.sin(simulationTime*24)*1.2;
  if(crashSequence){const p=crashPose(crashSequence.t,crashSequence.side);cx=p.x;cy=p.y;scale=p.scale;roll=p.roll;yaw=0;}
  ctx.save();ctx.translate(cx,cy);ctx.scale(scale,scale);if(roll)ctx.rotate(roll*Math.PI/180);
  if(!crashSequence){ctx.fillStyle='#08142088';ctx.beginPath();ctx.ellipse(-chassisRoll*1.2,21,currentCar.isBike?32:108,12,0,0,Math.PI*2);ctx.fill();
@@ -3658,15 +3671,15 @@ function render(dt){
     return;
   }
   ctx.save();
-  if(screenShake > 0.2) ctx.translate(Math.round(rand(-screenShake, screenShake)), Math.round(rand(-screenShake * 0.55, screenShake * 0.55)));
+  const comfortShake=Math.min(screenShake,V50_COMFORT.shakeMax)*V50_COMFORT.motionScale;
+  if(comfortShake > 0.10) ctx.translate(Math.round(rand(-comfortShake, comfortShake)), Math.round(rand(-comfortShake * 0.45, comfortShake * 0.45)));
   
   if(paused)dt=0;
   drawRoad();
   drawAtmosphere();
   drawV40FinishAtmosphere();
   drawSpeedLines();
-  drawV48PeripheralRush();
-  drawV49AccelerationRush();
+  drawV50ComfortRush();
   drawParticles(dt);
   drawSlideTrails();
   drawPlayer();
@@ -3689,15 +3702,15 @@ function presentArcade(){
  displayCtx.imageSmoothingEnabled=true;displayCtx.imageSmoothingQuality='high';displayCtx.clearRect(0,0,W,H);
  const active=clamp((boosting?.42:0)+(exitBoost>0?.24:0)+boostKick*.58,0,1);
  const speedRatio=clamp(speed/COMPETITION.topSpeed,0,1),seg=segments[clamp(Math.floor(playerZ/SEGMENT_LENGTH),0,segments.length-1)],curve=seg?.curve||0;
- const speedCrop=Math.round(speedRatio*V50_HANDLING.speedZoom*W*.24),crop=Math.round(active*12)+speedCrop;
- const steerLean=(steer*.64+(driftAngle/48)*.94)*speedRatio*V50_HANDLING.cameraLeanMax;
- const curveLean=clamp(curve/3.1,-1,1)*speedRatio*V50_HANDLING.cameraCurveLean;
- const lean=clamp(steerLean+curveLean,-V50_HANDLING.cameraLeanMax*1.4,V50_HANDLING.cameraLeanMax*1.4);
- const zoom=1.016+speedRatio*.016+Math.abs(lean)*2.0+active*.010;
- const lateralLook=clamp((steer*.55+driftAngle/65)*speedRatio*9,-10,10);
- displayCtx.save();displayCtx.translate(W/2-lateralLook,H/2+Math.abs(chassisPitch)*.16);displayCtx.rotate(lean);displayCtx.scale(zoom,zoom);displayCtx.translate(-W/2,-H/2);
+ const speedCrop=Math.round(speedRatio*V50_HANDLING.speedZoom*W*.18),crop=Math.round(active*7)+speedCrop;
+ const steerLean=(steer*.48+(driftAngle/48)*.62)*speedRatio*V50_HANDLING.cameraLeanMax;
+ const curveLean=clamp(curve/3.3,-1,1)*speedRatio*V50_HANDLING.cameraCurveLean;
+ const lean=clamp(steerLean+curveLean,-V50_HANDLING.cameraLeanMax,V50_HANDLING.cameraLeanMax);
+ const zoom=1.008+speedRatio*.008+Math.abs(lean)*1.0+active*.006;
+ const lateralLook=clamp((steer*.40+driftAngle/90)*speedRatio*4,-V50_COMFORT.lateralLookMax,V50_COMFORT.lateralLookMax);
+ displayCtx.save();displayCtx.translate(W/2-lateralLook,H/2+Math.abs(chassisPitch)*.08);displayCtx.rotate(lean);displayCtx.scale(zoom,zoom);displayCtx.translate(-W/2,-H/2);
  displayCtx.drawImage(arcadeBuffer,crop,crop,W-crop*2,H-crop*2,0,0,W,H);
- if(active>.08){displayCtx.globalAlpha=active*.09;displayCtx.globalCompositeOperation='screen';displayCtx.drawImage(arcadeBuffer,crop+4,crop,W-crop*2,H-crop*2,0,0,W,H);}
+ if(active>.08){displayCtx.globalAlpha=active*.05;displayCtx.globalCompositeOperation='screen';displayCtx.drawImage(arcadeBuffer,crop+2,crop,W-crop*2,H-crop*2,0,0,W,H);}
  displayCtx.restore();
 }
 
@@ -4054,6 +4067,7 @@ function stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
  const liftEntry=coastWindow>0&&Math.abs(curve)>.28&&Math.abs(curve)<2.55&&sign===Math.sign(curve)&&speed>100;
  if(driveGear==='D'&&motionDirection===1&&!isDrifting&&!driftRearmBlocked&&sign&&Math.abs(steer)>.10&&speed>DRIFT50.entryMinSpeed&&roadGrip>.8&&(brakeEntry>0||liftEntry)){
   isDrifting=true;driftDirection=sign;driftState='entry';driftAge=0;cleanDriftTime=0;counterTime=0;neutralTime=0;brakeEntry=0;coastWindow=0;
+  styleMessage('DRIFT','甩尾集氮中 · 反打可修線');
  }
  let targetYaw,targetSlip=0;
  if(isDrifting){
@@ -4830,6 +4844,58 @@ function drawV49AccelerationRush(){
       const len=(18+b.near.w*.075)*t;
       ctx.strokeStyle=boosting?'rgba(188,255,245,.40)':'rgba(255,246,219,.24)';
       ctx.lineWidth=clamp(1+b.near.w*.006,1,5);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+side*len,y+len*.28);ctx.stroke();drawn++;
+    }
+  }
+  ctx.restore();return drawn;
+}
+
+function drawV50SafeRoadsideDepth(road=projectedRoad){
+  const family=v46SceneFamily(),start=Math.floor(playerZ/SEGMENT_LENGTH),stride=V50_ART.safeSetpieceStride;let drawn=0;
+  for(const seg of road){
+    if(seg.index<start+9||((seg.index+currentNode.seed*5)%stride)!==7)continue;
+    const b=stripBounds(seg);if(!b||b.near.w<78||b.near.y<H*.48)continue;
+    const env=roadEnvelope(seg.index);
+    for(const side of [-1,1]){
+      const surface=districtSurface(seg.index,side);
+      const x=b.near.x+side*b.near.w*(env+V50_ART.roadClearance),y=b.near.y;
+      const scale=clamp(b.near.w/230,.28,V50_ART.maxNearScale);
+      if(x<-150||x>W+150)continue;
+      ctx.save();clipNearRoad(seg.index);ctx.translate(x,y);ctx.scale(scale,scale);
+      if(surface==='water'){
+        ctx.fillStyle='#486864';ctx.fillRect(-4,-54,8,54);
+        ctx.strokeStyle='#e1e6d7';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-side*58,-45);ctx.lineTo(side*58,-38);ctx.stroke();
+        ctx.fillStyle='#2e5b50';ctx.beginPath();ctx.arc(side*22,-18,18,0,Math.PI*2);ctx.fill();
+      }else if(family==='expressway'){
+        ctx.fillStyle='#53676d';ctx.fillRect(-8,-126,16,126);
+        ctx.fillStyle='#718388';ctx.fillRect(side<0?-70:0,-112,70,38);
+        ctx.strokeStyle='#a8b5b4';ctx.lineWidth=2;for(let k=12;k<66;k+=18){ctx.beginPath();ctx.moveTo(side<0?-k:k,-108);ctx.lineTo(side<0?-k:k,-78);ctx.stroke();}
+      }else if(family==='urban'){
+        ctx.fillStyle='#2c3e43';ctx.fillRect(side<0?-54:-3,-122,57,122);
+        ctx.fillStyle='#8b978c';ctx.fillRect(side<0?-60:-3,-46,63,8);
+        ctx.fillStyle='#c69c63';ctx.fillRect(side<0?-56:3,-39,53,6);
+        ctx.fillStyle=skyMood==='sunset'?'rgba(237,194,118,.36)':'rgba(108,210,204,.30)';
+        for(let yy=-104;yy<-62;yy+=20)ctx.fillRect(side<0?-43:12,yy,30,10);
+      }else{
+        ctx.fillStyle='#513a25';ctx.fillRect(-5,-62,10,62);
+        ctx.fillStyle='#214931';for(const p of [[-18,-62,28],[18,-82,26],[0,-106,22]]){ctx.beginPath();ctx.arc(p[0],p[1],p[2],0,Math.PI*2);ctx.fill();}
+      }
+      ctx.restore();drawn++;
+    }
+  }
+  return drawn;
+}
+function drawV50ComfortRush(){
+  if(speed<V50_ART.rushMin&&!boosting&&exitBoost<=0)return 0;
+  const t=clamp((speed-V50_ART.rushMin)/120,0,1)+(boosting?.45:0)+(exitBoost>0?.22:0);let drawn=0;
+  ctx.save();ctx.lineCap='round';ctx.globalAlpha=.72;
+  for(const seg of projectedRoad){
+    if((seg.index+currentNode.seed)%7!==0)continue;
+    const b=stripBounds(seg);if(!b||b.near.y<H*.52||b.near.w<60)continue;
+    const env=roadEnvelope(seg.index);
+    for(const side of [-1,1]){
+      const x=b.near.x+side*b.near.w*(env+.18),y=b.near.y,len=(10+b.near.w*.035)*t;
+      ctx.strokeStyle=boosting?'rgba(190,255,244,.26)':'rgba(255,246,220,.14)';
+      ctx.lineWidth=clamp(1+b.near.w*.004,1,3);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+side*len,y+len*.20);ctx.stroke();drawn++;
     }
   }
   ctx.restore();return drawn;
