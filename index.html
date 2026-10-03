@@ -4128,12 +4128,14 @@ function v51CurrentCurve(){
   const seg=segments[clamp(Math.floor(playerZ/SEGMENT_LENGTH),0,Math.max(0,segments.length-1))];
   return seg?.curve||0;
 }
+function v51CurveDemand(curve){return clamp(Math.abs(curve)/V51_SIDEWAYS.curveForFullYaw,0,1);}
+function v51VisualCurveCap(curve){return lerp(V51_SIDEWAYS.shallowCurveYaw,V51_SIDEWAYS.tightCurveYaw,v51CurveDemand(curve));}
+function v51DriftPathScale(curve){return lerp(.58,1,clamp(Math.abs(curve)/1.8,0,1));}
 function v51DriftVisualYaw(curve=v51CurrentCurve()){
   if(!isDrifting&&driftState!=='recover')return driftAngle;
   const signedSlip=Math.sign(driftAngle||driftDirection||1)*Math.abs(slipAngle);
   const raw=driftAngle*V51_SIDEWAYS.visualYawGain+signedSlip*V51_SIDEWAYS.visualSlipGain;
-  const curveT=clamp(Math.abs(curve)/V51_SIDEWAYS.curveForFullYaw,0,1);
-  const curveCap=lerp(V51_SIDEWAYS.shallowCurveYaw,V51_SIDEWAYS.tightCurveYaw,curveT);
+  const curveCap=v51VisualCurveCap(curve);
   const cap=Math.min(V51_SIDEWAYS.maxVisualYaw,curveCap);
   return clamp(raw,-cap,cap);
 }
@@ -4146,7 +4148,7 @@ function v51DriftVisualPose(curve=v51CurrentCurve()){
     scaleX:1+Math.abs(Math.sin(rad))*V51_SIDEWAYS.sideScaleGain*intensity,
     shadowX:-Math.sin(rad)*V51_SIDEWAYS.shadowSkewPx*intensity,
     intensity,
-    curveCap:lerp(V51_SIDEWAYS.shallowCurveYaw,V51_SIDEWAYS.tightCurveYaw,clamp(Math.abs(curve)/V51_SIDEWAYS.curveForFullYaw,0,1))
+    curveCap:v51VisualCurveCap(curve)
   };
 }
 function v51SteeringProfile(speedNow,drifting=false){
@@ -4258,7 +4260,7 @@ function stepArcadeMotion(dt,curve,accelHeld=true,brakeHeld=false){
  const frontGrip=clamp((1-excess/210)*liftGrip,.68,1.24);
  const curveDemand=clamp(Math.abs(curve)/1.8,0,1);
  const travelYaw=(driftAngle-slipAngle)*Math.PI/180;
- const driftPathScale=isDrifting?lerp(.58,1,curveDemand):1;
+ const driftPathScale=isDrifting?v51DriftPathScale(curve):1;
  const yawTurn=Math.sin(travelYaw)*(isDrifting?DRIFT51.driftPathYaw*driftPathScale:DRIFT51.gripPathYaw)*(.50+.72*ratio);
  const baseAuthority=isDrifting?lerp(.32,DRIFT51.steerPath,curveDemand):.238*profile.authority;
  const brakeRotation=!isDrifting&&brakeHeld?steer*profile.brakeRotation:0;
@@ -4997,7 +4999,7 @@ function drawV50SafeRoadsideDepth(road=projectedRoad){
       const scale=clamp(b.near.w/230,.28,V50_ART.maxNearScale);
       const roadEdge=b.near.x+side*b.near.w*env,clearance=Math.abs(x-roadEdge);
       if(x<-150||x>W+150)continue;
-      v51RoadsideRenderLog.push({index:seg.index,side,surface,family,x,y,scale,roadEdge,clearance,building:family==='urban'&&surface==='land'});
+      v51RoadsideRenderLog.push({index:seg.index,side,surface,family,x,y,scale,roadEdge,clearance,requiredClearance:b.near.w*V50_ART.roadClearance,building:family==='urban'&&surface==='land'});
       ctx.save();clipNearRoad(seg.index);ctx.translate(x,y);ctx.scale(scale,scale);
       if(surface==='water'){
         ctx.fillStyle='#486864';ctx.fillRect(-4,-54,8,54);
