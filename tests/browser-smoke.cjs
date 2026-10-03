@@ -20,14 +20,18 @@ const {scenarios}=require('./scenarios.cjs');
   const run=code=>page.evaluate(code=>window.__audit(code),code);
   summary=await scenarios(run);
   // End-to-end keyboard probe: actual DOM key events must create drift charge and allow direct N activation.
-  await run(`resetGame();gameStarted=true;raceActive=true;paused=false;gameOver=false;inRadioScreen=false;crashSequence=null;traffic=[];overlay.classList.add('hidden');playerZ=220*SEGMENT_LENGTH;speed=150;roadGrip=1;driveGear='D';motionDirection=1;currentGear='LOW';nitro=0;nitroStock=0;boostRemaining=0;`);
+  await run(`v34Mode='cruise';selectedRoute=routeForId('4B');resetGame();gameStarted=true;raceActive=true;paused=false;gameOver=false;inRadioScreen=false;crashSequence=null;traffic=[];overlay.classList.add('hidden');const candidates=segments.filter(s=>s.index>80&&s.index<STAGE_END-80);const target=candidates.reduce((best,seg)=>Math.abs(seg.curve)>Math.abs(best.curve)?seg:best,candidates[0]);window.__driftIndex=target.index;playerZ=target.index*SEGMENT_LENGTH;speed=150;roadGrip=1;driveGear='D';motionDirection=1;currentGear='LOW';nitro=0;nitroStock=0;boostRemaining=0;`);
   await page.keyboard.down('KeyW');await page.keyboard.down('ArrowRight');await page.keyboard.down('ShiftLeft');
   await run(`for(let i=0;i<50;i++)update(1/60);`);
   await page.keyboard.up('ShiftLeft');await page.keyboard.up('ArrowRight');await page.keyboard.up('KeyW');
-  const driftProbe=await run(`[isDrifting,nitro,driftChargeRate,speed,Math.abs(driftAngle),Math.abs(slipAngle)]`);
+  const driftProbe=await run(`[isDrifting,nitro,driftChargeRate,speed,Math.abs(driftAngle),Math.abs(slipAngle),v51CurrentCurve(),Math.abs(v51DriftVisualYaw()),v51VisualCurveCap(v51CurrentCurve())]`);
   assert.equal(driftProbe[0],true,'real keyboard Shift+steer enters drift');
   assert(driftProbe[1]>5,'real keyboard drift visibly charges nitro');
   assert(driftProbe[4]>4&&driftProbe[5]>2,'drift has visible yaw and slip');
+  assert(Math.abs(driftProbe[6])>.7,'browser drift probe uses a genuinely curved Taipei road segment');
+  assert(driftProbe[7]<=driftProbe[8]+.1,'visual sideways yaw is capped by actual road curvature');
+  await run(`render(0);`);
+  const tightShot=path.join(output,'v51-tight-drift.png');await page.locator('#gameCanvas').screenshot({path:tightShot});assert(fs.statSync(tightShot).size>10000,'tight-drift screenshot is nonblank');
   await run(`nitroStock=1;nitro=0;boostRemaining=0;nitroLatch=false;boosting=false;speed=170;driveGear='D';motionDirection=1;updateNitroHUD();`);
   await page.keyboard.down('KeyN');await run(`update(1/60);`);await page.keyboard.up('KeyN');
   const nitroProbe=await run(`[boosting,boostRemaining,nitroStock,speed,nitroLatch]`);
@@ -35,7 +39,7 @@ const {scenarios}=require('./scenarios.cjs');
   assert(nitroProbe[1]>2.7&&nitroProbe[2]===0&&nitroProbe[3]>170&&nitroProbe[4], 'nitro stock produces immediate acceleration and latch');
   // Real keyboard simultaneous boost + drift-charge probe.
   // Reset the drift input edge state as a real released-key frame would before beginning a new maneuver.
-  await run(`resetDrivingState();playerZ=220*SEGMENT_LENGTH;playerX=0;lateralVelocity=0;traffic=[];nitro=10;nitroStock=1;boostRemaining=0;nitroLatch=false;boosting=false;speed=185;driveGear='D';motionDirection=1;roadGrip=1;currentGear='HIGH';keys.KeyN=false;`);
+  await run(`resetDrivingState();playerZ=window.__driftIndex*SEGMENT_LENGTH;playerX=0;lateralVelocity=0;traffic=[];nitro=10;nitroStock=1;boostRemaining=0;nitroLatch=false;boosting=false;speed=185;driveGear='D';motionDirection=1;roadGrip=1;currentGear='HIGH';keys.KeyN=false;`);
   await page.keyboard.down('KeyW');await page.keyboard.down('ArrowRight');await page.keyboard.down('ShiftLeft');
   await run(`for(let i=0;i<20;i++)update(1/60);`);
   const preBoostDrift=await run(`[isDrifting,nitro,driftChargeRate,Math.abs(v51DriftVisualYaw())]`);
@@ -50,10 +54,14 @@ const {scenarios}=require('./scenarios.cjs');
   assert(simultaneous[0]&&simultaneous[1],'boost remains active while the car is drifting');
   assert(simultaneous[2]>beforeSim&&simultaneous[3]>0,'nitro meter continues charging during active boost drift');
   assert(simultaneous[4]>210,'nitro delivers a strong forward surge');
-  assert(Math.abs(simultaneous[5])>35,'whole-car visual yaw is clearly sideways during drift');
-  for(const id of ['1A','2B','3A','4A','4C','5A','5B','5C','5D','5E']){
+  assert(Math.abs(simultaneous[5])>30,'whole-car visual yaw is clearly sideways during a real tight bend');
+  const tightCap=await run(`v51VisualCurveCap(v51CurrentCurve())`);assert(Math.abs(simultaneous[5])<=tightCap+.1,'tight-bend sideways yaw stays within curve-derived cap');
+  await run(`const candidates=segments.filter(s=>s.index>80&&s.index<STAGE_END-80);const shallow=candidates.reduce((best,seg)=>Math.abs(Math.abs(seg.curve)-.35)<Math.abs(Math.abs(best.curve)-.35)?seg:best,candidates[0]);playerZ=shallow.index*SEGMENT_LENGTH;isDrifting=true;driftState='drift';driftDirection=Math.sign(shallow.curve)||1;driftAngle=30*driftDirection;slipAngle=9*driftDirection;render(0);window.__shallowVisual=[Math.abs(v51DriftVisualYaw()),v51VisualCurveCap(v51CurrentCurve()),Math.abs(v51CurrentCurve())];`);
+  const shallowVisual=await run(`[...window.__shallowVisual]`);assert(shallowVisual[0]<=shallowVisual[1]+.1&&shallowVisual[0]<42,'shallow bend uses a smaller sideways angle');
+  const shallowShot=path.join(output,'v51-shallow-drift.png');await page.locator('#gameCanvas').screenshot({path:shallowShot});assert(fs.statSync(shallowShot).size>10000,'shallow-drift screenshot is nonblank');
+  for(const id of ['1A','2A','2B','3A','3B','3C','4A','4B','4C','4D','5A','5B','5C','5D','5E']){
    await run(`v34Mode='cruise';selectedRoute=routeForId('${id}');resetGame();gameStarted=true;raceActive=true;playerZ=36000;overlay.classList.add('hidden');render(0);`);
-   await page.locator('#gameCanvas').screenshot({path:path.join(output,`${id}.png`)});
+   const shot=path.join(output,`${id}.png`);await page.locator('#gameCanvas').screenshot({path:shot});assert(fs.statSync(shot).size>10000,`${id} route screenshot is nonblank`);
   }
   // Real DOM keyboard, pointers, pause and menus, without the injected test bridge.
   for(const [name,viewport] of [['desktop',{width:1280,height:800}],['phone',{width:390,height:844}],['landscape',{width:844,height:390}]]){
