@@ -1,8 +1,8 @@
 {
-  "name": "outrun-taipei",
+  "name": "taipei-sunset-drive",
   "private": true,
-  "version": "48.0.0",
-  "description": "Taipei arcade racer with aggressive independent clean-room handling, stronger Taipei depth, projected road shadows, peripheral rush and zero-tolerance ROM guards",
+  "version": "49.0.0",
+  "description": "Taipei arcade racer with max clean-room art density, assertive independent handling, visible V49 build labeling and zero-tolerance ROM guards",
   "scripts": {"test": "node tests/clean-room-compliance.cjs && node tests/regression.cjs", "test:browser": "node tests/browser-smoke.cjs"},
   "devDependencies": {"@napi-rs/canvas": "0.1.100", "playwright": "1.62.1"}
 }
