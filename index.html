@@ -1205,6 +1205,18 @@ const V47_ART=Object.freeze({
   horizonBand:.505,edgeMassStride:30,foregroundScale:1.18,
   paletteSource:'Taipei theme only',foreignStageMotifs:false,foreignVehicleIdentity:false
 });
+const V48_CLEAN_ROOM_REFERENCE=Object.freeze({
+  observationOnly:true,sourceCode:false,sourceAssets:false,sourceAudio:false,sourceVehicleModels:false,
+  decompilation:false,instructionMapping:false,directSyntaxTranslation:false,exactHandlingCurveCopy:false,
+  distinctiveFeatureClone:false,distinctiveModeClone:false,distinctiveRouteUICopy:false,
+  licensedVehicleIdentity:false,patentedMechanicReplication:false,independentImplementation:true,
+  preserve:'Taipei routes, landmarks, route graph, nitro, gears, collisions and Twin Link'
+});
+const V48_ART=Object.freeze({
+  roadShadowStride:17,foregroundStride:24,peripheralRushMin:175,
+  paletteSource:'Taipei theme only',geometrySource:'projected Taipei road only',
+  foreignStageMotifs:false,foreignVehicleIdentity:false,distinctiveUICopy:false
+});
 
 const V46_TAIPEI_ROUTE_GUARD=Object.freeze([
   ['1A','總統府 & 凱達格蘭大道','civic','urban'],
@@ -3535,7 +3547,7 @@ function drawAtmosphere(){
 }
 
 
-// Detailed Character Sprites for the 5 OutRun Goal Endings
+// Original Taipei finish celebration character scenes
 function drawGoalCelebrationScene(){
   if(stageLevel !== 4 || playerZ < FINISH_LINE * SEGMENT_LENGTH) return;
   const goalChar = currentNode.goal;
