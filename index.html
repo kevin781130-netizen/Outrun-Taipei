@@ -193,13 +193,13 @@
     <div id="countdown">3</div>
 
     <div id="route-panel">
-      <div id="route-panel-head"><span>ROUTE PYRAMID</span><span id="route-goals">GOALS 0/5</span></div>
+      <div id="route-panel-head"><span>TAIPEI ROUTE NETWORK</span><span id="route-goals">GOALS 0/5</span></div>
       <canvas id="route-map" width="436" height="216"></canvas>
     </div>
 
     <div id="fork-choice">
-      <div class="fork-card" id="fork-left"><span>↙ EASY ROUTE</span><strong id="fork-left-name">中山北路 & 圓山大飯店 ↙</strong></div>
-      <div class="fork-card" id="fork-right"><span>CHALLENGE ↘</span><strong id="fork-right-name">↘ 市民大道高架橋</strong></div>
+      <div class="fork-card" id="fork-left"><span>↙ DISTRICT A</span><strong id="fork-left-name">中山北路 & 圓山大飯店 ↙</strong></div>
+      <div class="fork-card" id="fork-right"><span>DISTRICT B ↘</span><strong id="fork-right-name">↘ 市民大道高架橋</strong></div>
     </div>
 
     <div id="stage-card">
@@ -507,7 +507,7 @@ body{background:radial-gradient(ellipse at 50% 20%,#152a41,#050c14 65%);}
     <div id="overlay">
       <div class="eyebrow">SUNSET / POWER SLIDE / LAUGH • 台北融合街機版 V46 · V34 ART × V39 3D</div>
       <h1>台北極速傳說<br><span class="title-sub">TAIPEI SUNSET DRIVE V46</span></h1>
-      <div class="subtitle">OutRunners 街機公路風格 · 甩尾集氮、儲存加速器。15 個街區穿越府城、水岸、高架與山城。</div>
+      <div class="subtitle">90 年代大型機公路賽車構圖語彙 · 甩尾集氮、儲存加速器。15 個台北街區穿越府城、水岸、高架與山城。</div>
       
       
 <div id="start-options"><label>座駕<select id="menu-car"></select></label><label>變速箱<select id="start-transmission"><option value="AT">AT 自排・A/Z</option><option value="MT">MT 手排 LOW / HIGH・A/Z</option></select></label></div>
@@ -1685,7 +1685,7 @@ leaderboardBackBtn.addEventListener('click', () => {
 const DEFAULT_OVERLAY = {
   eyebrow: 'SUNSET / POWER SLIDE / LAUGH • 台北爆笑街機版 V46',
   title: '台北極速傳說<br><span class="title-sub">TAIPEI SUNSET DRIVE V46</span>',
-  subtitle: 'OutRunners 街機公路風格 · 甩尾集氮、儲存加速器。15 個街區穿越府城、水岸、高架與山城。',
+  subtitle: '90 年代大型機公路賽車構圖語彙 · 甩尾集氮、儲存加速器。15 個台北街區穿越府城、水岸、高架與山城。',
   button: 'START / 選台出發 ↗'
 };
 function restoreOverlayContent(){
@@ -3035,10 +3035,10 @@ function drawTownBuilding(x, y, s, idx){
   ctx.restore();
 }
 
-function drawSegaBillboard(x, y, s, text){
+function drawTaipeiArcadeBillboard(x, y, s, text){
   ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
   ctx.fillStyle = '#222b3d'; ctx.fillRect(-3, -45, 6, 45);
-  ctx.fillStyle = '#0054a6'; ctx.fillRect(-42, -75, 84, 30);
+  ctx.fillStyle = '#176b57'; ctx.fillRect(-42, -75, 84, 30);
   ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.strokeRect(-42, -75, 84, 30);
   v40FitSignText(text,-38,-72,76,24,14,'#ffffff');
   ctx.restore();
