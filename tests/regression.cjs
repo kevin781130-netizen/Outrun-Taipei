@@ -1,7 +1,10 @@
 const path=require('node:path');
 const {load}=require('./canvas-harness.cjs');
 const {scenarios}=require('./scenarios.cjs');
+const {runNetplayTests}=require('./netplay.cjs');
 (async()=>{
  const game=load(path.join(__dirname,'../index.html'));
- console.log(await scenarios(code=>game.run(code)));
+ const gameChecks=await scenarios(code=>game.run(code));
+ const netplay=runNetplayTests();
+ console.log({...gameChecks,netplayChecks:netplay.checks});
 })().catch(e=>{console.error(e);process.exitCode=1});
