@@ -40,12 +40,12 @@ const {scenarios}=require('./scenarios.cjs');
   const beforeSim=await run(`nitro`);
   await page.keyboard.down('KeyN');await run(`update(1/60);`);await page.keyboard.up('KeyN');
   await run(`for(let i=0;i<24;i++)update(1/60);`);
-  const simultaneous=await run(`[boosting,isDrifting,nitro,beforeSim,driftChargeRate,speed,v51DriftVisualYaw()]`);
+  const simultaneous=await run(`[boosting,isDrifting,nitro,driftChargeRate,speed,v51DriftVisualYaw()]`);
   await page.keyboard.up('ShiftLeft');await page.keyboard.up('ArrowRight');await page.keyboard.up('KeyW');
   assert(simultaneous[0]&&simultaneous[1],'boost remains active while the car is drifting');
-  assert(simultaneous[2]>simultaneous[3]&&simultaneous[4]>0,'nitro meter continues charging during active boost drift');
-  assert(simultaneous[5]>210,'nitro delivers a strong forward surge');
-  assert(Math.abs(simultaneous[6])>35,'whole-car visual yaw is clearly sideways during drift');
+  assert(simultaneous[2]>beforeSim&&simultaneous[3]>0,'nitro meter continues charging during active boost drift');
+  assert(simultaneous[4]>210,'nitro delivers a strong forward surge');
+  assert(Math.abs(simultaneous[5])>35,'whole-car visual yaw is clearly sideways during drift');
   for(const id of ['1A','2B','3A','4A','4C','5A','5B','5C','5D','5E']){
    await run(`v34Mode='cruise';selectedRoute=routeForId('${id}');resetGame();gameStarted=true;raceActive=true;playerZ=36000;overlay.classList.add('hidden');render(0);`);
    await page.locator('#gameCanvas').screenshot({path:path.join(output,`${id}.png`)});
