@@ -2229,15 +2229,17 @@ function beginStageTransition(choice){
   stageTransition = { choice, nextLevel, nextColumn, next, progress:0, lastCenter:startCenter };
   choiceLocked = true; pendingChoice = choice;
   styleMessage('ROUTE LOCKED', `${choice === 'left' ? 'LEFT' : 'RIGHT'} → ${next.name}`);
-  say(`${choice === 'left' ? 'EASY ↙' : 'HARD ↘'} ${next.name}`);
+  say(`${choice === 'left' ? 'A線 ↙' : 'B線 ↘'} ${next.name}`);
   flash = 0.08; screenShake = 2.5;
   drawRouteMap();
 }
 
 
 function nodePos(level, column){
-  const spacing = 72;
-  return { x: routeMap.width / 2 + (column - level / 2) * spacing, y: 26 + level * 42 };
+  const x=36+level*88;
+  const spread=level===0?0:(column-level/2)*34;
+  const bend=Math.sin((level*1.7+column*.9))*8;
+  return {x,y:routeMap.height/2+spread+bend};
 }
 function hasVisited(level, column){ return routeHistory.some(r => r.level === level && r.column === column); }
 
@@ -3078,7 +3080,8 @@ function drawRouteGantry(p, n, index){
     ctx.fillStyle = g; ctx.fillRect(x, top, plateW, plateH);
     ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.strokeRect(x, top, plateW, plateH);
     if(plateW > 50){
-      v40FitSignText(`${side < 0 ? '◀ EASY' : 'HARD ▶'}`,x+6,top+plateH*.10,plateW-12,plateH*.32,plateH*.22,'#ffe570');
+      const family=node.archetype==='coastal'?'WATERFRONT':node.archetype==='mountain'?'HILLS':node.archetype==='expressway'?'EXPRESS':'CITY';
+      v40FitSignText(`${side < 0 ? '◀ ' : ''}${family}${side > 0 ? ' ▶' : ''}`,x+6,top+plateH*.10,plateW-12,plateH*.32,plateH*.22,'#ffe570');
       v40FitSignText(node.name,x+6,top+plateH*.44,plateW-12,plateH*.46,plateH*.34,'#ffffff');
     }
   }
