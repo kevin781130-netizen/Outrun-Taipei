@@ -4130,7 +4130,7 @@ function v51CurrentCurve(){
 }
 function v51CurveDemand(curve){return clamp(Math.abs(curve)/V51_SIDEWAYS.curveForFullYaw,0,1);}
 function v51VisualCurveCap(curve){return lerp(V51_SIDEWAYS.shallowCurveYaw,V51_SIDEWAYS.tightCurveYaw,v51CurveDemand(curve));}
-function v51DriftPathScale(curve){return lerp(.58,1,clamp(Math.abs(curve)/1.8,0,1));}
+function v51DriftPathScale(curve){return lerp(.45,1,clamp(Math.abs(curve)/1.8,0,1));}
 function v51DriftVisualYaw(curve=v51CurrentCurve()){
   if(!isDrifting&&driftState!=='recover')return driftAngle;
   const signedSlip=Math.sign(driftAngle||driftDirection||1)*Math.abs(slipAngle);
@@ -4262,7 +4262,7 @@ function stepArcadeMotion(dt,curve,accelHeld=true,brakeHeld=false){
  const travelYaw=(driftAngle-slipAngle)*Math.PI/180;
  const driftPathScale=isDrifting?v51DriftPathScale(curve):1;
  const yawTurn=Math.sin(travelYaw)*(isDrifting?DRIFT51.driftPathYaw*driftPathScale:DRIFT51.gripPathYaw)*(.50+.72*ratio);
- const baseAuthority=isDrifting?lerp(.32,DRIFT51.steerPath,curveDemand):.238*profile.authority;
+ const baseAuthority=isDrifting?lerp(.25,DRIFT51.steerPath,curveDemand):.238*profile.authority;
  const brakeRotation=!isDrifting&&brakeHeld?steer*profile.brakeRotation:0;
  const matchingCurve=Math.sign(steer)===Math.sign(curve)?Math.min(Math.abs(curve),2.4):0;
  const turnInBite=!isDrifting?steer*matchingCurve*V51_HANDLING.turnInBite*(.35+.65*ratio):0;
