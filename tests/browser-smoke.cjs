@@ -35,7 +35,7 @@ const {scenarios}=require('./scenarios.cjs');
   assert(nitroProbe[1]>2.7&&nitroProbe[2]===0&&nitroProbe[3]>170&&nitroProbe[4], 'nitro stock produces immediate acceleration and latch');
   // Real keyboard simultaneous boost + drift-charge probe.
   // Reset the drift input edge state as a real released-key frame would before beginning a new maneuver.
-  await run(`resetDrivingState();nitro=10;nitroStock=1;boostRemaining=0;nitroLatch=false;boosting=false;speed=185;driveGear='D';motionDirection=1;roadGrip=1;keys.KeyN=false;`);
+  await run(`resetDrivingState();playerZ=220*SEGMENT_LENGTH;playerX=0;lateralVelocity=0;traffic=[];nitro=10;nitroStock=1;boostRemaining=0;nitroLatch=false;boosting=false;speed=185;driveGear='D';motionDirection=1;roadGrip=1;currentGear='HIGH';keys.KeyN=false;`);
   await page.keyboard.down('KeyW');await page.keyboard.down('ArrowRight');await page.keyboard.down('ShiftLeft');
   await run(`for(let i=0;i<20;i++)update(1/60);`);
   const preBoostDrift=await run(`[isDrifting,nitro,driftChargeRate,Math.abs(v51DriftVisualYaw())]`);
