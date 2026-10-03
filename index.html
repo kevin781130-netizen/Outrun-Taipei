@@ -1455,14 +1455,14 @@ const nitroBar = document.getElementById('nitro-bar');
 const nitroNum = document.getElementById('nitro-num');
 function updateNitroHUD(){
   nitroBar.style.width=`${Math.round(nitro)}%`;
-  nitroNum.textContent=boostRemaining>0?`BOOST ${boostRemaining.toFixed(1)}s · ${nitroStock}/2`:`${Math.round(nitro)}% · ${nitroStock}/2`;
+  nitroNum.textContent=boostRemaining>0?`BOOST ${boostRemaining.toFixed(1)}s · CHARGE ${Math.round(nitro)}% · ${nitroStock}/2`:`${Math.round(nitro)}% · ${nitroStock}/2`;
   document.getElementById('btn-nitro').textContent=`氮氣 N · ${nitroStock}`;
   document.getElementById('btn-nitro').classList.toggle('ready',nitroStock>0);
 }
 function activateNitro(){
   if(!gameStarted||!raceActive||paused||gameOver||crashSequence||driveGear!=='D'||motionDirection!==1||speed<NITRO_RULES.minSpeed||nitroStock===0||boostRemaining>0)return false;
   nitroStock--;boostRemaining=NITRO_RULES.duration;nitroLatch=true;boostKick=1;
-  speed=Math.min(COMPETITION.boostSpeed,speed+18);
+  speed=Math.min(COMPETITION.boostSpeed,speed+V51_SPEED_FEEL.boostImpulse);
   flash=Math.max(flash,.05);screenShake=Math.max(screenShake,.85);
   styleMessage('NITRO!', 'BOOST 325 · 甩尾中仍可集氣 · 儲存 '+nitroStock+'/2');playBlowOffSound();return true;
 }
@@ -2433,12 +2433,14 @@ function update(dt){
   const gp=gearDriveProfile(currentGear,speed,boosting),gearMax=desiredDirection<0?45:gp.max;
   if(motionDirection!==desiredDirection){speed=Math.max(0,speed-320*dt);if(speed===0)motionDirection=desiredDirection;}
   else if(brakeHeld){speed=Math.max(0,speed-COMPETITION.brake*dt);}
-  else if(accelHeld){
-    const torqueFade=Math.max(.10,1-speed/Math.max(1,gearMax));
+  else if(accelHeld||boosting){
+    const torqueFade=Math.max(.08,1-speed/Math.max(1,gearMax));
     const carFactor=clamp((currentCar.accel||68)/68,.84,1.16);
     const shiftFactor=shiftCutTimer>0?.12:1;
-    const pull=COMPETITION.accel*gp.torque*(.48+torqueFade*.82)*carFactor*shiftFactor;
-    const nitroPush=boosting?112:0,momentPush=exitBoost>0?62:0,shiftPush=shiftPunch>0?22:0;
+    const cruiseFactor=v51CruisePullFactor(speed,currentGear==='LOW'?GEAR_RULES.LOW.max:COMPETITION.topSpeed);
+    const throttleFactor=accelHeld?1:.28;
+    const pull=COMPETITION.accel*gp.torque*(.54+torqueFade*.72)*carFactor*shiftFactor*cruiseFactor*throttleFactor;
+    const nitroPush=boosting?v51NitroPush(speed):0,momentPush=exitBoost>0?62:0,shiftPush=shiftPunch>0?22:0;
     speed+=(pull+nitroPush+momentPush+shiftPush+(isDrafting?7:0))*dt;
   }else speed=Math.max(0,speed-19*dt);
   if(helperPulse>0&&!brakeHeld)speed=Math.max(0,speed-18*dt);
@@ -3993,12 +3995,26 @@ function drawMiramarWheel(x,y,s){
 // V40 competition rules: V39 simulation core + V40 drift calibration; art never changes physics.
 const COMPETITION=Object.freeze({version:'51.0',dashWindow:.45,topSpeed:285,boostSpeed:325,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
 const GEAR_RULES=Object.freeze({
- LOW:{max:185,lowTorque:1.34,highTorque:.62},
- HIGH:{max:285,lowTorque:.34,highTorque:1.02}
+ LOW:{max:185,lowTorque:1.30,highTorque:.60},
+ HIGH:{max:285,lowTorque:.96,highTorque:.50}
 });
+const V51_SPEED_FEEL=Object.freeze({
+  softWallStart:100,cruiseFloor:.12,boostPush:188,boostImpulse:28,boostTaperStart:285,
+  independentCurve:true,exactSourceCurveCopy:false
+});
+function v51CruisePullFactor(speedNow,maxSpeed){
+  if(speedNow<=V51_SPEED_FEEL.softWallStart)return 1;
+  const span=Math.max(1,maxSpeed-V51_SPEED_FEEL.softWallStart);
+  const t=clamp((speedNow-V51_SPEED_FEEL.softWallStart)/span,0,1);
+  return lerp(.78,V51_SPEED_FEEL.cruiseFloor,Math.pow(t,.72));
+}
+function v51NitroPush(speedNow){
+  const t=clamp((speedNow-V51_SPEED_FEEL.boostTaperStart)/(COMPETITION.boostSpeed-V51_SPEED_FEEL.boostTaperStart),0,1);
+  return lerp(V51_SPEED_FEEL.boostPush,76,t*t);
+}
 function gearDriveProfile(gear,speedNow,isBoost=false){
  const rule=GEAR_RULES[gear]||GEAR_RULES.LOW;
- const blend=clamp((speedNow-95)/90,0,1);
+ const blend=clamp((speedNow-95)/110,0,1);
  const torque=lerp(rule.lowTorque,rule.highTorque,blend);
  return {max:isBoost?COMPETITION.boostSpeed:rule.max,torque};
 }
@@ -4147,7 +4163,7 @@ function stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
  if(driftEnergy){
   cleanDriftTime+=dt;driftTime+=dt;styleIdle=0;styleBank+=speed*dt*(nitroRequested?1.55:1.35);
   const slipSkill=clamp((Math.abs(slipAngle)-1.5)/8,.72,1.22),speedSkill=.88+clamp(speed/COMPETITION.topSpeed,0,1)*.26;
-  const throttleFactor=accelHeld?1:.72,chargeFactor=nitroRequested?.70:1;
+  const throttleFactor=accelHeld?1:.78,chargeFactor=nitroRequested?1:1;
   driftChargeRate=COMPETITION.nitroCharge*chargeFactor*throttleFactor*slipSkill*speedSkill;
  }
  else{styleIdle+=dt;if(styleIdle>.60){if(styleBank>0)bankStyle();else driftTime=0;}}
