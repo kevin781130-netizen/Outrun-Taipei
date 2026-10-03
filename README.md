@@ -1,33 +1,41 @@
-# Taipei Sunset Drive V40 — TRUE OutRunners Taipei
+# Taipei Sunset Drive V42 — OutRunners Taipei
 
-Taipei arcade driving / drifting prototype.
+原創台北街機公路遊戲。以 OutRunners 的公路節奏與場景層次、NEXON 跑跑卡丁車的甩尾集氣／加速循環為設計參考；未使用原遊戲素材。
 
-## Current build
+## Play
 
-The playable build in this repository is the **V40 TRUE Fusion Build**.
+用現代桌面或手機瀏覽器開啟 **`index.html`**，或將它放在靜態網站。遊戲本身不需要 npm、外部圖片或網路服務。
 
-- `index.html` — GitHub/web entry point
-- `Taipei_Sunset_Drive_V40.html` — same TRUE V40 playable build
-- `README_V40_TRUE.txt` — original TRUE-package notes
-- `docs/README_V40.md` — detailed V40 design / controls notes
-- `docs/V40_Verification.txt` — verification record supplied with the V40 package
-- `assets/V40_Drift_Preview_web.png` — lightweight web preview
+- W / ↑ 油門；S / ↓ 煞車；← → / J L 轉向。
+- 方向 + Shift 起甩，補油維持滑行，反打或放開轉向收尾。
+- 有效甩尾累積氮氣，滿槽存成一枚加速器；最多儲存兩枚。
+- **N 使用一枚氮氣，持續 2.8 秒**。加速中仍可集氣，放開 N 不會中斷，按住 N 不會自動用掉下一枚。
+- A 前進、Z 倒退；保留高速 Z → A 的氮氣操作。
+- Space / E 切 LOW / HIGH；P 暫停；G 車庫；T 路線；M 電台。
+- 手把 X 起甩、Y 氮氣、RT 油門、LT 煞車；Start 出發／暫停／繼續。
 
-## Run
+五段街機、十五條單段計時／巡航路線、AT / MT、夕陽／霓虹色調均保留。
 
-Open `index.html` in a modern desktop browser.
+## V42
 
-## Controls
+- 海岸建築固定在陸地，水上橋梁另有水岸定位；建築完整外框避開道路。
+- 市民與環東兩段高架共用平滑橋面坡道；護欄逐段投影與遮擋，橋下街景先於橋面繪製。
+- 近處道路遮住遠處建築與橋下物件；交通車與街景依距離共同排序。
+- 街屋比例、窗框、陽台、店面招牌、路緣、波光與氮氣尾焰更新。
+- 世界座標連續碰撞檢查與道路邊界限制，避免高速／倒車略過車輛或穿越護欄。
+- 修正焦點、手把選台、巡航換圈、排行榜壞檔及新局殘留狀態。
 
-- `W / ↑` throttle; `S / ↓` brake
-- `← / →` or `J / L` steer
-- Direction + `Shift` power slide / drift
-- `A` drive, `Z` reverse; high-speed `Z → A` uses drift-energy nitro
-- `Space / E` LOW / HIGH
-- `P` pause, `G` garage, `T` route, `M` radio
+`Taipei_Sunset_Drive_V40.html`、`README_V40_TRUE.txt`、`docs/README_V40.md` 和原預覽圖是 **V40 歷史封存**，不是目前遊戲入口。
 
-## Build direction
+## Verification
 
-V40 combines the V39 engine/camera/3D vehicle depth with reworked arcade drift handling and V34-inspired Taipei scene density, color, roadside objects, signage and atmosphere.
+僅開發測試需要 Node.js 22+：
 
-The project artwork/code is original project content. “OutRunners” is used only as a reference for arcade pacing and handling goals; no original game assets are included.
+```sh
+npm install
+npm test
+npx playwright install --with-deps chromium
+npm run test:browser
+```
+
+768 項狀態／幾何／流程檢查覆蓋十五條路線、兩種色調、街機／單段道路、十六條分岔組合、甩尾氮氣、碰撞、計時和巡航。瀏覽器測試另檢查桌機與手機橫豎版的操作及 JavaScript 錯誤。詳見 [V42 驗證紀錄](docs/V42_Verification.md)。

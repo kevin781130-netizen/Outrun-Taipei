@@ -1,0 +1,8 @@
+{
+  "name": "outrun-taipei",
+  "private": true,
+  "version": "42.0.0",
+  "description": "Standalone Taipei arcade driving game, with simulation and browser regression checks",
+  "scripts": {"test": "node tests/regression.cjs", "test:browser": "node tests/browser-smoke.cjs"},
+  "devDependencies": {"@napi-rs/canvas": "0.1.100", "playwright": "1.62.1"}
+}
