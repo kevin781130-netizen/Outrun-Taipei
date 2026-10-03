@@ -63,8 +63,15 @@ const forbiddenPresentation=[
 ];
 for(const rx of forbiddenPresentation) if(rx.test(runtime)) failures.push(`forbidden direct-translation or distinctive-presentation marker in runtime: ${rx}`);
 
-if(!/id="build-version"/.test(runtime)||!/CURRENT TEST BUILD/.test(runtime)||!/V50\.0/.test(runtime)){
-  failures.push('visible V50 build label missing from shipping runtime');
+if(!/id="build-version"/.test(runtime)||!/CURRENT TEST BUILD/.test(runtime)||!/V51\.0/.test(runtime)){
+  failures.push('visible V51 build label missing from shipping runtime');
+}
+for(const retiredCall of [
+  'drawV47ForegroundMass(projected);',
+  'drawV48ForegroundSetpieces(projected);',
+  'drawV49NearOcclusion(projected);'
+]){
+  if(runtime.includes(retiredCall)) failures.push('retired unsafe foreground layer re-enabled: '+retiredCall);
 }
 const pkg=JSON.parse(fs.readFileSync(path.join(ROOT,'package.json'),'utf8'));
 if(/outrun/i.test(String(pkg.name||''))) failures.push('external-title package identifier leaked into package name');
