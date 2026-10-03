@@ -24,4 +24,13 @@ V43 extends the V42 regression suite instead of replacing it.
 
 `npm run test:browser` additionally runs the same scenarios in Chromium, captures representative coastal / expressway / mountain / urban routes, and exercises desktop, phone portrait and phone landscape UI flows while collecting JavaScript runtime errors.
 
-The pull request CI is the authoritative pass/fail result for this branch.
+## CI result — 2026-10-03
+
+PR #2 `Verify game` run #4 completed successfully on Ubuntu 24.04 / Node.js 22.
+
+- `npm test`: **829 checks**, **15 routes**, **16 complete branch paths**.
+- `npm run test:browser`: **passed**, repeating the same 829 checks in Chromium and exercising **3 viewports** (desktop, phone portrait, phone landscape).
+- Browser smoke testing completed without collected JavaScript runtime errors.
+- The `game-browser-qa` artifact contains **17 files**, including representative route/UI screenshots and `verification.json`.
+
+The workflow remains the authoritative pass/fail gate for later commits on this pull request.
