@@ -1209,6 +1209,23 @@ const ROUTE_REALITY=Object.freeze({
  '5E':{grade:'compressed-link',note:'貓空纜車終點與茶園／茶館同屬貓空；纜車只作空中視覺地標，不是可駕駛路線。'}
 });
 function routeReality(id=currentNode.id){return ROUTE_REALITY[id]||{grade:'compressed-link',note:'台北實景錨點＋街機壓縮路線'};}
+const V51_LANDMARK_AUDIT=Object.freeze({
+ '1A':{height:7600,silhouette:'civic-tower-gate',status:'audited-v51'},
+ '2A':{height:9800,silhouette:'gold-roof-palace',status:'audited-v51'},
+ '2B':{height:7600,silhouette:'digital-blocks',status:'audited-v51'},
+ '3A':{height:7200,silhouette:'red-arch-waterfront',status:'audited-v51'},
+ '3B':{height:8600,silhouette:'wheel-and-palace',status:'audited-v51'},
+ '3C':{height:7200,silhouette:'low-oval-dome',status:'audited-v51'},
+ '4A':{height:6900,silhouette:'fort-waterfront',status:'audited-v51'},
+ '4B':{height:7200,silhouette:'volcanic-grassland',status:'audited-v51'},
+ '4C':{height:7400,silhouette:'river-tech-market',status:'audited-v51'},
+ '4D':{height:7600,silhouette:'xinyi-low-rise-plus-towers',status:'audited-v51'},
+ '5A':{height:7200,silhouette:'cable-stayed-marina',status:'audited-v51'},
+ '5B':{height:9000,silhouette:'black-white-lighthouse',status:'audited-v51'},
+ '5C':{height:8000,silhouette:'green-timber-lantern-house',status:'audited-v51'},
+ '5D':{height:19000,silhouette:'tiered-101-tower',status:'audited-v51'},
+ '5E':{height:7200,silhouette:'white-gondola-tea-hills',status:'audited-v51'}
+});
 
 const V46_CLEAN_ROOM_ART=Object.freeze({
   reference:'observable-composition-only',
@@ -4435,7 +4452,7 @@ function planLandmarks(){
  const end=v34Mode==='arcade'?(stageLevel===4?FINISH_LINE:STAGE_END):soloFinishIndex();
  const fractions=items.length===1?[.40]:items.length===2?[.22,.70]:[.16,.45,.75];let last=40;
  return items.map((h,i)=>{
-  const sprite=getLandmarkSprite(h),height=h.name.includes('101')?23000:h.name.includes('纜車')?9000:h.name.includes('橋')?6000:8500;
+  const sprite=getLandmarkSprite(h),height=V51_LANDMARK_AUDIT[currentNode.id]?.height||(h.name.includes('101')?19000:h.name.includes('纜車')?7200:h.name.includes('橋')?7000:7800);
   const artUnits=height*H/2/sprite.height,halfWorld=sprite.width*artUnits/W;
   const minOffset=ROAD_WIDTH*roadFactor()*1.12+halfWorld+1000,preferred=h.side??(i%2?-1:1),target=Math.round(end*fractions[i]);
   let best=null;
