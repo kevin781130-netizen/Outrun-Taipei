@@ -1,4 +1,4 @@
-# Taipei Sunset Drive V49
+# Taipei Sunset Drive V50
 
 原創台北街機公路遊戲。採用 1990 年代大型機公路賽車常見的高速景深構圖，以及現代甩尾集氣／加速循環；所有程式、美術與音效均採獨立實作。
 
@@ -15,6 +15,19 @@
 - 手把 X 起甩、Y 氮氣、RT 油門、LT 煞車；Start 出發／暫停／繼續。
 
 五段街機、十五條單段計時／巡航路線、AT / MT、夕陽／霓虹色調均保留。
+
+## V50
+
+- **Recovery First**：先修復 V49 實玩回報的三個問題：甩尾／氮氣無感、側邊建築異常、鏡頭晃動造成 3D 暈。
+- **甩尾恢復作用**：SHIFT 不再被當成全煞車；drift helper 只做輕微速度 scrub，起滑門檻降到 58 km/h，進入甩尾更直接，反打仍可修線。
+- **氮氣恢復作用**：甩尾集氮速度由 32 提高到 50；滑移門檻降低，收油甩尾也能以較低效率集氮。N 不再要求同一幀同時按油門，成功啟動會立即給速度 impulse，再進入 2.8 秒 boost。
+- **建築安全修復**：停用 V49 過大的 near-camera building occlusion，改用 surface-aware / road-clipped V50 roadside depth；水面不蓋建築，近景 scale 上限 1.10，且用 road clip 保證不穿進道路。
+- **降低 3D 暈**：camera lean、curve lean、FOV crop、lateral look、screen shake 全部下修；高速感保留在道路光影與穩定近景，而不是靠大幅晃動。
+- **Clean-Room 繼續**：只抽象參考高階畫面分層、道路節奏、操控可讀性；禁止 1:1 syntax/control-flow translation、ROM/disc/archive/asset dump、特定專利／標誌性 mode／UI／licensed vehicle identity。
+- **版本辨識**：遊戲下方固定顯示 `CURRENT TEST BUILD · V50.0`，browser smoke 會驗證桌機／直向／橫向三種 viewport。
+- 15 條台北／新北 route、地標、LOW/HIGH、325 km/h nitro cap、MOMENT BOOST、visible-only collision 與 Twin Link 保留。
+
+完整規範見 [V50 Clean-Room Recovery](docs/V50_Clean_Room_Recovery.md)。
 
 ## V49
 
