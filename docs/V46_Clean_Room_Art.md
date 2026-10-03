@@ -2,7 +2,7 @@
 
 ## 原則
 
-V46 把 OutRunners 當成外部黑箱／公開畫面參考，只觀察「玩家能看到的視覺方法」：
+V46 把使用者提供的參考 ROM 當成外部黑箱，只觀察「玩家能看到的視覺方法」：
 
 - 遠景、中景、近景明確分層。
 - 大輪廓優先於小細節，讓高速移動時仍能辨認場景。
@@ -12,10 +12,11 @@ V46 把 OutRunners 當成外部黑箱／公開畫面參考，只觀察「玩家�
 
 不做以下行為：
 
-- 不拆 ROM code。
-- 不抽原始 sprite / tile / palette / font / audio。
-- 不複製關卡座標或資產排列。
-- 不把原作品牌、角色、招牌或國家場景直接搬進台北版。
+- **禁止 1:1 直譯語法結構**：不做反組譯、不建立 opcode／symbol 對照、不把原程式流程逐函式或逐指令翻成 JavaScript。
+- **ROM 內二進位資產一律禁止直接打包**：不納入 ROM、本體 dump、archive、sprite/tile/palette/font/audio dump，也不允許把二進位偽裝成 Markdown 或其他文字檔。
+- **避開特定專利與標誌性特徵**：不重現特定作品的招牌式 route pyramid、EASY/HARD 左右選擇語彙、品牌看板、特定 checkpoint 視覺或可識別的原作 UI 組合。
+- 不複製關卡座標、資產排列、角色、車輛外觀或品牌識別。
+- 僅保留高層次、可普遍描述的視覺原則，例如景深分層、視差、道路消失點、近景節奏與大型輪廓。
 
 ## 台北身份鎖定
 
@@ -90,3 +91,7 @@ V46 不改：
 - 每個 stage 必須從自己的 archetype 取得 V46 art family。
 
 V46 仍是 Canvas pseudo-3D；它的目標是先把構圖、視差、速度尺度與場景辨識度拉到成熟 arcade racer 水準，而不是把原作資產移植進來。
+
+## CI 硬性門檻
+
+`tests/clean-room-compliance.cjs` 會在 `npm test` 最前面執行。它會拒絕常見 ROM／封裝副檔名、二進位偽裝 Markdown、ROM 簽名字樣，以及 shipping runtime 中的外部品牌字樣、route pyramid／EASY ROUTE 等標誌性呈現標記。這是合併門檻，不是單純文件規範。
