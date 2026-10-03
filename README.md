@@ -1,4 +1,4 @@
-# Taipei Sunset Drive V46
+# Taipei Sunset Drive V47
 
 原創台北街機公路遊戲。採用 1990 年代大型機公路賽車常見的高速景深構圖，以及現代甩尾集氣／加速循環；所有程式、美術與音效均採獨立實作。
 
@@ -15,6 +15,19 @@
 - 手把 X 起甩、Y 氮氣、RT 油門、LT 煞車；Start 出發／暫停／繼續。
 
 五段街機、十五條單段計時／巡航路線、AT / MT、夕陽／霓虹色調均保留。
+
+## V47
+
+- **Clean-Room 操作手感進化**：以獨立模型重做高速轉向、收油重量轉移、煞車入彎旋轉、漂移修線與快速回正；禁止反組譯、opcode/function 對照、1:1 參數／控制流程翻譯。
+- **高速更穩、低速更靈**：`v47SteeringProfile()` 會隨速度降低 steering response / authority，數位方向鍵在 250+ km/h 不再像瞬間 full-lock。
+- **Grip Line 變得可玩**：收油會提高前輪轉向抓地，煞車會提供小幅入彎旋轉；不必每個彎都靠甩尾。
+- **DRIFT47**：最大車身角與 slip 收斂、反打修線更直接、回正更快，保留 V45/V46 的氮氣集氣與 MOMENT BOOST，不複製任何特定 gear-drift 招式。
+- **Cinematic Taipei Depth**：新增 horizon haze、大型台北遠中景量體與 foreground framing，urban／expressway／coastal／mountain 各用自己的台北素材語彙。
+- **輕量 camera lean**：只在 presentation 層依速度／方向／甩尾角做極小幅傾斜，不改 world coordinate、collision 或 route geometry。
+- **Clean-Room gate 再加嚴**：禁止 ROM/ISO/GD-ROM、ZIP/7z/RAR、split `.zNN`、sprite/tile/palette/font/audio dump；shipping runtime 也禁止外部品牌、授權車名與標誌性 mode／gear-drift marker。
+- 15 條台北／新北 route、地標、LOW/HIGH、325 km/h nitro、visible-only collision 與 Twin Link 全部保留。
+
+完整規範見 [V47 Clean-Room 3D Arcade Feel](docs/V47_Clean_Room_3D_Feel.md)。
 
 ## V46
 
@@ -53,4 +66,4 @@ npx playwright install --with-deps chromium
 npm run test:browser
 ```
 
-V46 將遊戲狀態／幾何／流程檢查擴充到 845 項，另保留 8 項 Twin Link 配對核心檢查；瀏覽器測試持續覆蓋桌機、手機直向與手機橫向並收集 JavaScript runtime error。
+V47 將遊戲狀態／幾何／流程檢查擴充到 851 項，另保留 8 項 Twin Link 配對核心檢查；瀏覽器測試持續覆蓋桌機、手機直向與手機橫向並收集 JavaScript runtime error。
