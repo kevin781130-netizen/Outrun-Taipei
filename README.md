@@ -1,6 +1,6 @@
-# Taipei Sunset Drive V45 — OutRunners Taipei
+# Taipei Sunset Drive V46
 
-原創台北街機公路遊戲。以 OutRunners 的公路節奏與場景層次、NEXON 跑跑卡丁車的甩尾集氣／加速循環為設計參考；未使用原遊戲素材。
+原創台北街機公路遊戲。採用 1990 年代大型機公路賽車常見的高速景深構圖，以及現代甩尾集氣／加速循環；所有程式、美術與音效均採獨立實作。
 
 ## Play
 
@@ -15,6 +15,17 @@
 - 手把 X 起甩、Y 氮氣、RT 油門、LT 煞車；Start 出發／暫停／繼續。
 
 五段街機、十五條單段計時／巡航路線、AT / MT、夕陽／霓虹色調均保留。
+
+## V46
+
+- **Clean-Room 美術進化**：只參考外部可觀察的構圖、景深、道路節奏與縮放感，不抽取／不匯入參考 ROM 的程式碼、sprite、tile、palette、字型或音效。
+- **台北設定鎖定**：新增 `V46_TAIPEI_ROUTE_GUARD`，15 個既有 route 的 ID／名稱／theme／archetype 都加入 regression；V46 美術層不得修改玩家位置、速度、交通或目前路線。另加入 Clean-Room CI gate，禁止 ROM／封裝檔進 repo。
+- **Layered Scaler Vista**：依 urban／expressway／coastal／mountain 自動生成原創遠景大輪廓與中景視差，讓高速時的場景層次更接近成熟大型街機賽車，但內容仍是台北／新北。
+- **Roadside Rhythm**：以實際道路 projection 生成路燈、反光柱、岸邊路柱、山路植栽等近景節奏物件，強化速度與縮放感；全部是純視覺，不新增 collider。
+- **道路透視強化**：加入低對比縱向 depth bands 與路肩反射節奏，沿用每條台北 route 原本 road / rumble 配色。
+- V45 的碰撞、換檔、甩尾、325 km/h 氮氣、招牌 clipping、建築淨空與 Twin Link 基礎全部保留。
+
+完整 Clean-Room 規範與台北身份保護見 [V46 Clean-Room Art Pass](docs/V46_Clean_Room_Art.md)。
 
 ## V45
 
@@ -42,4 +53,4 @@ npx playwright install --with-deps chromium
 npm run test:browser
 ```
 
-V45 將遊戲狀態／幾何／流程檢查擴充到 841 項，另保留 8 項 Twin Link 配對核心檢查；瀏覽器測試持續覆蓋桌機、手機直向與手機橫向並收集 JavaScript runtime error。
+V46 將遊戲狀態／幾何／流程檢查擴充到 845 項，另保留 8 項 Twin Link 配對核心檢查；瀏覽器測試持續覆蓋桌機、手機直向與手機橫向並收集 JavaScript runtime error。
