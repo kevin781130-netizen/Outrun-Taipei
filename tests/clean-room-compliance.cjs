@@ -39,7 +39,11 @@ const forbiddenRuntimeMarks=[
   /\bNEXON\b/i,
   /KartRider/i,
   /Ferrari/i,
-  /Testarossa/i
+  /Testarossa/i,
+  /Porsche/i,
+  /Corvette/i,
+  /Cygnus/i,
+  /Veryca/i
 ];
 for(const rx of forbiddenRuntimeMarks) if(rx.test(runtime)) failures.push(`external brand/reference leaked into shipping runtime: ${rx}`);
 
