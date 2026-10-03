@@ -2351,7 +2351,9 @@ function update(dt){
   shiftCutTimer=Math.max(0,shiftCutTimer-dt);shiftPunch=Math.max(0,shiftPunch-dt);boostKick=Math.max(0,boostKick-dt*1.65);
 
   const steerTarget=left||right?(right?1:0)-(left?1:0):gamepadInput.steer||(gyroEnabled?gyroSteer:0);
-  steer=lerp(steer,steerTarget,1-Math.exp(-dt*(left||right?22:16)));
+  const steeringProfile=v47SteeringProfile(speed,isDrifting);
+  const steerRate=Math.abs(steerTarget)>.001?steeringProfile.response:V47_HANDLING.steerRelease;
+  steer=lerp(steer,steerTarget,1-Math.exp(-dt*steerRate));
   const segIndex=clamp(Math.floor(playerZ/SEGMENT_LENGTH),0,segments.length-1),seg=segments[segIndex];
   raceElapsed+=dt;stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,seg.curve);
   const nitroHeld=inputHeld('KeyN')||gamepadInput.nitro;
@@ -2385,7 +2387,7 @@ function update(dt){
     rpm = lerp(rpm, 1200 + (speed / currentCar.maxSpeed) * 7000, dt * 8);
   }
 
-  stepArcadeMotion(dt,seg.curve);
+  stepArcadeMotion(dt,seg.curve,accelHeld,brakeHeld);
 
   // Off-road bouncing & drag
   const localIndex = playerZ / SEGMENT_LENGTH;
@@ -4043,19 +4045,21 @@ function stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
  for(const trail of slideTrails)trail.life-=dt;slideTrails=slideTrails.filter(p=>p.life>0);
  if(isDrifting&&Math.abs(slipAngle)>2.5&&speed>70){const points=(currentCar.isBike?[1]:currentCar.isTruck?[-75,75]:[-81,81]).map(x=>vehicleProject([x,0,-66],driftAngle));slideTrails.push({life:.48,y:H-65,points,dir:driftDirection});if(slideTrails.length>32)slideTrails.shift();}
 }
-function stepArcadeMotion(dt,curve){
+function stepArcadeMotion(dt,curve,accelHeld=true,brakeHeld=false){
  const ratio=clamp(speed/COMPETITION.topSpeed,0,1.1),safe=clamp(270-Math.abs(curve)*26,115,270),excess=Math.max(0,speed-safe);
- const frontGrip=clamp(1-excess/180,.65,1);
- // V40: body can look sideways without throwing the car across multiple lanes.
+ const profile=v47SteeringProfile(speed,isDrifting);
+ const liftGrip=!isDrifting&&!accelHeld&&!brakeHeld?profile.liftGrip:1;
+ const frontGrip=clamp((1-excess/180)*liftGrip,.65,1.12);
  const travelYaw=(driftAngle-slipAngle)*Math.PI/180;
  const yawTurn=Math.sin(travelYaw)*(isDrifting?DRIFT47.driftPathYaw:DRIFT47.gripPathYaw)*(.45+.65*ratio);
- const steerAuthority=isDrifting?DRIFT47.steerPath:.18;
- const turn=Math.min(1,speed/35)*(yawTurn+steer*steerAuthority)*(isDrifting?1:frontGrip);
+ const baseAuthority=isDrifting?DRIFT47.steerPath:.205*profile.authority;
+ const brakeRotation=!isDrifting&&brakeHeld?steer*V47_HANDLING.brakeRotationGain*(.35+.65*ratio):0;
+ const turn=Math.min(1,speed/35)*(yawTurn+steer*baseAuthority+brakeRotation)*(isDrifting?1:frontGrip);
  const outward=curve*.036*ratio*ratio;
- lateralVelocity=lerp(lateralVelocity,turn-outward,1-Math.exp(-dt*(isDrifting?DRIFT47.driftLateralResponse:14)));
+ lateralVelocity=lerp(lateralVelocity,turn-outward,1-Math.exp(-dt*(isDrifting?DRIFT47.driftLateralResponse:14.8)));
  playerX+=lateralVelocity*dt*motionDirection;
- if(isDrifting&&driftState!=='recover')speed=Math.max(0,speed-(.55+Math.abs(slipAngle)*.020)*dt);
- if(excess>0&&Math.abs(curve)>.8)speed=Math.max(0,speed-excess*(isDrifting?.018:.38)*dt);
+ if(isDrifting&&driftState!=='recover')speed=Math.max(0,speed-(.50+Math.abs(slipAngle)*.018)*dt);
+ if(excess>0&&Math.abs(curve)>.8)speed=Math.max(0,speed-excess*(isDrifting?.017:.34)*dt);
 }
 function playerVisualTransform(){return {yaw:driftAngle,travelYaw:driftAngle-slipAngle,mode:'rigid-3d',scaleX:1,shearX:0};}
 function drawSlideTrails(){
