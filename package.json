@@ -1,8 +1,8 @@
 {
   "name": "outrun-taipei",
   "private": true,
-  "version": "46.0.0",
-  "description": "Taipei arcade racer with clean-room scaler-inspired art direction, preserved Taipei routes, visible-only collisions and V45 driving physics",
+  "version": "47.0.0",
+  "description": "Taipei arcade racer with independent clean-room 3D arcade handling, cinematic Taipei depth, preserved routes and zero-tolerance ROM packaging guards",
   "scripts": {"test": "node tests/clean-room-compliance.cjs && node tests/regression.cjs", "test:browser": "node tests/browser-smoke.cjs"},
   "devDependencies": {"@napi-rs/canvas": "0.1.100", "playwright": "1.62.1"}
 }
