@@ -27,7 +27,9 @@ async function scenarios(run,{render=true}={}){
   }
  }
  await run(reset);
- await check(`nitro=99.8;driftChargeRate=24;chargeDriftNitro(1/60);nitroStock===1&&nitro>0&&nitro<1`,'full gauge stores boost and carries overflow');
+ await check(`buildingVolumeProfile(120,80,123).face===1&&buildingVolumeProfile(W-120,80,123).face===-1&&buildingVolumeProfile(120,80,123).depth>=14`,'roadside buildings expose directional depth instead of flat cards');
+ await check(`rivalVolumeProfile({spec:TRAFFIC_TYPES.taxi},120).depth>8&&rivalVolumeProfile({spec:TRAFFIC_TYPES.bus},120).depth>rivalVolumeProfile({spec:TRAFFIC_TYPES.taxi},120).depth`,'traffic art exposes vehicle volume profiles');
+ await check(`nitro=99.8;driftChargeRate=28;chargeDriftNitro(1/60);nitroStock===1&&nitro>0&&nitro<1`,'full gauge stores boost and carries overflow');
  await check(`nitro=99.8;chargeDriftNitro(1/60);nitroStock===2&&nitro===0`,'stock capacity is two');
  await check(`chargeDriftNitro(60);nitroStock===2&&nitro===0`,'full stock cannot overflow');
  await check(`speed=30;!activateNitro()&&nitroStock===2`,'low-speed boost blocked');
@@ -36,7 +38,9 @@ async function scenarios(run,{render=true}={}){
  await check(`roadGrip=1;steer=.45;isDrifting=true;driftState='drift';driftAge=1;driftDirection=1;slipAngle=8;stepBrakeDrift(1/60,false,true,.45,0);chargeDriftNitro(1/60);nitro>0`,'boost drift charges on straight sections');
  await check(`roadGrip=.5;nitro=0;chargeDriftNitro(1);nitro===0`,'off-road cannot charge');
  await run(reset+"speed=150;roadGrip=1;isDrifting=true;driftState='recover';cleanDriftTime=.8;driftAngle=0;slipAngle=0;");
- await check(`stepBrakeDrift(1/60,false,true,0,0);!isDrifting&&exitBoost>=.55`,'clean drift exit grants a short acceleration pulse');
+ await check(`stepBrakeDrift(1/60,false,true,0,0);!isDrifting&&momentBoostWindow>.4&&exitBoost===0`,'clean drift exit opens moment boost window without free acceleration');
+ await check(`stepBrakeDrift(1/60,false,false,0,0);momentBoostArmed&&exitBoost===0`,'moment boost requires throttle release');
+ await check(`stepBrakeDrift(1/60,false,true,0,0);exitBoost>.3&&momentBoostWindow===0`,'throttle re-tap triggers moment boost');
  await run(reset+"speed=190;nitroStock=2;keys.KeyW=true;keys.KeyN=true;");
  await check(`for(let i=0;i<240;i++)update(1/60);nitroStock===1&&boostRemaining===0&&!boosting`,'holding N never automatically burns the second boost');
  await run(reset+"speed=190;nitroStock=1;keys.KeyW=true;activateNitro();keys.KeyS=true;update(1/60);");
@@ -49,6 +53,8 @@ async function scenarios(run,{render=true}={}){
  await check(`playerX=0;playerZ=2000;!!trafficContact({x:0,z:0},{x:0,z:1200,previousX:0,previousZ:1200,spec:TRAFFIC_TYPES.taxi})`,'swept collision catches complete high-speed crossing');
  await check(`playerZ=0;!!trafficContact({x:0,z:2000},{x:0,z:1500,previousX:0,previousZ:1500,spec:TRAFFIC_TYPES.taxi})`,'reverse crossing collision');
  await check(`playerX=.7;!trafficContact({x:.7,z:0},{x:-.7,z:1200,previousX:-.7,previousZ:1200,spec:TRAFFIC_TYPES.taxi})`,'parallel adjacent lanes remain separate');
+ await check(`playerZ=(FORK_WARN+4)*SEGMENT_LENGTH;!trafficCollisionEligible({x:0,z:playerZ-500},{x:0,z:playerZ,previousX:0,previousZ:playerZ-300,spec:TRAFFIC_TYPES.taxi})`,'traffic beyond authored visible zone cannot become an invisible collider');
+ await check(`playerZ=2000;!trafficCollisionEligible({x:0,z:1800},{x:4,z:2050,previousX:4,previousZ:1950,spec:TRAFFIC_TYPES.taxi})`,'off-corridor traffic cannot collide with the player');
  await run(reset+"speed=180;playerX=4;resolveRoadBoundary(20);");
  await check(`!!crashSequence&&crashCount===1&&Math.abs(playerX)<=1`,'barrier collision contains vehicle');
  await run(reset+"speed=180;playerZ=20000;const spec=TRAFFIC_TYPES.taxi;traffic=[{x:0,z:playerZ+PLAYER_DEPTH+300,previousX:0,speed:0,spec,type:'taxi',phase:0,hitTimer:0}];keys.KeyW=true;update(1/60);");
