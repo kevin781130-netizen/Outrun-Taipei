@@ -1005,22 +1005,22 @@ function customRadioPhrase(track,lead=false){
 }
 function startRadio(){
   if(musicTimer) clearInterval(musicTimer);
-  const magicalBass = customRadioPhrase(1,false);
-  const magicalLead = customRadioPhrase(1,true);
+  const stationOneBass = customRadioPhrase(1,false);
+  const stationOneLead = customRadioPhrase(1,true);
 
-  const breezeBass = customRadioPhrase(2,false);
-  const breezeChords = [349.23, 440.00, 523.25, 659.25];
+  const stationTwoBass = customRadioPhrase(2,false);
+  const stationTwoChords = [349.23, 440.00, 523.25, 659.25];
 
-  const waveBass = customRadioPhrase(3,false);
+  const stationThreeBass = customRadioPhrase(3,false);
 
-  // Last Wave (Sunset Ballad 100 BPM)
-  const lastWaveBass = customRadioPhrase(4,false);
-  const lastWaveChords = [349.23, 440.00, 523.25, 587.33];
+  // Original Taipei sunset ballad voice
+  const sunsetBalladBass = customRadioPhrase(4,false);
+  const sunsetBalladChords = [349.23, 440.00, 523.25, 587.33];
 
   let bpmMs = 100;
   if(radioTrack === 2) bpmMs = 108;
   else if(radioTrack === 3) bpmMs = 98;
-  else if(radioTrack === 4) bpmMs = 150; // Last Wave
+  else if(radioTrack === 4) bpmMs = 150; // Taipei sunset ballad
 
   musicTimer = setInterval(() => {
     if(!audioCtx || radioTrack === 0 || paused) return;
@@ -1052,22 +1052,22 @@ function startRadio(){
     }
 
     if(radioTrack === 1){
-      const bFreq = magicalBass[step16];
+      const bFreq = stationOneBass[step16];
       if(bFreq > 0) fmNote(bFreq, 3.0, 220, 0.12, 0.032, 'sawtooth');
-      const lFreq = magicalLead[step16];
+      const lFreq = stationOneLead[step16];
       if(lFreq > 0) fmNote(lFreq, 2.0, 90, 0.22, 0.024, 'triangle');
     } else if(radioTrack === 2){
-      const bFreq = breezeBass[step16];
+      const bFreq = stationTwoBass[step16];
       if(bFreq > 0) fmNote(bFreq, 2.0, 130, 0.16, 0.030, 'sine');
-      if(step16 % 4 === 0) fmNote(breezeChords[Math.floor(step16/4)], 1.0, 40, 0.32, 0.018, 'triangle');
+      if(step16 % 4 === 0) fmNote(stationTwoChords[Math.floor(step16/4)], 1.0, 40, 0.32, 0.018, 'triangle');
     } else if(radioTrack === 3){
-      const bFreq = waveBass[step16];
+      const bFreq = stationThreeBass[step16];
       if(bFreq > 0) fmNote(bFreq, 3.5, 260, 0.11, 0.034, 'sawtooth');
       if(step16 % 8 === 0) fmNote(440, 2.0, 110, 0.25, 0.022, 'triangle');
     } else if(radioTrack === 4){
-      const bFreq = lastWaveBass[step16];
+      const bFreq = sunsetBalladBass[step16];
       if(bFreq > 0) fmNote(bFreq, 1.0, 50, 0.32, 0.025, 'sine');
-      if(step16 % 4 === 0) fmNote(lastWaveChords[Math.floor(step16/4)], 2.0, 60, 0.45, 0.018, 'triangle');
+      if(step16 % 4 === 0) fmNote(sunsetBalladChords[Math.floor(step16/4)], 2.0, 60, 0.45, 0.018, 'triangle');
     }
   }, bpmMs);
 }
@@ -1464,7 +1464,7 @@ try{
   if(savedBoard && !Array.isArray(savedBoard) && typeof savedBoard==='object') competitiveBoards = savedBoard;
   const savedBest = Number(localStorage.getItem('taipeiArcadeBestV40'));
   bestScore = Number.isFinite(savedBest) && savedBest > 0 ? savedBest : 0;
-  const savedGoals = JSON.parse(localStorage.getItem('outrunArcadeUltimateGoals') || '[]');
+  const savedGoals = JSON.parse(localStorage.getItem('taipeiArcadeUltimateGoalsV48') || '[]');
   unlockedGoals = new Set(Array.isArray(savedGoals) ? savedGoals.filter(g => ['A','B','C','D','E'].includes(g)) : []);
 }catch(e){}
 
@@ -1623,7 +1623,7 @@ function finishGame(cleared){
   if(cleared){
     score += Math.floor(timeLeft * 180);
     unlockedGoals.add(goalNode.goal);
-    try{ localStorage.setItem('outrunArcadeUltimateGoals', JSON.stringify([...unlockedGoals])); }catch(e){}
+    try{ localStorage.setItem('taipeiArcadeUltimateGoalsV48', JSON.stringify([...unlockedGoals])); }catch(e){}
 
     celebrationCard.classList.add('show');
     celebTitle.textContent = `${goalNode.goal} • ${goalNode.ceremony}`;
@@ -1634,7 +1634,7 @@ function finishGame(cleared){
     }
   }
 
-  // Play Last Wave ballad
+  // Switch to the original Taipei finish ballad
   setTrack(4);
 
   resultTimer=setTimeout(() => {
