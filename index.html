@@ -3941,40 +3941,45 @@ let helperWasHeld=false,helperPulse=0,counterTime=0,neutralTime=0;
 let driftRearmBlocked=false;
 let driftState='grip',brakeHoldTime=0,brakeLoss=0,driftAge=0,driftCooldown=0,brakeVisual=0;
 let yawRate=0,slipAngle=0,coastWindow=0,previousGas=false,slideTrails=[];
+let chassisRoll=0,chassisPitch=0,visualLoad=0;
 let trafficSeed=1;
 function seededRange(a,b){trafficSeed=(Math.imul(1664525,trafficSeed)+1013904223)>>>0;return a+(trafficSeed/4294967296)*(b-a);}
 function resetDrivingState(){
  helperWasHeld=false;helperPulse=0;counterTime=0;neutralTime=0;
  driftRearmBlocked=false;driftState='grip';brakeHoldTime=0;brakeLoss=0;driftAge=0;driftCooldown=0;
  brakeEntry=0;brakeWasHeld=false;brakeVisual=0;driftAngle=0;yawRate=0;slipAngle=0;coastWindow=0;previousGas=false;
- isDrifting=false;driftDirection=0;cleanDriftTime=0;exitBoost=0;momentBoostWindow=0;momentBoostArmed=false;boostKick=0;shiftCutTimer=0;shiftPunch=0;lateralVelocity=0;slideTrails=[];
+ isDrifting=false;driftDirection=0;cleanDriftTime=0;exitBoost=0;momentBoostWindow=0;momentBoostArmed=false;boostKick=0;shiftCutTimer=0;shiftPunch=0;lateralVelocity=0;slideTrails=[];chassisRoll=0;chassisPitch=0;visualLoad=0;
 }
 // V48 clean-room handling calibration: stronger weight transfer, assertive steering, controllable slip and rapid recovery.
 const DRIFT48=Object.freeze({
- entryMinSpeed:78, entryRamp:.10, counterRecover:.17, neutralRecover:.24,
- maxBodyYaw:40, baseYaw:11.4, steerYaw:20.2, speedYaw:6.4, curveYaw:2.6,
- baseSlip:6.9, steerSlip:9.6, counterYawTrim:.20, counterSlipTrim:.18,
- yawResponse:24, recoverResponse:34, slipResponse:20, recoverSlipResponse:30,
- driftPathYaw:1.78, gripPathYaw:2.88, steerPath:.46, driftLateralResponse:14,
- exitBoost:.48, momentWindow:.55, rearmYaw:1.15, rearmSlip:.75
+ entryMinSpeed:72, entryRamp:.075, counterRecover:.14, neutralRecover:.21,
+ maxBodyYaw:44, baseYaw:12.8, steerYaw:22.5, speedYaw:7.4, curveYaw:3.4,
+ baseSlip:7.4, steerSlip:10.8, counterYawTrim:.17, counterSlipTrim:.15,
+ yawResponse:27, recoverResponse:39, slipResponse:22, recoverSlipResponse:34,
+ driftPathYaw:1.95, gripPathYaw:3.10, steerPath:.50, driftLateralResponse:15.5,
+ exitBoost:.48, momentWindow:.55, rearmYaw:1.05, rearmSlip:.68
 });
 const V48_HANDLING=Object.freeze({
-  independentModel:true,directSyntaxTranslation:false,gearDriftClone:false,heartModeClone:false,
-  steerResponseLow:18,steerResponseHigh:9.2,steerRelease:15.5,
-  authorityLow:1.04,authorityHigh:.78,liftGripGain:.16,brakeRotationGain:.10,
-  cameraLeanMax:.0105
+  independentModel:true,directSyntaxTranslation:false,exactHandlingCurveCopy:false,
+  gearDriftClone:false,distinctiveModeClone:false,licensedVehicleIdentity:false,
+  steerResponseLow:21,steerResponseHigh:11,steerRelease:17.5,
+  authorityLow:1.10,authorityHigh:.84,liftGripGain:.24,brakeRotationGain:.17,
+  cameraLeanMax:.017,cameraCurveLean:.011,speedZoom:.018,
+  chassisRollMax:4.5,chassisPitchMax:2.3
 });
 function v48SteeringProfile(speedNow,drifting=false){
   const t=clamp(speedNow/COMPETITION.topSpeed,0,1);
+  const highSpeedEase=t*t*(3-2*t);
   return {
-    response:lerp(V48_HANDLING.steerResponseLow,V48_HANDLING.steerResponseHigh,t)*(drifting?1.10:1),
-    authority:lerp(V48_HANDLING.authorityLow,V48_HANDLING.authorityHigh,t),
-    liftGrip:1+V48_HANDLING.liftGripGain*t
+    response:lerp(V48_HANDLING.steerResponseLow,V48_HANDLING.steerResponseHigh,highSpeedEase)*(drifting?1.15:1),
+    authority:lerp(V48_HANDLING.authorityLow,V48_HANDLING.authorityHigh,highSpeedEase),
+    liftGrip:1+V48_HANDLING.liftGripGain*t,
+    brakeRotation:V48_HANDLING.brakeRotationGain*(.30+.70*t)
   };
 }
 function stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
  const helper=inputHeld('ShiftLeft')||inputHeld('ShiftRight')||gamepadInput.drift;
- if(helper&&!helperWasHeld&&!isDrifting&&speed>DRIFT48.entryMinSpeed&&driveGear==='D'&&motionDirection===1){helperPulse=.06;brakeEntry=.46;}
+ if(helper&&!helperWasHeld&&!isDrifting&&speed>DRIFT48.entryMinSpeed&&driveGear==='D'&&motionDirection===1){helperPulse=.07;brakeEntry=.56;}
  helperWasHeld=helper;helperPulse=Math.max(0,helperPulse-dt);
  const previousBrake=brakeWasHeld,sign=Math.abs(steerTarget)>.10?Math.sign(steerTarget):0;
  const gasPressed=accelHeld&&!previousGas,gasReleased=!accelHeld&&previousGas;
@@ -3983,7 +3988,7 @@ function stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
  if(brakeHeld){
   if(!previousBrake){brakeHoldTime=0;brakeLoss=0;}
   brakeHoldTime+=dt;brakeLoss+=Math.min(speed,COMPETITION.brake*dt);
-  if(!driftRearmBlocked&&brakeHoldTime>=.012){brakeEntry=.46;if(!isDrifting)driftState='brake';}
+  if(!driftRearmBlocked&&brakeHoldTime>=.010){brakeEntry=.56;if(!isDrifting)driftState='brake';}
  }else{
   brakeEntry=Math.max(0,brakeEntry-dt*1.25);
   if(!isDrifting&&Math.abs(slipAngle)<DRIFT48.rearmSlip&&Math.abs(driftAngle)<DRIFT48.rearmYaw)driftRearmBlocked=false;
@@ -3999,8 +4004,8 @@ function stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
   }
  }
  previousGas=accelHeld;brakeWasHeld=brakeHeld;exitBoost=Math.max(0,exitBoost-dt);
- const liftEntry=coastWindow>0&&Math.abs(curve)>.55&&Math.abs(curve)<2.05&&sign===Math.sign(curve)&&speed>138;
- if(driveGear==='D'&&motionDirection===1&&!isDrifting&&!driftRearmBlocked&&sign&&Math.abs(steer)>.12&&speed>DRIFT48.entryMinSpeed&&roadGrip>.8&&(brakeEntry>0||liftEntry)){
+ const liftEntry=coastWindow>0&&Math.abs(curve)>.40&&Math.abs(curve)<2.25&&sign===Math.sign(curve)&&speed>124;
+ if(driveGear==='D'&&motionDirection===1&&!isDrifting&&!driftRearmBlocked&&sign&&Math.abs(steer)>.10&&speed>DRIFT48.entryMinSpeed&&roadGrip>.8&&(brakeEntry>0||liftEntry)){
   isDrifting=true;driftDirection=sign;driftState='entry';driftAge=0;cleanDriftTime=0;counterTime=0;neutralTime=0;brakeEntry=0;coastWindow=0;
  }
  let targetYaw,targetSlip=0;
