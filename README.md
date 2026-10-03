@@ -78,4 +78,4 @@ npx playwright install --with-deps chromium
 npm run test:browser
 ```
 
-V48 在既有 851 項基礎上新增 aggressive handling / art / Clean-Room regression，另保留 8 項 Twin Link 配對核心檢查；瀏覽器測試持續覆蓋桌機、手機直向與手機橫向並收集 JavaScript runtime error。
+V48 已擴充至 855 項遊戲狀態／幾何／流程檢查，另保留 8 項 Twin Link 配對核心檢查；瀏覽器測試持續覆蓋桌機、手機直向與手機橫向並收集 JavaScript runtime error。
