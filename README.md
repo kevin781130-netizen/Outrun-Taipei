@@ -1,4 +1,4 @@
-# Taipei Sunset Drive V47
+# Taipei Sunset Drive V48
 
 原創台北街機公路遊戲。採用 1990 年代大型機公路賽車常見的高速景深構圖，以及現代甩尾集氣／加速循環；所有程式、美術與音效均採獨立實作。
 
@@ -15,6 +15,18 @@
 - 手把 X 起甩、Y 氮氣、RT 油門、LT 煞車；Start 出發／暫停／繼續。
 
 五段街機、十五條單段計時／巡航路線、AT / MT、夕陽／霓虹色調均保留。
+
+## V48
+
+- **Clean-Room Aggressive Pass**：在不碰原始 code / asset / audio / vehicle model / handling table 的前提下，把可普遍描述的 3D arcade racing 特性更積極地獨立重做。
+- **操作不再過度保守**：高速仍有重量，但提高 steering authority；低中速 response 更直接。收油 grip、煞車入彎旋轉、DRIFT48 起滑／反打／回正都比 V47 更明顯。
+- **車體動態**：新增 chassis roll / pitch / visual load；轉向側傾、煞車前俯都只影響 presentation，不改 collider。
+- **更強台北景深**：新增 V48 horizon compression、projected road shadows、大型近景 setpieces 與實際道路邊緣導出的 peripheral rush。
+- **速度鏡頭加強**：presentation 同時考慮速度、steer、drift angle 與 road curve，加入更明顯但有限制的 lean / FOV。
+- **Clean-Room 再清理**：移除歷史 runtime 中殘留的外部標題 localStorage key 與可辨識音樂命名，CI 也新增阻擋。
+- 15 條台北／新北 route、地標、LOW/HIGH、325 km/h nitro、MOMENT BOOST、visible-only collision 與 Twin Link 全部保留。
+
+完整規範見 [V48 Clean-Room Aggressive Pass](docs/V48_Clean_Room_Aggressive.md)。
 
 ## V47
 
@@ -66,4 +78,4 @@ npx playwright install --with-deps chromium
 npm run test:browser
 ```
 
-V47 將遊戲狀態／幾何／流程檢查擴充到 851 項，另保留 8 項 Twin Link 配對核心檢查；瀏覽器測試持續覆蓋桌機、手機直向與手機橫向並收集 JavaScript runtime error。
+V48 在既有 851 項基礎上新增 aggressive handling / art / Clean-Room regression，另保留 8 項 Twin Link 配對核心檢查；瀏覽器測試持續覆蓋桌機、手機直向與手機橫向並收集 JavaScript runtime error。
