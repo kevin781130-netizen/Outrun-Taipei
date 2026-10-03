@@ -4983,8 +4983,10 @@ function drawV49AccelerationRush(){
   ctx.restore();return drawn;
 }
 
+let v51RoadsideRenderLog=[];
 function drawV50SafeRoadsideDepth(road=projectedRoad){
   const family=v46SceneFamily(),start=Math.floor(playerZ/SEGMENT_LENGTH),stride=V50_ART.safeSetpieceStride;let drawn=0;
+  v51RoadsideRenderLog=[];
   for(const seg of road){
     if(seg.index<start+9||((seg.index+currentNode.seed*5)%stride)!==7)continue;
     const b=stripBounds(seg);if(!b||b.near.w<78||b.near.y<H*.48)continue;
@@ -4993,7 +4995,9 @@ function drawV50SafeRoadsideDepth(road=projectedRoad){
       const surface=districtSurface(seg.index,side);
       const x=b.near.x+side*b.near.w*(env+V50_ART.roadClearance),y=b.near.y;
       const scale=clamp(b.near.w/230,.28,V50_ART.maxNearScale);
+      const roadEdge=b.near.x+side*b.near.w*env,clearance=Math.abs(x-roadEdge);
       if(x<-150||x>W+150)continue;
+      v51RoadsideRenderLog.push({index:seg.index,side,surface,family,x,y,scale,roadEdge,clearance,building:family==='urban'&&surface==='land'});
       ctx.save();clipNearRoad(seg.index);ctx.translate(x,y);ctx.scale(scale,scale);
       if(surface==='water'){
         ctx.fillStyle='#486864';ctx.fillRect(-4,-54,8,54);
