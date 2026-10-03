@@ -958,20 +958,19 @@ function voiceFormant(word='checkpoint'){
 
     g.gain.setValueAtTime(0.05, now);
     g.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-    osc.stop(now + 0.48);
   } else if(word === 'go'){
     osc.frequency.setValueAtTime(175, now);
     osc.frequency.exponentialRampToValueAtTime(120, now + 0.3);
     f1.frequency.value = 450; f2.frequency.value = 1100; f3.frequency.value = 2500;
     g.gain.setValueAtTime(0.06, now);
     g.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-    osc.stop(now + 0.38);
   }
 
   osc.connect(f1); osc.connect(f2); osc.connect(f3);
   f1.connect(g); f2.connect(g); f3.connect(g);
   g.connect(masterGain);
   osc.start(now);
+  osc.stop(now + (word === 'go' ? 0.38 : 0.48));
 }
 
 function playGearShiftSound(){
