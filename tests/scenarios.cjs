@@ -28,7 +28,7 @@ async function scenarios(run,{render=true}={}){
  }
  await run(reset);
  await check(`taipeiRouteIdentityIntact()&&STAGES.flat().map(n=>n.id).join(',')==='1A,2A,2B,3A,3B,3C,4A,4B,4C,4D,5A,5B,5C,5D,5E'`,'V46 clean-room art pass preserves all Taipei route identities');
- await check(`V46_CLEAN_ROOM_ART.sourceCode===false&&V46_CLEAN_ROOM_ART.sourceAssets===false&&V46_CLEAN_ROOM_ART.sourceAudio===false&&V46_CLEAN_ROOM_ART.preserve.includes('Taipei')`,'clean-room guard forbids source code/assets/audio reuse');
+ await check(`V46_CLEAN_ROOM_ART.sourceCode===false&&V46_CLEAN_ROOM_ART.sourceAssets===false&&V46_CLEAN_ROOM_ART.sourceAudio===false&&V46_CLEAN_ROOM_ART.decompilation===false&&V46_CLEAN_ROOM_ART.instructionMapping===false&&V46_CLEAN_ROOM_ART.directSyntaxTranslation===false&&V46_CLEAN_ROOM_ART.distinctiveFeatureClone===false&&V46_CLEAN_ROOM_ART.independentImplementation===true&&V46_CLEAN_ROOM_ART.preserve.includes('Taipei')`,'clean-room guard forbids direct translation, source assets and distinctive feature cloning');
  await run(`playerZ=180*SEGMENT_LENGTH;playerX=0;speed=177;projectRoad();window.__v46Before=[playerZ,playerX,speed,traffic.length,currentNode.id];window.__v46Vista=drawV46ScalerVista(H*.51,scene());window.__v46Props=drawV46RoadEdgeRhythm(projectedRoad);`);
  await check(`window.__v46Vista>0&&window.__v46Props>=0&&[playerZ,playerX,speed,traffic.length,currentNode.id].every((v,i)=>v===window.__v46Before[i])`,'V46 art layers render without mutating gameplay state');
  await check(`['urban','expressway','coastal','mountain'].includes(v46SceneFamily())&&v46VistaProfile().density>0`,'V46 scaler art profile is generated from Taipei stage archetype');
