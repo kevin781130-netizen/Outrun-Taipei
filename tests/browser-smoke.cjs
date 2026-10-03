@@ -33,6 +33,19 @@ const {scenarios}=require('./scenarios.cjs');
   const nitroProbe=await run(`[boosting,boostRemaining,nitroStock,speed,nitroLatch]`);
   assert.equal(nitroProbe[0],true,'real keyboard N activates boost without requiring simultaneous throttle');
   assert(nitroProbe[1]>2.7&&nitroProbe[2]===0&&nitroProbe[3]>170&&nitroProbe[4], 'nitro stock produces immediate acceleration and latch');
+  // Real keyboard simultaneous boost + drift-charge probe.
+  await run(`nitro=10;nitroStock=1;boostRemaining=0;nitroLatch=false;speed=185;driveGear='D';motionDirection=1;roadGrip=1;isDrifting=false;driftState='grip';driftAngle=0;slipAngle=0;keys.KeyN=false;`);
+  await page.keyboard.down('KeyW');await page.keyboard.down('ArrowRight');await page.keyboard.down('ShiftLeft');
+  await run(`for(let i=0;i<20;i++)update(1/60);`);
+  const beforeSim=await run(`nitro`);
+  await page.keyboard.down('KeyN');await run(`update(1/60);`);await page.keyboard.up('KeyN');
+  await run(`for(let i=0;i<24;i++)update(1/60);`);
+  const simultaneous=await run(`[boosting,isDrifting,nitro,beforeSim,driftChargeRate,speed,v51DriftVisualYaw()]`);
+  await page.keyboard.up('ShiftLeft');await page.keyboard.up('ArrowRight');await page.keyboard.up('KeyW');
+  assert(simultaneous[0]&&simultaneous[1],'boost remains active while the car is drifting');
+  assert(simultaneous[2]>simultaneous[3]&&simultaneous[4]>0,'nitro meter continues charging during active boost drift');
+  assert(simultaneous[5]>210,'nitro delivers a strong forward surge');
+  assert(Math.abs(simultaneous[6])>35,'whole-car visual yaw is clearly sideways during drift');
   for(const id of ['1A','2B','3A','4A','4C','5A','5B','5C','5D','5E']){
    await run(`v34Mode='cruise';selectedRoute=routeForId('${id}');resetGame();gameStarted=true;raceActive=true;playerZ=36000;overlay.classList.add('hidden');render(0);`);
    await page.locator('#gameCanvas').screenshot({path:path.join(output,`${id}.png`)});
@@ -43,7 +56,7 @@ const {scenarios}=require('./scenarios.cjs');
    const live=await context.newPage();live.on('pageerror',error=>errors.push(error.message));
    await live.goto(url);
    assert.equal(await live.locator('#build-version').isVisible(),true,`${name} build version visible`);
-   assert.match(await live.locator('#build-version').textContent(),/V50\.0/,`${name} correct V50 build label`);
+   assert.match(await live.locator('#build-version').textContent(),/V51\.0/,`${name} correct V51 build label`);
    await live.locator('#start-btn').click();
    assert.equal(await live.locator('#radio-actions').isVisible(),true);
    await live.locator('#radio-next').click();
