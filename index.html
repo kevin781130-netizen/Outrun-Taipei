@@ -2668,7 +2668,7 @@ function drawSkyLantern(x, y, s){
 }
 
 // 台北摩天大樓群
-function drawTaipeiSkyscrapers(x, y, s, idx){
+function legacyV40_drawTaipeiSkyscrapers(x, y, s, idx){
   ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
   ctx.fillStyle = idx % 2 === 0 ? '#131e30' : '#192b45'; ctx.fillRect(-28, -85, 56, 85);
   ctx.fillStyle = idx % 2 === 0 ? '#00e5ff' : '#ffd200'; ctx.globalAlpha = 0.55;
@@ -2807,7 +2807,7 @@ function drawRainbowBridge(x, y, s){
 }
 
 // 4D: 台北101基座與信義信義百貨街大樓 (Taipei 101 Street Level)
-function drawTaipei101StreetLevel(x,y,s){drawCloudTower(x,y,s);}
+function legacyV40_drawTaipei101StreetLevel(x,y,s){drawCloudTower(x,y,s);}
 
 // 5A (GOAL A): 淡水漁人碼頭白色情人橋 (Lover's Bridge & Marina)
 function drawMaokongTeaPavilion(x, y, s){
@@ -2831,7 +2831,7 @@ function drawMaokongTeaPavilion(x, y, s){
 // ============================================================
 
 // 台灣街道騎樓公寓 (Taipei Urban Shophouse with Neon Signs, AC Units & Metal Roof)
-function drawTaipeiShophouse(x, y, s, idx){
+function legacyV40_drawTaipeiShophouse(x, y, s, idx){
   ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
   const side = (idx % 2 === 0) ? -1 : 1;
   const bW = 68, bH = 115;
@@ -3607,7 +3607,7 @@ function drawGuanghuaDigital(x,y,s){
  ctx.fillStyle='#385c63';ctx.fillRect(-66,-19,50,19);ctx.fillStyle='#f4ca75';ctx.fillRect(-70,-21,57,4);for(let xx=-60;xx<-18;xx+=11){glassPanel(xx,-16,8,14);}
  ctx.fillStyle='#30564c';for(const xx of [-92,18,103]){ctx.fillRect(xx-4,-11,9,10);ctx.beginPath();ctx.arc(xx,-14,8,0,Math.PI*2);ctx.fill();}ctx.restore();
 }
-function drawGrandHotelPalace(x,y,s){
+function legacyV40_drawGrandHotelPalace(x,y,s){
  ctx.save();ctx.translate(x,y);ctx.scale(s,s);arcadeFooting(103);
  ctx.fillStyle='#782d30';ctx.beginPath();ctx.moveTo(80,-99);ctx.lineTo(103,-84);ctx.lineTo(103,0);ctx.lineTo(80,0);ctx.fill();ctx.fillStyle='#e0c39c';ctx.fillRect(-87,-97,168,97);
  for(let fl=0;fl<8;fl++){const yy=-8-fl*11;ctx.fillStyle='#642e35';ctx.fillRect(-87,yy-9,168,2);ctx.fillStyle='#bc3a32';ctx.fillRect(-89,yy,173,3);ctx.fillStyle='#ecb974';ctx.fillRect(-88,yy,171,1);for(let xx=-81;xx<81;xx+=13){ctx.fillStyle='#483f41';ctx.fillRect(xx+3,yy-8,7,6);ctx.fillStyle='#d95839';ctx.fillRect(xx,yy-10,3,13);ctx.fillStyle='#f7d796';ctx.fillRect(xx,yy-10,1,12);}}
@@ -3630,7 +3630,7 @@ function drawTaipeiDome(x,y,s){
  ctx.fillStyle='#ebdeb9';ctx.fillRect(-121,-27,242,3);for(let xx=-100;xx<111;xx+=11)glassPanel(xx,-23,7,18);
  ctx.fillStyle='#142f3f';ctx.fillRect(-27,-17,54,17);ctx.fillStyle='#e5ce8d';ctx.fillRect(-29,-18,58,2);ctx.restore();
 }
-function drawCloudTower(x,y,s){
+function legacyV40_drawCloudTower(x,y,s){
  ctx.save();ctx.translate(x,y);ctx.scale(s,s);arcadeFooting(48);
  ctx.fillStyle='#31566b';ctx.fillRect(-45,-42,90,42);ctx.fillStyle='#a9c8ba';ctx.fillRect(-44,-41,68,39);ctx.fillStyle='#d4e3ce';ctx.fillRect(-44,-42,90,3);
  for(let xx=-36;xx<22;xx+=11)glassPanel(xx,-29,8,28);ctx.fillStyle='#688e96';ctx.fillRect(24,-39,21,39);for(let yy=-30;yy<-4;yy+=8){ctx.fillStyle='#315667';ctx.fillRect(27,yy,14,3);}
@@ -4209,7 +4209,7 @@ function prepareLandmarkFrame(){
   (h.seg>=start+DRAW_DISTANCE?landmarkFrame.horizon:landmarkFrame.world).push(h);
  }
 }
-function drawLandmarkInstance(h,x,y,s,layer){
+function legacyV40_drawLandmarkInstance(h,x,y,s,layer){
  if(landmarkDrawLog.some(p=>p.id===h.id))return;
  landmarkDrawLog.push({id:h.id,name:h.name,seg:h.seg,layer,x,y,scale:s,worldOffset:h.worldOffset,pixelWidth:h.sprite.width*s,pixelHeight:h.sprite.height*s});
  ctx.save();ctx.fillStyle='#15283266';ctx.beginPath();ctx.ellipse(x,y,Math.max(2,s*88),Math.max(1,s*5),0,0,Math.PI*2);ctx.fill();
@@ -4297,7 +4297,7 @@ function v40FitSignText(text,x,y,width,height,fontSize,color='#fff'){
  const fit=fitSignTextLayout(text,width,height,fontSize);ctx.font=`900 ${fit.size}px TaipeiText, sans-serif`;
  ctx.fillText(fit.displayText,x+width/2,y+height/2);ctx.restore();return fit;
 }
-function drawV40V34CityPanorama(base){
+function legacyV40_drawV40V34CityPanorama(base){
  const night=skyMood!=='sunset';
  ctx.save();
  for(let layer=0;layer<2;layer++)for(let i=-2;i<24;i++){
@@ -4332,7 +4332,7 @@ function drawV40LanternVillage(base){
  }
  ctx.globalAlpha=1;ctx.restore();
 }
-function drawV40V34TaipeiShophouse(x,y,s,idx){
+function legacyV40_drawV40V34TaipeiShophouse(x,y,s,idx){
  ctx.save();ctx.translate(x,y);ctx.scale(s,s);
  const w=76,h=105+(idx%4)*14,night=skyMood!=='sunset',col=['#d9b48d','#abccc8','#eabca9','#a6bace'][idx%4];
  ctx.fillStyle='#26394a';ctx.fillRect(-w/2+8,-h+6,w,h);ctx.fillStyle=col;ctx.fillRect(-w/2,-h,w,h);ctx.fillStyle='#ffffff40';ctx.fillRect(-w/2,-h,6,h);
