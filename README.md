@@ -1,4 +1,4 @@
-# Taipei Sunset Drive V44 — OutRunners Taipei
+# Taipei Sunset Drive V45 — OutRunners Taipei
 
 原創台北街機公路遊戲。以 OutRunners 的公路節奏與場景層次、NEXON 跑跑卡丁車的甩尾集氣／加速循環為設計參考；未使用原遊戲素材。
 
@@ -16,15 +16,18 @@
 
 五段街機、十五條單段計時／巡航路線、AT / MT、夕陽／霓虹色調均保留。
 
-## V44
+## V45
 
-- 建築由平面 facade 進化成有屋頂面、側牆深度、窗框凹槽、窗台與陽台厚度的立體化街景；左右道路會顯示不同側面，不再像一張紙。
-- 路邊交通車改成 rear + side + roof / trunk 的多面體式視覺，公車、計程車、發財車與機車保留辨識特徵，但不再只畫單一車尾平面。
-- 甩尾改為更快的反打回正；乾淨收尾不再免費自動加速，而是開啟約 0.46 秒 MOMENT BOOST 視窗。玩家需要放油再補油才觸發約 0.36 秒小噴，讓操作節奏更接近經典 KartRider 的 drift boost 邏輯。
-- 甩尾集氣速率提高，仍維持最多兩枚氮氣、N 使用一枚 2.8 秒；氮氣和小噴是兩套不同資源。
-- 修正 ghost collision：交通車一旦離開作者定義的可見交通區、或不在合法道路走廊，就不再參與碰撞；道路邊界撞擊也改成明確的 ROAD EDGE 提示，避免被誤認為撞到隱形車。
-- 保留 V43 的 coastal 水陸分離與高架橋下淨空規則。
-- 新增 `netplay/matchmaker.cjs` 的 Twin Link 1v1 配對核心：同區域／技能／ping 篩選、A/B 雙座位、共享 race seed 與網路更新頻率規格。完整多人傳輸與伺服器物理仍是下一階段，詳見 [V44 Twin Link 網路架構](docs/V44_Netplay_Architecture.md)。
+- **總體驗收碰撞修正**：移除以 segment 編號假設樹／看板存在的隱形撞擊；交通車只有在當幀真的產生可見 `screenBox`、位於合法道路 corridor 且仍在交通可見區內時才能撞玩家。
+- **護欄判定重新分級**：一般路肩只減速；高架硬護欄輕擦只刮碰，只有高速且明顯深入護欄才 crash，避免「旁邊沒車卻突然翻車」。
+- **換檔正式進入物理**：LOW 強低速扭力／185 km/h 上限，HIGH 低速拖、高速延伸／285 km/h 上限；加入換檔斷油、RPM 落差、AT 新升降檔點，以及 MT 甜蜜點換檔回饋。
+- **甩尾／氮氣加速感重做**：更快起甩與反打、集氮提高；MOMENT BOOST 推力增加。氮氣最高速提高至 325 km/h，加入明顯 camera punch、速度線、畫面 ghost、尾焰與震動。
+- **招牌文字嚴格裁切**：新增安全文字 layout；過長文字會縮放／截短／省略，並 clip 在招牌矩形內。分岔路牌、高架路牌、公車 LED 與商店招牌共用安全規則。
+- **美術 renderer 清理**：驗收抓到 8 組同名 draw function 被後宣告版本覆蓋；歷史版本已隔離為 `legacyV40_*`，避免「程式改了但實際畫面被另一個函式蓋掉」。
+- **立體化再進一步**：街屋增加側面窗、樓板、遮雨棚厚度；摩天樓增加側牆／屋頂面；交通車增加側門線、側裙與輪圈；路面加入低對比補丁、tar seam 與反光路釘。
+- V44 的 Twin Link 1v1 配對基礎、coastal 水陸分離與高架橋下淨空規則全部保留。
+
+完整問題清單與修正原則見 [V45 總體驗收紀錄](docs/V45_Acceptance.md)。
 
 `Taipei_Sunset_Drive_V40.html`、`README_V40_TRUE.txt`、`docs/README_V40.md` 和原預覽圖是 **V40 歷史封存**，不是目前遊戲入口。
 
@@ -39,4 +42,4 @@ npx playwright install --with-deps chromium
 npm run test:browser
 ```
 
-V44 將遊戲狀態／幾何／流程檢查擴充到 835 項，另有 8 項 Twin Link 配對核心檢查。覆蓋十五條路線、兩種色調、十六條分岔組合、立體建築／交通車 profile、MOMENT BOOST、ghost collision guard、氮氣、計時和巡航。瀏覽器測試仍會檢查桌機與手機橫豎版操作及 JavaScript 錯誤。
+V45 將遊戲狀態／幾何／流程檢查擴充到 841 項，另保留 8 項 Twin Link 配對核心檢查；瀏覽器測試持續覆蓋桌機、手機直向與手機橫向並收集 JavaScript runtime error。
