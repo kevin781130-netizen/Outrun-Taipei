@@ -1194,6 +1194,18 @@ const V46_CLEAN_ROOM_ART=Object.freeze({
   preserve:'Taipei V45 routes, landmarks, physics, traffic rules and Twin Link',
   visualModel:'layered Taipei vista + local roadside rhythm'
 });
+const V47_CLEAN_ROOM_REFERENCE=Object.freeze({
+  observationOnly:true,sourceCode:false,sourceAssets:false,sourceAudio:false,sourceVehicleModels:false,
+  decompilation:false,instructionMapping:false,directSyntaxTranslation:false,
+  exactHandlingCurveCopy:false,distinctiveModeClone:false,distinctiveRouteUICopy:false,
+  licensedVehicleIdentity:false,independentImplementation:true,
+  preserve:'Taipei routes, landmarks, nitro, gears, visible collision rules and Twin Link'
+});
+const V47_ART=Object.freeze({
+  horizonBand:.505,edgeMassStride:30,foregroundScale:1.18,
+  paletteSource:'Taipei theme only',foreignStageMotifs:false,foreignVehicleIdentity:false
+});
+
 const V46_TAIPEI_ROUTE_GUARD=Object.freeze([
   ['1A','總統府 & 凱達格蘭大道','civic','urban'],
   ['2A','中山北路林蔭道 & 圓山大飯店','yuanshan','mountain'],
@@ -2664,6 +2676,7 @@ function drawRoad(){
 
   if(currentNode.archetype==='expressway')drawElevatedRails(projected);
   drawV46RoadEdgeRhythm(projected);
+  drawV47ForegroundMass(projected);
   drawRoadside(Math.floor(playerZ / SEGMENT_LENGTH), t);
   drawStartingScene(Math.floor(playerZ / SEGMENT_LENGTH));
   drawForkObjects(Math.floor(playerZ / SEGMENT_LENGTH));
@@ -4523,6 +4536,63 @@ function drawV46RoadEdgeRhythm(road=projectedRoad){
   return drawn;
 }
 
+function v47DepthProfile(sc=scene()){
+  const family=v46SceneFamily(sc),sunset=skyMood==='sunset';
+  return {
+    family,
+    haze:sunset?'rgba(255,196,132,.10)':'rgba(168,224,230,.08)',
+    shadow:family==='urban'?'rgba(12,31,40,.22)':family==='expressway'?'rgba(9,29,38,.24)':family==='coastal'?'rgba(25,72,78,.16)':'rgba(28,63,45,.20)',
+    mass:family==='urban'?1.05:family==='expressway'?.92:family==='coastal'?.74:1.12
+  };
+}
+function drawV47CinematicDepth(base,sc=scene()){
+  const p=v47DepthProfile(sc);let drawn=0;ctx.save();
+  const haze=ctx.createLinearGradient(0,base-74,0,base+48);
+  haze.addColorStop(0,'rgba(255,255,255,0)');haze.addColorStop(.55,p.haze);haze.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=haze;ctx.fillRect(0,base-80,W,132);drawn++;
+  ctx.globalAlpha=.72;ctx.fillStyle=p.shadow;
+  for(let i=-1;i<8;i++){
+    const seed=currentNode.seed*131+i*53,x=i*(W/6)-((playerX*11+playerZ*.00004*(i%2?1.4:1))%(W/6));
+    const w=54+v41Hash(seed)*72,h=(26+v41Hash(seed+1)*52)*p.mass;
+    if(p.family==='mountain'){
+      ctx.beginPath();ctx.moveTo(x-w*.7,base+18);ctx.quadraticCurveTo(x,base-h,x+w*.8,base+18);ctx.closePath();ctx.fill();
+    }else{
+      ctx.fillRect(x,base-h,w,h+18);
+      if(p.family==='urban'&&v41Hash(seed+2)>.52)ctx.fillRect(x+w*.22,base-h-10,w*.50,10);
+    }
+    drawn++;
+  }
+  ctx.globalAlpha=1;ctx.restore();return drawn;
+}
+function drawV47ForegroundMass(road=projectedRoad){
+  const family=v46SceneFamily(),start=Math.floor(playerZ/SEGMENT_LENGTH),stride=V47_ART.edgeMassStride;let drawn=0;
+  for(const seg of road){
+    if(seg.index<start+8||seg.index%stride!==currentNode.seed%stride)continue;
+    const b=stripBounds(seg);if(!b||b.near.w<55)continue;
+    for(const side of [-1,1]){
+      const x=b.near.x+side*b.near.w*1.42,y=b.near.y,scale=clamp(b.near.w/210,.25,V47_ART.foregroundScale);
+      if(x<-150||x>W+150||y<0||y>H+40)continue;
+      ctx.save();ctx.translate(x,y);ctx.scale(scale,scale);
+      if(family==='urban'){
+        ctx.fillStyle='#22383f';ctx.fillRect(side<0?-46:-12,-112,58,112);
+        ctx.fillStyle='#7f908a';ctx.fillRect(side<0?-52:-18,-34,70,8);
+        ctx.fillStyle=skyMood==='sunset'?'#f1c97b':'#93d7d2';ctx.globalAlpha=.45;ctx.fillRect(side<0?-38:-4,-92,28,34);
+      }else if(family==='expressway'){
+        ctx.fillStyle='#4f6269';ctx.fillRect(-7,-92,14,92);ctx.fillStyle='#70878d';ctx.fillRect(side<0?-62:0,-86,62,38);
+        ctx.strokeStyle='#9fb0b0';ctx.lineWidth=3;for(let k=8;k<55;k+=15){ctx.beginPath();ctx.moveTo(side<0?-k:k,-83);ctx.lineTo(side<0?-k:k,-51);ctx.stroke();}
+      }else if(family==='coastal'){
+        ctx.fillStyle='#667d79';ctx.fillRect(-4,-58,8,58);ctx.strokeStyle='#d9dfd2';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(0,-48);ctx.lineTo(side*50,-43);ctx.stroke();
+        ctx.fillStyle='#365e5b';ctx.beginPath();ctx.arc(-side*18,-22,18,0,Math.PI*2);ctx.fill();
+      }else{
+        ctx.fillStyle='#244b35';for(let k=0;k<3;k++){ctx.beginPath();ctx.arc(side*k*12,-32-k*24,27-k*4,0,Math.PI*2);ctx.fill();}
+        ctx.fillStyle='#5a3f28';ctx.fillRect(-4,-45,8,45);
+      }
+      ctx.globalAlpha=1;ctx.restore();drawn++;
+    }
+  }
+  return drawn;
+}
+
 function drawIdentitySky(t){
  const sc=scene(),art=v40Art(),sunset=skyMood==='sunset',sky=sunset?art.sky:t.sky;
  const g=ctx.createLinearGradient(0,0,0,H*.60);g.addColorStop(0,sky[0]);g.addColorStop(.60,sky[1]);g.addColorStop(1,sky[2]);ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
@@ -4532,6 +4602,7 @@ function drawIdentitySky(t){
  else {ctx.fillStyle='#f4ffff42';for(let i=0;i<5;i++){const x=((i*237+simulationTime*6)%1180)-110,y=90+i%3*26;ctx.beginPath();ctx.ellipse(x,y,65,10,0,0,Math.PI*2);ctx.fill();}}
  const base=H*.51,mountain=['volcano','lantern','tea','spring','park','cape'].includes(sc.type);
  drawV46ScalerVista(base,sc);
+ drawV47CinematicDepth(base,sc);
  if(mountain){for(let layer=0;layer<3;layer++){ctx.fillStyle=layer===0?art.mountain:art.ground[Math.min(1,layer-1)];ctx.globalAlpha=.30+layer*.17;ctx.beginPath();ctx.moveTo(-40,base+20);for(let x=-40;x<=W+40;x+=32){const scroll=playerX*(12+layer*7)+playerZ*.00007*(layer+1),rugged=['volcano','lantern','tea','cape'].includes(sc.type);const yy=base-12+layer*14-Math.sin((x+scroll+layer*290)*.005)*28-(rugged?Math.abs(Math.sin((x+scroll)*.012+layer))*44:0);ctx.lineTo(x,yy);}ctx.lineTo(W+40,base+55);ctx.lineTo(-40,base+55);ctx.fill();}ctx.globalAlpha=1;}
  else drawCitySilhouette(base,sc);
  // V34's second panorama layer restores the dense illustrated Taipei feeling.
