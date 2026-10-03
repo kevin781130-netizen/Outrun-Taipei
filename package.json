@@ -1,8 +1,8 @@
 {
   "name": "taipei-sunset-drive",
   "private": true,
-  "version": "49.0.0",
-  "description": "Taipei arcade racer with max clean-room art density, assertive independent handling, visible V49 build labeling and zero-tolerance ROM guards",
+  "version": "50.0.0",
+  "description": "Taipei arcade racer with restored drift and nitro response, surface-safe Taipei roadside art, comfort camera, visible V50 build labeling and zero-tolerance ROM guards",
   "scripts": {"test": "node tests/clean-room-compliance.cjs && node tests/regression.cjs", "test:browser": "node tests/browser-smoke.cjs"},
   "devDependencies": {"@napi-rs/canvas": "0.1.100", "playwright": "1.62.1"}
 }
