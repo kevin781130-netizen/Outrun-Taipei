@@ -28,6 +28,8 @@ const {scenarios}=require('./scenarios.cjs');
    const context=await browser.newContext({viewport,hasTouch:name!=='desktop',isMobile:name!=='desktop'});
    const live=await context.newPage();live.on('pageerror',error=>errors.push(error.message));
    await live.goto(url);
+   assert.equal(await live.locator('#build-version').isVisible(),true,`${name} build version visible`);
+   assert.match(await live.locator('#build-version').textContent(),/V49\.0/,`${name} correct V49 build label`);
    await live.locator('#start-btn').click();
    assert.equal(await live.locator('#radio-actions').isVisible(),true);
    await live.locator('#radio-next').click();
