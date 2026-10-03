@@ -552,12 +552,12 @@ body{background:radial-gradient(ellipse at 50% 20%,#152a41,#050c14 65%);}
     <div class="car-selector">
       <label for="car-select">CAR</label>
       <select id="car-select">
-        <option value="testarossa">TS-86 經典紅敞篷 (Classic Red GT)</option>
+        <option value="red_roadster">TS-86 經典紅敞篷 (Classic Red GT)</option>
         <option value="taxi_rush">TAIPEI TAXI 疾速小黃特別版</option>
         <option value="black_gt">大度路傳奇 MIDNIGHT GT (Black Devil)</option>
-        <option value="cygnus_moto">山道之王 STREET-125 機車</option>
-        <option value="blue_veryca">藍色 BOX-80 小貨車</option>
-        <option value="porsche_911">東區銀箭 GT-92 S (German Classic)</option>
+        <option value="street_moto">山道之王 STREET-125 機車</option>
+        <option value="blue_box_truck">藍色 BOX-80 小貨車</option>
+        <option value="silver_gt">東區銀箭 GT-92 S (German Classic)</option>
       </select>
       <label style="margin-left:8px"><input type="checkbox" id="auto-gear-check"> 自動換檔</label>
     </div>
@@ -1315,22 +1315,22 @@ const TRAFFIC_TYPES = {
   blue_truck:{ name:'藍色小發財車 (BOX-80)', w:74, h:48, speedMin:130, speedMax:155, colors:['#1e66d0'], blueTruck:true },
   bus:       { name:'台北市區雙門公車', w:115, h:76, speedMin:125, speedMax:148, colors:['#1b6842','#0c4a8a'], bus:true },
   scooter:   { name:'街道速克達', w:46, h:44, speedMin:145, speedMax:175, colors:['#ff244f','#ffffff','#00e5ff'], scooter:true },
-  porsche:   { name:'經典跑車 GT-92', w:82, h:38, speedMin:195, speedMax:235, colors:['#ffffff','#20242c','#e61e2b'], wing:true },
-  corvette:  { name:'美式經典跑車 V8 COUPE', w:82, h:38, speedMin:190, speedMax:228, colors:['#0090ea','#ffffff','#ff244f'], wing:true },
-  beetle:    { name:'復古金龜車 RETRO COMPACT', w:74, h:46, speedMin:140, speedMax:172, colors:['#e88ea1','#7fd1c1','#f2c14e'] }
+  euro_gt:   { name:'經典跑車 GT-92', w:82, h:38, speedMin:195, speedMax:235, colors:['#ffffff','#20242c','#e61e2b'], wing:true },
+  v8_coupe:  { name:'美式經典跑車 V8 COUPE', w:82, h:38, speedMin:190, speedMax:228, colors:['#0090ea','#ffffff','#ff244f'], wing:true },
+  retro_compact:    { name:'復古金龜車 RETRO COMPACT', w:74, h:46, speedMin:140, speedMax:172, colors:['#e88ea1','#7fd1c1','#f2c14e'] }
 };
 
 
 const CAR_PROFILES = {
-  testarossa: { name:'TS-86 經典紅敞篷', baseHp:660, maxSpeed:293, lowMax:193, accel:58, turn:1.02, drift:1.0, color:'#e61e2b', accent:'#fff' },
+  red_roadster: { name:'TS-86 經典紅敞篷', baseHp:660, maxSpeed:293, lowMax:193, accel:58, turn:1.02, drift:1.0, color:'#e61e2b', accent:'#fff' },
   taxi_rush:  { name:'TAIPEI TAXI 疾速小黃', baseHp:680, maxSpeed:290, lowMax:192, accel:65, turn:1.15, drift:0.95, color:'#ffd200', accent:'#000' },
   black_gt:   { name:'大度路傳奇 MIDNIGHT GT', baseHp:800, maxSpeed:298, lowMax:195, accel:62, turn:1.04, drift:1.25, color:'#181c24', accent:'#ff2d75' },
-  cygnus_moto:{ name:'山道之王 STREET-125 機車', isBike:true, baseHp:600, maxSpeed:275, lowMax:180, accel:78, turn:1.35, drift:1.30, color:'#00e5ff', accent:'#ffd200' },
-  blue_veryca:{ name:'藍色 BOX-80 小貨車', isTruck:true, baseHp:640, maxSpeed:280, lowMax:175, accel:72, turn:0.95, drift:0.90, color:'#1e66d0', accent:'#fff' },
-  porsche_911:{ name:'東區銀箭 GT-92', baseHp:740, maxSpeed:305, lowMax:200, accel:64, turn:1.08, drift:1.15, color:'#f0f4f8', accent:'#e61e2b' }
+  street_moto:{ name:'山道之王 STREET-125 機車', isBike:true, baseHp:600, maxSpeed:275, lowMax:180, accel:78, turn:1.35, drift:1.30, color:'#00e5ff', accent:'#ffd200' },
+  blue_box_truck:{ name:'藍色 BOX-80 小貨車', isTruck:true, baseHp:640, maxSpeed:280, lowMax:175, accel:72, turn:0.95, drift:0.90, color:'#1e66d0', accent:'#fff' },
+  silver_gt:{ name:'東區銀箭 GT-92', baseHp:740, maxSpeed:305, lowMax:200, accel:64, turn:1.08, drift:1.15, color:'#f0f4f8', accent:'#e61e2b' }
 };
 
-let currentCar = CAR_PROFILES.testarossa;
+let currentCar = CAR_PROFILES.red_roadster;
 let currentGear='LOW';
 let driveGear='D',motionDirection=1,reverseWindow=0,nitroLatch=false,gearDWasHeld=false,gearRWasHeld=false,gearInputEvents=[],reverseInputTime=0;
 let rpm = 800;
@@ -3340,7 +3340,7 @@ function buildVehicleMesh(){
   for(const sg of [-1,1]){box(sg<0?-72:65,sg<0?-65:72,53,69,-96,33,body,'bed-rail');for(let z=-83;z<28;z+=23)side(sg,z,z+3,55,67,73,'#a5c7d4','bed-rib');}
   box(-38,5,55,82,-63,-25,'#b68755','cargo');box(10,47,55,73,-21,16,'#cba170','cargo');
  }else{
-  const open=selectedCarId==='testarossa',roof=selectedCarId==='porsche_911'?79:77;
+  const open=selectedCarId==='red_roadster',roof=selectedCarId==='silver_gt'?79:77;
   add([[-65,44,-62],[65,44,-62],[56,roof,-25],[-56,roof,-25]],open?'#344653':glass,'rear-window');
   if(open){
    box(-56,56,43,46,-32,42,'#182d38','cockpit');for(const x of [-28,28])box(x-17,x+17,44,59,-29,5,x<0?'#a76e52':'#c39364','seat');
@@ -4900,7 +4900,7 @@ menuCar.innerHTML=carSelect.innerHTML;menuCar.value=selectedCarId;
 transmissionSelect.value=autoGear?'AT':'MT';autoGearCheck.checked=autoGear;
 function selectCarSkin(id){
  if(gameStarted&&!gameOver)return;
- profilesV39[selectedCarId]=sanitizeTuning(wanganTuning);selectedCarId=CAR_PROFILES[id]?id:'testarossa';
+ profilesV39[selectedCarId]=sanitizeTuning(wanganTuning);selectedCarId=CAR_PROFILES[id]?id:'red_roadster';
  carSelect.value=selectedCarId;menuCar.value=selectedCarId;
  wanganTuning=sanitizeTuning(profilesV39[selectedCarId]||{...defaultTuning,paint:CAR_PROFILES[selectedCarId].color});applyCarTuning();persistV39();updateModeUI();
 }
