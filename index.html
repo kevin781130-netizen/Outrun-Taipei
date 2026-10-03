@@ -1184,13 +1184,31 @@ const STAGES = [
   ],
   // Stage 5 (五大終點：西北淡水漁人碼頭、正北富貴角燈塔、東北九份阿妹茶樓、東區台北101天際、正南貓空百萬夜景)
   [
-    { id:'5A', name:'GOAL A • 淡水漁人碼頭 & 淡江大橋', eng:'TAMSUI FISHERMAN WHARF & DANJIANG', theme:'danjiang', archetype:'coastal', difficulty:1.4, traffic:26, hills:220, curves:[0, 0.7, -0.9, 1.1, -0.5, 0], seed:51, goal:'A', ceremony:'淡水漁人碼頭夕陽授獎盛典', desc:'跨越淡江大橋抵達情人橋水岸！淡水河夕陽與遊艇鳴笛中，榮耀舉起極速大獎盃！', landmark:'lovers_bridge' },
+    { id:'5A', name:'GOAL A • 淡水漁人碼頭 & 淡江大橋', eng:'TAMSUI FISHERMAN WHARF & DANJIANG', theme:'danjiang', archetype:'coastal', difficulty:1.4, traffic:26, hills:220, curves:[0, 0.7, -0.9, 1.1, -0.5, 0], seed:51, goal:'A', ceremony:'淡水漁人碼頭夕陽授獎盛典', desc:'沿淡水端迎著淡江大橋遠景抵達情人橋水岸！淡水河夕陽與遊艇鳴笛中，榮耀舉起極速大獎盃！', landmark:'lovers_bridge' },
     { id:'5B', name:'GOAL B • 富貴角燈塔（台灣最北端）', eng:'FUGUI CAPE LIGHTHOUSE (NORTH)', theme:'jinguashi', archetype:'coastal', difficulty:1.52, traffic:28, hills:340, curves:[0, 1.4, -1.6, 1.8, -1.3, 0], seed:52, goal:'B', ceremony:'富貴角極北之巔授獎盛典', desc:'沿北海岸一路向北征服台灣最北岬角！黑白八角燈塔下迎風破浪，金黃海波中登頂！', landmark:'fugui_lighthouse' },
     { id:'5C', name:'GOAL C • 九份黃金山城 & 阿妹茶樓', eng:'JIUFEN GOLDEN MOUNTAIN GALA', theme:'jiufen', archetype:'mountain', difficulty:1.65, traffic:30, hills:540, curves:[0, -2.0, 2.2, -2.2, 1.8, 0], seed:53, goal:'C', ceremony:'九份紅燈籠茶坊奇幻之夜', desc:'穿過山海公路抵達山城之巔！阿妹茶樓千盞紅燈籠映照石階，遠眺太平洋漁火！', landmark:'jiufen_lanterns' },
     { id:'5D', name:'GOAL D • 台北101天際之巔（跨年煙火）', eng:'TAIPEI 101 SKYLINE SUMMIT', theme:'xinyi', archetype:'urban', difficulty:1.78, traffic:32, hills:300, curves:[0, 2.6, -2.7, 2.8, -2.3, 0], seed:54, goal:'D', ceremony:'台北101天際之巔煙火盛會', desc:'抵達台北101正下方！竹節造型地標全棟綻放跨年級璀璨大樓煙火，車神登頂！', landmark:'taipei101' },
     { id:'5E', name:'GOAL E • 貓空纜車茶園 & 台北百萬夜景', eng:'MAOKONG GONDOLA & TEA GARDEN', theme:'maokong', archetype:'mountain', difficulty:1.9, traffic:34, hills:490, curves:[0, -3.0, 2.8, -3.1, 2.7, 0], seed:55, goal:'E', ceremony:'貓空茶香百萬星空落幕', desc:'穿越信義快速道路直上木柵！貓空纜車劃過星空，在鐵觀音茶園木棧台俯瞰台北盆地萬家燈火！', landmark:'maokong_gondola' }
   ]
 ];
+const ROUTE_REALITY=Object.freeze({
+ '1A':{grade:'real-anchor',note:'凱達格蘭大道／總統府／景福門為同一核心街區；賽道距離為街機壓縮。'},
+ '2A':{grade:'real-corridor',note:'中山北路北向至圓山／劍潭周邊；圓山大飯店作山側視覺錨點。'},
+ '2B':{grade:'real-corridor',note:'市民大道高架與光華商圈屬同一東西向市中心走廊；道路幾何為遊戲化。'},
+ '3A':{grade:'compressed-link',note:'北投地熱谷與關渡水岸皆屬北投區，但不是同一條直連道路；遊戲以壓縮轉場串聯。'},
+ '3B':{grade:'compressed-link',note:'大直美麗華與故宮位於台北北側相鄰生活圈；實際道路距離被大幅壓縮。'},
+ '3C':{grade:'real-anchor',note:'臺北大巨蛋與松山文創園區實際相鄰；遊戲只壓縮周邊道路尺度。'},
+ '4A':{grade:'real-corridor',note:'淡水老街／金色水岸／紅毛城同屬淡水河岸觀光帶；路段為可辨識場景的街機重組。'},
+ '4B':{grade:'compressed-link',note:'小油坑與擎天崗皆在陽明山區，但不是單一路段直連；以山區轉場壓縮。'},
+ '4C':{grade:'compressed-link',note:'內湖科技園區與饒河街分居基隆河兩側；彩虹橋只作視覺地標，遊戲不把人行橋當汽車道路。'},
+ '4D':{grade:'real-anchor',note:'四四南村、台北101與信義商圈位於同一信義核心區；街道排列為遊戲化。'},
+ '5A':{grade:'real-corridor',note:'漁人碼頭／情人橋在淡水端；淡江大橋已通車但在本關主要作河口地標與遠景，不假裝直接穿越後抵達碼頭。'},
+ '5B':{grade:'real-anchor',note:'富貴角燈塔位於台灣極北點的富貴角；北海岸公路只作壓縮式抵達。'},
+ '5C':{grade:'real-anchor',note:'九份山城與阿妹茶樓位於瑞芳九份；山路與石階聚落以車行可讀方式重組。'},
+ '5D':{grade:'real-anchor',note:'台北101位於信義核心；終點街景使用周邊道路尺度重組，不代表實際封路賽道。'},
+ '5E':{grade:'compressed-link',note:'貓空纜車終點與茶園／茶館同屬貓空；纜車只作空中視覺地標，不是可駕駛路線。'}
+});
+function routeReality(id=currentNode.id){return ROUTE_REALITY[id]||{grade:'compressed-link',note:'台北實景錨點＋街機壓縮路線'};}
 
 const V46_CLEAN_ROOM_ART=Object.freeze({
   reference:'observable-composition-only',
@@ -2732,8 +2750,7 @@ function drawRoad(){
   drawV49RoadLightRhythm(projected);
   if(currentNode.archetype==='expressway')drawElevatedRails(projected);
   drawV46RoadEdgeRhythm(projected);
-  drawV47ForegroundMass(projected);
-  drawV48ForegroundSetpieces(projected);
+  // V51: retire older overlapping foreground-building passes; one clipped surface-aware layer owns near-road architecture.
   drawV50SafeRoadsideDepth(projected);
   drawRoadside(Math.floor(playerZ / SEGMENT_LENGTH), t);
   drawStartingScene(Math.floor(playerZ / SEGMENT_LENGTH));
@@ -3948,9 +3965,9 @@ function drawBelowDeckDistrict(){
     if(i%16!==0||!canPlaceBelowDeckDistrict(i))continue;const seg=segments[i],p=seg.p1.screen;
     if(!p.scale||seg.p1.camera.z<=0)continue;
     const yy=p.y+deckElevation(i)*p.scale*H/2;
-    ctx.save();ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();
+    ctx.save();ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();clipNearRoad(i);
     for(const side of [-1,1]){
-      const xx=p.x+side*p.w*2.5,scale=p.scale*5400;
+      const xx=p.x+side*p.w*(roadEnvelope(i)+1.15),scale=Math.min(.92,p.scale*4300);
       drawV42TaipeiBlock(xx,yy,scale,i+7,3);
     }ctx.restore();
   }
@@ -5168,9 +5185,9 @@ function renderAtlas(){
   atlasSVG.innerHTML=`<defs><pattern id="grid" width="26" height="26" patternUnits="userSpaceOnUse"><path d="M26 0H0V26" fill="none" stroke="#193548" stroke-width=".6"/></pattern></defs><rect width="520" height="440" fill="url(#grid)"/><path d="M0 0H520V115Q430 92 340 93T75 80L0 120Z" fill="#113650"/><path d="M64 95 Q100 130 139 193 T184 255 Q177 298 143 348" stroke="#205675" fill="none" stroke-width="17"/><path d="M180 252 Q230 275 306 270T445 245" stroke="#205675" fill="none" stroke-width="10"/><path d="M177 116L244 95 300 128 317 175 266 185 202 170Z" fill="#143b37"/><path d="M307 390L337 350 429 390 478 440H325Z" fill="#143b37"/><text x="20" y="40" fill="#6ca3bd" font-size="14">北海岸</text><text x="16" y="215" fill="#5b94ad" font-size="12">淡水河</text><text x="187" y="375" fill="#598396" font-size="12">台北市區</text><text x="424" y="132" fill="#598396" font-size="12">新北山城</text><path d="M481 52V22M473 31L481 22 489 31" stroke="#ffe087" fill="none" stroke-width="2"/><text x="477" y="68" fill="#ffe087" font-size="12">N</text>`;
   for(const p of atlasPoints){const r=routeForId(p.id),selected=r.level===selectedRoute.level&&r.column===selectedRoute.column,current=currentNode.id===p.id&&gameStarted&&!gameOver;atlasSVG.innerHTML+=`<g data-route="${p.id}" tabindex="0" role="button" aria-label="${p.name}"><circle cx="${p.x}" cy="${p.y}" r="${selected?9:6}" fill="${selected?'#ffda66':current?'#00e5ff':'#87bbd0'}"/><text x="${p.x}" y="${p.y-13}" text-anchor="middle" fill="${selected?'#ffda66':'#cee2ec'}" font-size="11" font-family="sans-serif">${p.name}</text></g>`;}
   const list=document.getElementById('atlas-routes');list.innerHTML='';
-  for(let l=0;l<5;l++)for(let c=0;c<=l;c++){const n=STAGES[l][c],button=document.createElement('button');button.className='route-pick'+(l===selectedRoute.level&&c===selectedRoute.column?' selected':'');button.dataset.route=n.id;button.innerHTML=`<strong>${n.id} · ${n.name.replace(/GOAL [A-E] • /,'')}</strong><small>${{urban:'市區',mountain:'山道',coastal:'水岸',expressway:'高架'}[n.archetype]} · 難度 ${n.difficulty.toFixed(1)} · ${(soloLength(l,c)/1000).toFixed(1)} 遊戲 km · 紀錄 ${bestTimes[bestRecordKey(n.id)]?.toFixed(2)||'—'} s</small>`;button.addEventListener('click',()=>selectAtlasRoute(n.id));list.appendChild(button);}
+  for(let l=0;l<5;l++)for(let c=0;c<=l;c++){const n=STAGES[l][c],button=document.createElement('button');button.className='route-pick'+(l===selectedRoute.level&&c===selectedRoute.column?' selected':'');button.dataset.route=n.id;button.innerHTML=`<strong>${n.id} · ${n.name.replace(/GOAL [A-E] • /,'')}</strong><small>${{urban:'市區',mountain:'山道',coastal:'水岸',expressway:'高架'}[n.archetype]} · ${ROUTE_REALITY[n.id].grade==='real-anchor'?'實景核心':'實景錨點／街機壓縮'} · 難度 ${n.difficulty.toFixed(1)} · ${(soloLength(l,c)/1000).toFixed(1)} 遊戲 km</small><small>${ROUTE_REALITY[n.id].note}</small>`;button.addEventListener('click',()=>selectAtlasRoute(n.id));list.appendChild(button);}
   atlasSVG.querySelectorAll('[data-route]').forEach(g=>{g.addEventListener('click',()=>selectAtlasRoute(g.dataset.route));g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectAtlasRoute(g.dataset.route);}});});
-  document.getElementById('atlas-note').textContent=v34Mode==='arcade'?'街機由總統府起跑；單段模式可選路段。商店與企業招牌採虛構名稱及圖樣，並非真實企業授權場景。':'十五段台北街機路線；企業招牌為虛構趣味名稱，未表示合作或授權。地圖比例與連接經過壓縮。';
+  document.getElementById('atlas-note').textContent='V51 地理稽核：15 段皆以真實台北／新北地標定位；跨區連接、道路長度與分岔為街機壓縮，不作導航。彩虹橋／貓空纜車等非汽車設施只作視覺地標。';
   document.getElementById('atlas-drive').disabled=gameStarted&&!gameOver&&v34Mode!=='cruise';
   document.getElementById('atlas-drive').textContent=gameStarted&&!gameOver&&v34Mode!=='cruise'?'比賽中，結束後可換路段':v34Mode==='sprint'?'選此路段 → 單段計時':'選此路段 → 自由巡航';
 }
@@ -5266,7 +5283,7 @@ function updateV39HUD(){
  gearBadge.classList.toggle('high',driveGear==='D'&&currentGear==='HIGH');
  const sc=scene(),state={grip:'GRIP 循跡',brake:'BRAKE 重心前移',armed:'READY 點煞・切彎',entry:'TURN IN 入彎',drift:'DRIFT 補油控線',recover:'EXIT 反打收尾'}[driftState];
  document.getElementById('street-name').textContent=`${currentNode.id} / ${sc.label}`;
- document.getElementById('street-detail').textContent=`${currentNode.id==='2B'?'高架橋面 · ':''}${sc.lanes} 線道 · 路寬 ${Math.round(sc.width*100)}% · ${autoGear?'AT 自排':'MT 手排'} · 競技同規格`;
+ document.getElementById('street-detail').textContent=`${currentNode.id==='2B'?'高架橋面 · ':''}${sc.lanes} 線道 · ${routeReality().grade==='real-anchor'?'實景核心':'實景錨點＋街機壓縮'} · ${autoGear?'AT 自排':'MT 手排'}`;
  hudStage.textContent=sc.label;document.getElementById('drive-state').textContent=driveGear==='R'?'R 倒退 · A 回前進':boosting&&isDrifting?`BOOST DRIFT · 集氣 ${Math.round(nitro)}%`:boosting?`NITRO 300 · ${boostRemaining.toFixed(1)} 秒 · 庫存 ${nitroStock}`:roadGrip<.8?'OFF ROAD 回到路面':state;
  const brake=inputHeld('ArrowDown')||inputHeld('KeyS')||gamepadInput.brake||helperPulse>0;
  const gas=(inputHeld('ArrowUp')||inputHeld('KeyW')||gamepadInput.gas||nitroLatch)&&!brake;
