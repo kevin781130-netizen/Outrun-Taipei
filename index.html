@@ -3000,8 +3000,7 @@ function drawSegaBillboard(x, y, s, text){
   ctx.fillStyle = '#222b3d'; ctx.fillRect(-3, -45, 6, 45);
   ctx.fillStyle = '#0054a6'; ctx.fillRect(-42, -75, 84, 30);
   ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.strokeRect(-42, -75, 84, 30);
-  ctx.fillStyle = '#ffffff'; ctx.font = '900 14px "Arial Black",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(text, 0, -60);
+  v40FitSignText(text,-38,-72,76,24,14,'#ffffff');
   ctx.restore();
 }
 
@@ -3019,8 +3018,7 @@ function drawCheckpointGate(p, label='CHECK POINT'){
     }
   }
   ctx.fillStyle = '#0a1d33'; ctx.fillRect(p.x - width * 0.32, top + barH * 0.15, width * 0.64, barH * 0.7);
-  ctx.fillStyle = '#ffd200'; ctx.font = `900 ${barH * 0.42}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(label, p.x, top + barH * 0.5);
+  v40FitSignText(label,p.x-width*.30,top+barH*.20,width*.60,barH*.60,barH*.42,'#ffd200');
   ctx.restore();
 }
 
