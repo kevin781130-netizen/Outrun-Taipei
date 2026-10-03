@@ -1,4 +1,4 @@
-# Taipei Sunset Drive V43 — OutRunners Taipei
+# Taipei Sunset Drive V44 — OutRunners Taipei
 
 原創台北街機公路遊戲。以 OutRunners 的公路節奏與場景層次、NEXON 跑跑卡丁車的甩尾集氣／加速循環為設計參考；未使用原遊戲素材。
 
@@ -16,13 +16,15 @@
 
 五段街機、十五條單段計時／巡航路線、AT / MT、夕陽／霓虹色調均保留。
 
-## V43
+## V44
 
-- 水岸場景加入明確的 land / water 表面分類：一般街屋、樹木、岩壁只在陸側生成；水側改成船艇、浮標等水上物件，連富貴角路段也不再把陸上景物畫進海裡。
-- 市民與環東高架加入橋下淨空門檻；坡道高度不足時不生成橋下街區，避免建築穿進橋面。橋面、護欄、遮擋仍共用同一組道路幾何。
-- 甩尾儲氮維持最多兩枚、N 釋放 2.8 秒；乾淨收尾新增短暫 CLEAN EXIT 推進與尾焰，讓「甩尾集氣 → 出彎 → 氮氣」循環更連續。
-- 近處道路繼續遮住遠處建築與橋下物件；交通車與街景依距離共同排序，並保留高速／倒車 swept collision 與道路邊界限制。
-- 街屋、海面、水側小艇／浮標、高架橋下空間與 HUD 版本標示同步更新。
+- 建築由平面 facade 進化成有屋頂面、側牆深度、窗框凹槽、窗台與陽台厚度的立體化街景；左右道路會顯示不同側面，不再像一張紙。
+- 路邊交通車改成 rear + side + roof / trunk 的多面體式視覺，公車、計程車、發財車與機車保留辨識特徵，但不再只畫單一車尾平面。
+- 甩尾改為更快的反打回正；乾淨收尾不再免費自動加速，而是開啟約 0.46 秒 MOMENT BOOST 視窗。玩家需要放油再補油才觸發約 0.36 秒小噴，讓操作節奏更接近經典 KartRider 的 drift boost 邏輯。
+- 甩尾集氣速率提高，仍維持最多兩枚氮氣、N 使用一枚 2.8 秒；氮氣和小噴是兩套不同資源。
+- 修正 ghost collision：交通車一旦離開作者定義的可見交通區、或不在合法道路走廊，就不再參與碰撞；道路邊界撞擊也改成明確的 ROAD EDGE 提示，避免被誤認為撞到隱形車。
+- 保留 V43 的 coastal 水陸分離與高架橋下淨空規則。
+- 新增 `netplay/matchmaker.cjs` 的 Twin Link 1v1 配對核心：同區域／技能／ping 篩選、A/B 雙座位、共享 race seed 與網路更新頻率規格。完整多人傳輸與伺服器物理仍是下一階段，詳見 [V44 Twin Link 網路架構](docs/V44_Netplay_Architecture.md)。
 
 `Taipei_Sunset_Drive_V40.html`、`README_V40_TRUE.txt`、`docs/README_V40.md` 和原預覽圖是 **V40 歷史封存**，不是目前遊戲入口。
 
@@ -37,4 +39,4 @@ npx playwright install --with-deps chromium
 npm run test:browser
 ```
 
-829 項狀態／幾何／流程檢查覆蓋十五條路線、兩種色調、街機／單段道路、十六條分岔組合、coastal 水陸分離、高架淨空、甩尾氮氣、碰撞、計時和巡航。瀏覽器測試另檢查桌機與手機橫豎版的操作及 JavaScript 錯誤。詳見 [V43 驗證紀錄](docs/V43_Verification.md)。
+V44 將遊戲狀態／幾何／流程檢查擴充到 835 項，另有 8 項 Twin Link 配對核心檢查。覆蓋十五條路線、兩種色調、十六條分岔組合、立體建築／交通車 profile、MOMENT BOOST、ghost collision guard、氮氣、計時和巡航。瀏覽器測試仍會檢查桌機與手機橫豎版操作及 JavaScript 錯誤。
