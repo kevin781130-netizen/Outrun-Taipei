@@ -1,4 +1,4 @@
-# Taipei Sunset Drive V48
+# Taipei Sunset Drive V49
 
 原創台北街機公路遊戲。採用 1990 年代大型機公路賽車常見的高速景深構圖，以及現代甩尾集氣／加速循環；所有程式、美術與音效均採獨立實作。
 
@@ -15,6 +15,19 @@
 - 手把 X 起甩、Y 氮氣、RT 油門、LT 煞車；Start 出發／暫停／繼續。
 
 五段街機、十五條單段計時／巡航路線、AT / MT、夕陽／霓虹色調均保留。
+
+## V49
+
+- **Clean-Room Max Art Pass**：更積極使用可普遍描述的 3D arcade racing 構圖原則，但所有 code、數值、場景、色彩、車輛、聲音與 UI 仍為獨立實作。
+- **操控再放大**：加速度提高、低中速 steering response 更快、高速 authority 更高；收油抓地、煞車旋轉、turn-in bite 與 DRIFT49 起滑／反打／回正都比 V48 更明顯。
+- **台北空氣層**：北投蒸氣、淡水／漁人碼頭水氣、信義／內湖夜色光柱、陽明山／貓空薄霧皆由台北 stage identity 原創生成。
+- **道路光影密度**：新增 road-light rhythm、近景大型遮擋與更早出現的 acceleration rush；全部沿用 projected Taipei road，不建立新 collider。
+- **鏡頭速度感**：speed / road curve / steer / drift angle / chassis pitch 一起影響 presentation，FOV 與 lateral look 比 V48 更有感。
+- **測試版本可視化**：遊戲下方固定顯示 `CURRENT TEST BUILD · V49.0`，桌機與手機 browser smoke 都會驗證版本文字存在。
+- **三條紅線不變**：禁止 1:1 syntax/control-flow translation；禁止 ROM/disc/archive/asset dump；禁止特定專利／標誌性機制、route UI、licensed vehicle identity。
+- 15 條台北／新北 route、地標、LOW/HIGH、325 km/h nitro、MOMENT BOOST、visible-only collision 與 Twin Link 全部保留。
+
+完整規範見 [V49 Clean-Room Max Art Pass](docs/V49_Clean_Room_Max_Art.md)。
 
 ## V48
 
