@@ -4215,9 +4215,11 @@ function stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
    driftState=driftAge<DRIFT51.entryRamp?'entry':'drift';
    const into=Math.max(0,steer*driftDirection);
    const entryEase=clamp(driftAge/DRIFT51.entryRamp,0,1);
+   const curveDemand=clamp(Math.abs(curve)/1.8,0,1);
    const curveAssist=Math.sign(curve)===driftDirection?Math.min(Math.abs(curve),1.8)*DRIFT51.curveYaw:0;
-   const yawFull=DRIFT51.baseYaw+into*DRIFT51.steerYaw+ratio*DRIFT51.speedYaw+curveAssist;
-   const slipFull=DRIFT51.baseSlip+into*DRIFT51.steerSlip;
+   const steerYawGain=lerp(.52,1,curveDemand),slipGain=lerp(.62,1,curveDemand);
+   const yawFull=DRIFT51.baseYaw+into*DRIFT51.steerYaw*steerYawGain+ratio*DRIFT51.speedYaw*(.78+.22*curveDemand)+curveAssist;
+   const slipFull=DRIFT51.baseSlip+into*DRIFT51.steerSlip*slipGain;
    const yawTrim=counter?DRIFT51.counterYawTrim:neutral?.78:1;
    const slipTrim=counter?DRIFT51.counterSlipTrim:neutral?.78:1;
    targetYaw=driftDirection*yawFull*entryEase*yawTrim;
