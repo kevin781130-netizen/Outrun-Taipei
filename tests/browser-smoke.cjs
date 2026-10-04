@@ -83,7 +83,7 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
    assert.equal(await live.locator('#twin-link-modal').isVisible(),true,`${name} Twin Link modal visible`);
    await live.locator('#twin-link-close').click();
    assert.equal(await live.locator('#build-version').isVisible(),true,`${name} build version visible`);
-   assert.match(await live.locator('#build-version').textContent(),/V51\.1/,`${name} correct V51.1 build label`);
+   assert.match(await live.locator('#build-version').textContent(),/V52\.0/,`${name} correct V52.0 build label`);
    await live.locator('#start-btn').click();
    assert.equal(await live.locator('#radio-actions').isVisible(),true);
    await live.locator('#radio-next').click();
