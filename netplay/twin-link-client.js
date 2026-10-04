@@ -112,6 +112,7 @@ function prepareStart(payload,seat,peer){
   if(!B.prepareRace({roomId:state.room,seat:state.role,startAt:state.startAt,routeId:state.routeId,seed:state.seed})){
     setStatus('目前賽事狀態無法切入 Twin Link；請回主選單再建立房間。');return;
   }
+  closeModal();
   setStatus(`${state.role} 座已連線 · ${state.routeId} · 約 ${Math.max(0,(state.startAt-Date.now())/1000).toFixed(1)} 秒後同步起跑`);
   hud.classList.add('show');startTimers();
 }
