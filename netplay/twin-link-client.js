@@ -100,16 +100,18 @@ function connectSocket(resume=false){
   if(socket&&socket.readyState===WebSocket.OPEN)return Promise.resolve(true);
   return new Promise((resolve,reject)=>{
     intentionalClose=false;
-    const ws=new WebSocket(url);socket=ws;
-    const timer=setTimeout(()=>{try{ws.close();}catch(e){}reject(new Error('connection timeout'));},5000);
+    const ws=new WebSocket(url);socket=ws;let settled=false;
+    const fail=message=>{if(settled)return;settled=true;clearTimeout(timer);reject(new Error(message));};
+    const timer=setTimeout(()=>{try{ws.close();}catch(e){}fail('connection timeout');},5000);
     ws.addEventListener('open',()=>{
-      clearTimeout(timer);reconnectAttempt=0;state.reconnecting=false;
+      if(settled)return;settled=true;clearTimeout(timer);reconnectAttempt=0;state.reconnecting=false;
       if(resume&&state.room&&state.resumeToken)send('RESUME',{seat:state.role,token:state.resumeToken});
       resolve(true);
     },{once:true});
     ws.addEventListener('message',event=>{let msg;try{msg=JSON.parse(event.data);}catch{return;}handleMessage(msg,true);});
-    ws.addEventListener('error',()=>{clearTimeout(timer);});
+    ws.addEventListener('error',()=>fail('connection error'),{once:true});
     ws.addEventListener('close',()=>{
+      if(!settled)fail('connection closed');
       clearTimeout(timer);if(socket===ws)socket=null;
       if(!intentionalClose&&state.transport==='ws'&&state.room&&state.resumeToken)scheduleReconnect();
     });
