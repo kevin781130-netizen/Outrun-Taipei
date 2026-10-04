@@ -4,7 +4,6 @@ const P=window.TwinLinkProtocol,B=window.TwinLinkBridge;
 if(!P||!B)return;
 
 const CHANNEL_NAME='taipei-twin-link-v1';
-const PLAYER_KEY='taipeiTwinPlayerV1';
 const state={
   room:'',role:'',peerId:'',matched:false,startAt:0,routeId:'',seed:0,
   localFinish:null,remoteFinish:null,lastRemote:null,lastStateAt:0
@@ -12,12 +11,7 @@ const state={
 let channel=null;
 let heartbeat=null;
 let snapshotTimer=null;
-let playerId='';
-try{playerId=sessionStorage.getItem(PLAYER_KEY)||'';}catch(e){}
-if(!playerId){
-  playerId='P-'+Math.random().toString(36).slice(2,9).toUpperCase();
-  try{sessionStorage.setItem(PLAYER_KEY,playerId);}catch(e){}
-}
+const playerId='P-'+Math.random().toString(36).slice(2,9).toUpperCase();
 
 const style=document.createElement('style');
 style.textContent=`
