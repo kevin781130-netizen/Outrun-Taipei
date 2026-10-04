@@ -86,6 +86,8 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
   await twinB.waitForFunction(()=>document.querySelector('#twin-link-hud')?.classList.contains('show'));
   assert.match(await twinA.locator('#twin-link-hud-text').textContent(),/TWIN A/,'host receives A seat');
   assert.match(await twinB.locator('#twin-link-hud-text').textContent(),/TWIN B/,'guest receives B seat');
+  assert.equal(await twinA.locator('#twin-link-modal').isVisible(),false,'host lobby closes after pairing');
+  assert.equal(await twinB.locator('#twin-link-modal').isVisible(),false,'guest lobby closes after pairing');
   await twinContext.close();
 
   // Real DOM keyboard, pointers, pause and menus, without the injected test bridge.
