@@ -11,7 +11,7 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
   const pathname=new URL(req.url,'http://127.0.0.1').pathname;
   if(pathname==='/netplay/twin-link-protocol.js'||pathname==='/netplay/twin-link-client.js'){
     res.setHeader('Content-Type','application/javascript; charset=utf-8');
-    return res.end(fs.readFileSync(path.join(__dirname,'..',pathname.replace(/^\\//,'')),'utf8'));
+    return res.end(fs.readFileSync(path.join(__dirname,'..',pathname.slice(1)),'utf8'));
   }
   res.setHeader('Content-Type','text/html; charset=utf-8');
   res.end(pathname.startsWith('/audit')?injected:source);
