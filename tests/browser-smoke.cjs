@@ -73,6 +73,21 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
    await run(`v34Mode='cruise';selectedRoute=routeForId('${id}');resetGame();gameStarted=true;raceActive=true;playerZ=36000;overlay.classList.add('hidden');render(0);`);
    const shot=path.join(output,`${id}.png`);await page.locator('#gameCanvas').screenshot({path:shot});assert(fs.statSync(shot).size>10000,`${id} route screenshot is nonblank`);
   }
+  // Twin Link vertical slice: two same-origin pages create A/B seats and exchange room state.
+  const twinContext=await browser.newContext({viewport:{width:1100,height:720}});
+  const twinA=await twinContext.newPage(),twinB=await twinContext.newPage();
+  twinA.on('pageerror',error=>errors.push(error.message));twinB.on('pageerror',error=>errors.push(error.message));
+  await Promise.all([twinA.goto(url),twinB.goto(url)]);
+  await twinA.locator('#menu-twin-link').click();await twinA.locator('#twin-link-create').click();
+  const twinRoom=await twinA.locator('#twin-link-room').inputValue();
+  assert.match(twinRoom,/^[A-Z0-9]{6}$/,'Twin Link creates a six-character room');
+  await twinB.locator('#menu-twin-link').click();await twinB.locator('#twin-link-room').fill(twinRoom);await twinB.locator('#twin-link-join').click();
+  await twinA.waitForFunction(()=>document.querySelector('#twin-link-hud')?.classList.contains('show'));
+  await twinB.waitForFunction(()=>document.querySelector('#twin-link-hud')?.classList.contains('show'));
+  assert.match(await twinA.locator('#twin-link-hud-text').textContent(),/TWIN A/,'host receives A seat');
+  assert.match(await twinB.locator('#twin-link-hud-text').textContent(),/TWIN B/,'guest receives B seat');
+  await twinContext.close();
+
   // Real DOM keyboard, pointers, pause and menus, without the injected test bridge.
   for(const [name,viewport] of [['desktop',{width:1280,height:800}],['phone',{width:390,height:844}],['landscape',{width:844,height:390}]]){
    const context=await browser.newContext({viewport,hasTouch:name!=='desktop',isMobile:name!=='desktop'});
