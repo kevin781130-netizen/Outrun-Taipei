@@ -1,8 +1,14 @@
 {
   "name": "taipei-sunset-drive",
   "private": true,
-  "version": "51.1.0",
-  "description": "Taipei arcade racer with curve-bound whole-car sideways drift, restrained physical drift path, clipping regressions, simultaneous drift charge plus nitro, and audited Taipei routes",
-  "scripts": {"test": "node tests/clean-room-compliance.cjs && node tests/regression.cjs", "test:browser": "node tests/browser-smoke.cjs"},
-  "devDependencies": {"@napi-rs/canvas": "0.1.100", "playwright": "1.62.1"}
+  "version": "52.0.0",
+  "description": "Taipei arcade racer with V52 Twin Link browser bridge, synchronized 1v1 room flow, curve-bound drift, nitro and audited Taipei routes",
+  "scripts": {
+    "test": "node tests/clean-room-compliance.cjs && node tests/regression.cjs",
+    "test:browser": "node tests/browser-smoke.cjs"
+  },
+  "devDependencies": {
+    "@napi-rs/canvas": "0.1.100",
+    "playwright": "1.62.1"
+  }
 }
