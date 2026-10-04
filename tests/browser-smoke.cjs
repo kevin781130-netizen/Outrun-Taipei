@@ -7,7 +7,15 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
  const source=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
  assert(!source.includes('__audit'),'test bridge must never ship in game');
  const injected=source.replace('resetGame(); updateHUD(); drawRouteMap(); render(0);','window.__audit=code=>eval(code);resetGame(); updateHUD(); drawRouteMap(); render(0);');
- const server=http.createServer((req,res)=>{res.setHeader('Content-Type','text/html; charset=utf-8');res.end(req.url.startsWith('/audit')?injected:source)});
+ const server=http.createServer((req,res)=>{
+  const pathname=new URL(req.url,'http://127.0.0.1').pathname;
+  if(pathname==='/netplay/twin-link-protocol.js'||pathname==='/netplay/twin-link-client.js'){
+    res.setHeader('Content-Type','application/javascript; charset=utf-8');
+    return res.end(fs.readFileSync(path.join(__dirname,'..',pathname.replace(/^\\//,'')),'utf8'));
+  }
+  res.setHeader('Content-Type','text/html; charset=utf-8');
+  res.end(pathname.startsWith('/audit')?injected:source);
+ });
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const url=`http://127.0.0.1:${server.address().port}`;
  const output=path.join(__dirname,'../test-results');fs.mkdirSync(output,{recursive:true});
@@ -70,6 +78,10 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
    const context=await browser.newContext({viewport,hasTouch:name!=='desktop',isMobile:name!=='desktop'});
    const live=await context.newPage();live.on('pageerror',error=>errors.push(error.message));
    await live.goto(url);
+   assert.equal(await live.locator('#menu-twin-link').count(),1,`${name} Twin Link menu entry`);
+   await live.locator('#menu-twin-link').click();
+   assert.equal(await live.locator('#twin-link-modal').isVisible(),true,`${name} Twin Link modal visible`);
+   await live.locator('#twin-link-close').click();
    assert.equal(await live.locator('#build-version').isVisible(),true,`${name} build version visible`);
    assert.match(await live.locator('#build-version').textContent(),/V51\.1/,`${name} correct V51.1 build label`);
    await live.locator('#start-btn').click();
