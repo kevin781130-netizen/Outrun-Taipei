@@ -1,4 +1,4 @@
-# Taipei Sunset Drive V52.0
+# Taipei Sunset Drive V53.0
 
 原創台北街機公路遊戲。採用 1990 年代大型機公路賽車常見的高速景深構圖，以及現代甩尾集氣／加速循環；所有程式、美術與音效均採獨立實作。
 
@@ -15,6 +15,19 @@
 - 手把 X 起甩、Y 氮氣、RT 油門、LT 煞車；Start 出發／暫停／繼續。
 
 五段街機、十五條單段計時／巡航路線、AT / MT、夕陽／霓虹色調均保留。
+
+## V53.0
+
+- **跨裝置 Twin Link WebSocket**：Twin Link 面板可填 `ws://` / `wss://` backend；兩台手機、電腦或不同瀏覽器可透過同一房號加入 A / B 座。
+- **伺服器權威開賽**：backend 鎖定 A 座選擇的 route，並由 server 產生 shared traffic seed、同步 `startAt` 與 A / B seat。
+- **網路狀態同步**：客戶端約 15 Hz 上送 race snapshot；server 做欄位範圍清理與 relay rate limit，再轉送給對手。
+- **權威完賽結果**：兩邊 FINISH 送回 server，由 server 回傳 WIN / LOSE / PHOTO FINISH，不再只由兩個 client 各自比較。
+- **斷線重連**：server-issued resume token + 20 秒 grace window；短暫換網路或 WebSocket 中斷可以回到原座位。
+- **LOCAL fallback 保留**：沒有填 WebSocket URL 時仍使用 V52 的 BroadcastChannel 雙分頁模式，不影響單機。
+- **可部署 backend**：新增 `netplay/server.cjs`、`Dockerfile.netplay`、`npm run start:netplay` 與 `/health`。
+- **真實網路 QA**：Node regression 會啟動 server 驗證 room / relay / result / resume；Chromium smoke 會讓兩個頁面真正透過 WebSocket 配成 A / B 座。
+
+完整架構與部署方式見 [V53 Twin Link WebSocket](docs/V53_Twin_Link_WebSocket.md)。
 
 ## V52.0
 

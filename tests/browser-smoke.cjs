@@ -3,6 +3,7 @@ const assert=require('node:assert/strict');
 const {chromium}=require(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES?process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES+'/playwright':'playwright');
 const {scenarios}=require('./scenarios.cjs');
 const {audioBrowserChecks}=require('./audio-browser.cjs');
+const {createTwinLinkServer}=require('../netplay/server.cjs');
 (async()=>{
  const source=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
  assert(!source.includes('__audit'),'test bridge must never ship in game');
@@ -18,6 +19,9 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
  });
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const url=`http://127.0.0.1:${server.address().port}`;
+ const twinServer=createTwinLinkServer({port:0,host:'127.0.0.1'});
+ const twinAddress=await twinServer.listen(0,'127.0.0.1');
+ const twinWs=`ws://127.0.0.1:${twinAddress.port}/twin-link`;
  const output=path.join(__dirname,'../test-results');fs.mkdirSync(output,{recursive:true});
  const errors=[];let summary,browser;
  try{
@@ -77,10 +81,12 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
   const twinContext=await browser.newContext({viewport:{width:1100,height:720}});
   const twinA=await twinContext.newPage(),twinB=await twinContext.newPage();
   twinA.on('pageerror',error=>errors.push(error.message));twinB.on('pageerror',error=>errors.push(error.message));
-  await Promise.all([twinA.goto(url),twinB.goto(url)]);
+  const twinUrl=url+'?twinws='+encodeURIComponent(twinWs);
+  await Promise.all([twinA.goto(twinUrl),twinB.goto(twinUrl)]);
   await twinA.locator('#menu-twin-link').click();await twinA.locator('#twin-link-create').click();
   const twinRoom=await twinA.locator('#twin-link-room').inputValue();
   assert.match(twinRoom,/^[A-Z0-9]{6}$/,'Twin Link creates a six-character room');
+  assert.equal(await twinA.locator('#twin-link-server').inputValue(),twinWs,'Twin Link loads WebSocket endpoint from query');
   await twinB.locator('#menu-twin-link').click();await twinB.locator('#twin-link-room').fill(twinRoom);await twinB.locator('#twin-link-join').click();
   await twinA.waitForFunction(()=>document.querySelector('#twin-link-hud')?.classList.contains('show'));
   await twinB.waitForFunction(()=>document.querySelector('#twin-link-hud')?.classList.contains('show'));
@@ -100,7 +106,7 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
    assert.equal(await live.locator('#twin-link-modal').isVisible(),true,`${name} Twin Link modal visible`);
    await live.locator('#twin-link-close').click();
    assert.equal(await live.locator('#build-version').isVisible(),true,`${name} build version visible`);
-   assert.match(await live.locator('#build-version').textContent(),/V52\.0/,`${name} correct V52.0 build label`);
+   assert.match(await live.locator('#build-version').textContent(),/V53\.0/,`${name} correct V53.0 build label`);
    await live.locator('#start-btn').click();
    assert.equal(await live.locator('#radio-actions').isVisible(),true);
    await live.locator('#radio-next').click();
@@ -126,5 +132,5 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
   fs.writeFileSync(path.join(output,'verification.json'),JSON.stringify({status:'passed',...summary,viewports:3,...audio,runtimeErrors:errors},null,2));
   console.log({status:'passed',...summary,viewports:3,...audio});
  }catch(error){fs.writeFileSync(path.join(output,'verification.json'),JSON.stringify({status:'failed',error:error.stack,runtimeErrors:errors},null,2));throw error;}
- finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
+ finally{await browser?.close();await twinServer.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1});
