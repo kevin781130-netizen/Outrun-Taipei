@@ -576,7 +576,7 @@ body{background:radial-gradient(ellipse at 50% 20%,#152a41,#050c14 65%);}
     </div>
   </div>
   <div id="build-version" role="status" aria-label="目前遊戲版本">
-    <span>CURRENT TEST BUILD</span><strong>V51.1</strong><span>SIDEWAYS DRIFT · CLEAN-ROOM · TAIPEI</span>
+    <span>CURRENT TEST BUILD</span><strong>V52.0</strong><span>TWIN LINK BRIDGE · SIDEWAYS DRIFT · TAIPEI</span>
   </div>
 </div>
 
@@ -1650,7 +1650,7 @@ function setStage(level, column, announce=true, detail='STAGE REACHED', entryCho
 }
 
 function resetGame(){
-  gameStarted=false;clearTimeout(resultTimer);resultTimer=null;
+  gameStarted=false;twinLinkFinish=null;twinLinkRival=null;clearTimeout(resultTimer);resultTimer=null;
   raceBoardKey=arcadeBoardKey();
   crashSequence = null; crashCount = 0; document.getElementById('pause-btn').textContent = '暫停 P';
   clearInputs(); distanceOffset = 0; simulationTime = 0; hudClock = 0; isDrifting = false; isDrafting = false;
@@ -5175,6 +5175,7 @@ const V39_KEY='taipeiSunsetCompetitionV40';
 const MODE_LABELS={arcade:'五段街機',sprint:'單段計時',cruise:'自由巡航'};
 let skyMood='sunset';
 let v34Mode='arcade',selectedRoute={level:0,column:0},selectedCarId=carSelect.value;
+let twinLinkFinish=null,twinLinkRival=null,twinLinkSession=null;
 let garageWasRunning=false,atlasWasRunning=false;
 let lateralVelocity=0,brakeEntry=0,brakeWasHeld=false,driftDirection=0,cleanDriftTime=0,exitBoost=0,raceElapsed=0,gyroSteer=0;
 let gamepadInput={steer:0,gas:false,brake:false,drift:false,nitro:false};
@@ -5297,6 +5298,7 @@ function getBestTime(){return bestTimes[bestRecordKey()]?bestTimes[bestRecordKey
 function recordReward(cleared){driverStats.runs++;if(cleared)driverStats.clears++;driverStats.style+=Math.floor(totalStyle);persistV39();}
 function finishSolo(cleared){
   bankStyle();raceActive=false;gameOver=true;boosting=false;isDrifting=false;crashSequence=null;clearInputs();carSelect.disabled=false;
+  if(window.TwinLinkBridge)window.TwinLinkBridge.noteFinish(cleared);
   const k=bestRecordKey(),old=bestTimes[k];let newBest=false;
   if(cleared&&(!old||raceElapsed<old)){bestTimes[k]=raceElapsed;newBest=true;persistV39();}
   overlay.classList.remove('hidden');overlay.querySelector('.eyebrow').textContent=cleared?'TIME ATTACK COMPLETE':'TIME UP';
@@ -5627,6 +5629,7 @@ function drawGrandHotelPalace(x,y,s){
 
 let accumulator = 0;
 function loop(now){
+  if(window.TwinLinkBridge)window.TwinLinkBridge.tick(Date.now());
   const dt = Math.min(0.25, Math.max(0, (now - lastTime) / 1000));
   lastTime = now;
   pollGamepads();
@@ -5643,10 +5646,60 @@ function loop(now){
   requestAnimationFrame(loop);
 }
 
+
+window.TwinLinkBridge=Object.freeze({
+  protocol:1,
+  getLobbyState(){
+    const node=STAGES[selectedRoute.level][selectedRoute.column];
+    return {routeId:node.id,routeName:node.name,mode:v34Mode,car:selectedCarId};
+  },
+  prepareRace(config={}){
+    const route=routeForId(String(config.routeId||''));
+    if(!route)return false;
+    if(gameStarted&&!gameOver&&!paused)return false;
+    v34Mode='sprint';selectedRoute={level:route.level,column:route.column};persistV39();resetGame();
+    twinLinkSession={
+      roomId:String(config.roomId||''),
+      seat:config.seat==='B'?'B':'A',
+      startAt:Number(config.startAt)||Date.now()+3000,
+      seed:Number(config.seed)||1,
+      started:false
+    };
+    trafficSeed=twinLinkSession.seed;traffic=[];
+    gameStarted=true;raceActive=false;paused=true;gameOver=false;inRadioScreen=false;carSelect.disabled=true;
+    overlay.classList.add('hidden');radioActions.hidden=true;clearInputs();lastTime=performance.now();
+    updateModeUI();updateHUD();return true;
+  },
+  tick(now=Date.now()){
+    if(!twinLinkSession||twinLinkSession.started||now<twinLinkSession.startAt)return false;
+    twinLinkSession.started=true;paused=false;raceActive=true;gameStarted=true;gameOver=false;lastTime=performance.now();
+    resumeAudio();say('TWIN LINK '+twinLinkSession.seat+' · GO!');return true;
+  },
+  snapshot(){
+    const total=Math.max(1,soloLength(selectedRoute.level,selectedRoute.column));
+    const route=STAGES[selectedRoute.level][selectedRoute.column];
+    return {
+      protocol:1,roomId:twinLinkSession?.roomId||'',seat:twinLinkSession?.seat||'',
+      routeId:route.id,progress:clamp(playerZ/total,0,1),z:playerZ,x:playerX,speed,
+      raceElapsed,drifting:isDrifting,boosting:!!boosting,gameOver:!!gameOver,
+      finish:twinLinkFinish?{...twinLinkFinish}:null
+    };
+  },
+  setRivalState(state){twinLinkRival=state&&typeof state==='object'?{...state}:null;},
+  getRivalState(){return twinLinkRival?{...twinLinkRival}:null;},
+  noteFinish(cleared){
+    if(!twinLinkSession||twinLinkFinish)return;
+    twinLinkFinish={cleared:!!cleared,time:Number(raceElapsed.toFixed(3)),at:Date.now()};
+  },
+  leave(){twinLinkSession=null;twinLinkRival=null;}
+});
+
 resetGame(); updateHUD(); drawRouteMap(); render(0);
 requestAnimationFrame(loop);
 
 })();
 </script>
+<script src="netplay/twin-link-protocol.js?v=52.0"></script>
+<script src="netplay/twin-link-client.js?v=52.0"></script>
 </body>
 </html>

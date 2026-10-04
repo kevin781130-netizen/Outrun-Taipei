@@ -51,7 +51,10 @@ jobs:
         run: |
           mkdir -p "public-site/$GAME_PATH"
           find "public-site/$GAME_PATH" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+          mkdir -p "public-site/$GAME_PATH/netplay"
           cp index.html "public-site/$GAME_PATH/index.html"
+          cp netplay/twin-link-protocol.js "public-site/$GAME_PATH/netplay/twin-link-protocol.js"
+          cp netplay/twin-link-client.js "public-site/$GAME_PATH/netplay/twin-link-client.js"
           touch public-site/.nojekyll
 
       - name: Commit and push public build

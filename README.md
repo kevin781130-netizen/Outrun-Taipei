@@ -1,4 +1,4 @@
-# Taipei Sunset Drive V51.1
+# Taipei Sunset Drive V52.0
 
 原創台北街機公路遊戲。採用 1990 年代大型機公路賽車常見的高速景深構圖，以及現代甩尾集氣／加速循環；所有程式、美術與音效均採獨立實作。
 
@@ -15,6 +15,18 @@
 - 手把 X 起甩、Y 氮氣、RT 油門、LT 煞車；Start 出發／暫停／繼續。
 
 五段街機、十五條單段計時／巡航路線、AT / MT、夕陽／霓虹色調均保留。
+
+## V52.0
+
+- **Twin Link 正式接進前端**：主選單與工具列新增 Twin Link 1v1 入口，不再只有 `netplay/matchmaker.cjs` 測試核心。
+- **A / B 雙座房間流程**：A 座建立 6 碼房號，B 座加入後同步路段、共享 seed、同步起跑時間、15 Hz 狀態快照、進度差與完賽結果。
+- **瀏覽器 transport vertical slice**：目前使用同來源 `BroadcastChannel`，可直接用兩個公開站分頁跑完整配對流程；這一步先把遊戲端協定與 UI 做實。
+- **為 WebSocket 做好切換點**：遊戲本體只暴露小型 `TwinLinkBridge`，下一階段接長駐 WebSocket / authoritative room service 時，不需要重寫甩尾、氮氣或路線物理。
+- **發布修正**：公開 workflow 現在會一起發布 `netplay/twin-link-protocol.js` 與 `netplay/twin-link-client.js`，不再只複製單一 `index.html`。
+- **QA**：Node 會驗證瀏覽器／伺服器協定一致；Playwright 會真的開兩個頁面，建立 A 座、輸入房號加入 B 座並確認兩邊完成配對。
+- **目前限制**：V52.0 尚不是跨裝置網路版；跨裝置仍需要下一階段的 WebSocket backend、房間生命週期、斷線重連與伺服器權威同步。
+
+完整設計見 [V52 Twin Link Browser Bridge](docs/V52_Twin_Link_Browser_Bridge.md)。
 
 ## V51.1
 

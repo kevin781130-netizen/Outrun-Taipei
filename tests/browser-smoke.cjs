@@ -7,7 +7,15 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
  const source=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
  assert(!source.includes('__audit'),'test bridge must never ship in game');
  const injected=source.replace('resetGame(); updateHUD(); drawRouteMap(); render(0);','window.__audit=code=>eval(code);resetGame(); updateHUD(); drawRouteMap(); render(0);');
- const server=http.createServer((req,res)=>{res.setHeader('Content-Type','text/html; charset=utf-8');res.end(req.url.startsWith('/audit')?injected:source)});
+ const server=http.createServer((req,res)=>{
+  const pathname=new URL(req.url,'http://127.0.0.1').pathname;
+  if(pathname==='/netplay/twin-link-protocol.js'||pathname==='/netplay/twin-link-client.js'){
+    res.setHeader('Content-Type','application/javascript; charset=utf-8');
+    return res.end(fs.readFileSync(path.join(__dirname,'..',pathname.slice(1)),'utf8'));
+  }
+  res.setHeader('Content-Type','text/html; charset=utf-8');
+  res.end(pathname.startsWith('/audit')?injected:source);
+ });
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const url=`http://127.0.0.1:${server.address().port}`;
  const output=path.join(__dirname,'../test-results');fs.mkdirSync(output,{recursive:true});
@@ -65,13 +73,34 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
    await run(`v34Mode='cruise';selectedRoute=routeForId('${id}');resetGame();gameStarted=true;raceActive=true;playerZ=36000;overlay.classList.add('hidden');render(0);`);
    const shot=path.join(output,`${id}.png`);await page.locator('#gameCanvas').screenshot({path:shot});assert(fs.statSync(shot).size>10000,`${id} route screenshot is nonblank`);
   }
+  // Twin Link vertical slice: two same-origin pages create A/B seats and exchange room state.
+  const twinContext=await browser.newContext({viewport:{width:1100,height:720}});
+  const twinA=await twinContext.newPage(),twinB=await twinContext.newPage();
+  twinA.on('pageerror',error=>errors.push(error.message));twinB.on('pageerror',error=>errors.push(error.message));
+  await Promise.all([twinA.goto(url),twinB.goto(url)]);
+  await twinA.locator('#menu-twin-link').click();await twinA.locator('#twin-link-create').click();
+  const twinRoom=await twinA.locator('#twin-link-room').inputValue();
+  assert.match(twinRoom,/^[A-Z0-9]{6}$/,'Twin Link creates a six-character room');
+  await twinB.locator('#menu-twin-link').click();await twinB.locator('#twin-link-room').fill(twinRoom);await twinB.locator('#twin-link-join').click();
+  await twinA.waitForFunction(()=>document.querySelector('#twin-link-hud')?.classList.contains('show'));
+  await twinB.waitForFunction(()=>document.querySelector('#twin-link-hud')?.classList.contains('show'));
+  assert.match(await twinA.locator('#twin-link-hud-text').textContent(),/TWIN A/,'host receives A seat');
+  assert.match(await twinB.locator('#twin-link-hud-text').textContent(),/TWIN B/,'guest receives B seat');
+  assert.equal(await twinA.locator('#twin-link-modal').isVisible(),false,'host lobby closes after pairing');
+  assert.equal(await twinB.locator('#twin-link-modal').isVisible(),false,'guest lobby closes after pairing');
+  await twinContext.close();
+
   // Real DOM keyboard, pointers, pause and menus, without the injected test bridge.
   for(const [name,viewport] of [['desktop',{width:1280,height:800}],['phone',{width:390,height:844}],['landscape',{width:844,height:390}]]){
    const context=await browser.newContext({viewport,hasTouch:name!=='desktop',isMobile:name!=='desktop'});
    const live=await context.newPage();live.on('pageerror',error=>errors.push(error.message));
    await live.goto(url);
+   assert.equal(await live.locator('#menu-twin-link').count(),1,`${name} Twin Link menu entry`);
+   await live.locator('#menu-twin-link').click();
+   assert.equal(await live.locator('#twin-link-modal').isVisible(),true,`${name} Twin Link modal visible`);
+   await live.locator('#twin-link-close').click();
    assert.equal(await live.locator('#build-version').isVisible(),true,`${name} build version visible`);
-   assert.match(await live.locator('#build-version').textContent(),/V51\.1/,`${name} correct V51.1 build label`);
+   assert.match(await live.locator('#build-version').textContent(),/V52\.0/,`${name} correct V52.0 build label`);
    await live.locator('#start-btn').click();
    assert.equal(await live.locator('#radio-actions').isVisible(),true);
    await live.locator('#radio-next').click();
