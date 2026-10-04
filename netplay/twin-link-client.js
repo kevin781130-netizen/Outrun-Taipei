@@ -165,7 +165,10 @@ function startTimers(){
   },67);
 }
 function prepareStart(payload,seat,peer){
-  state.role=seat;state.peerId=peer||state.peerId;state.matched=true;state.startAt=Number(payload.startAt)||Date.now()+3000;
+  state.role=seat;state.peerId=peer||state.peerId;state.matched=true;
+  const serverTime=Number(payload.serverTime),serverStart=Number(payload.startAt);
+  const clockOffset=Number.isFinite(serverTime)?serverTime-Date.now():0;
+  state.startAt=Number.isFinite(serverStart)?serverStart-clockOffset:Date.now()+3000;
   state.routeId=String(payload.routeId||B.getLobbyState().routeId);state.seed=Number(payload.seed)||P.hashSeed(state.room);
   if(payload.resumeToken)state.resumeToken=String(payload.resumeToken);
   if(!B.prepareRace({roomId:state.room,seat:state.role,startAt:state.startAt,routeId:state.routeId,seed:state.seed})){
