@@ -121,6 +121,7 @@ function createTwinLinkServer(options={}){
   function handleJoin(ws,msg){
     const room=rooms.get(msg.room);
     if(!room||!room.players.A)return fail(ws,msg.room,'ROOM_NOT_FOUND','找不到房間');
+    if(!room.players.A.ws||room.players.A.ws.readyState!==WebSocket.OPEN)return fail(ws,msg.room,'HOST_OFFLINE','A 座目前離線，請稍後再加入');
     if(room.players.B)return fail(ws,msg.room,'ROOM_FULL','房間已有兩位玩家');
     attachPlayer(ws,room,'B',msg.from);
     sendStart(room);
@@ -162,7 +163,7 @@ function createTwinLinkServer(options={}){
       const cmp=P.compareFinish(a,b);
       const winnerSeat=cmp===0?null:cmp<0?'A':'B';
       for(const seat of ['A','B']){
-        const p=link.room.players[seat];if(!p?.ws)return;
+        const p=link.room.players[seat];if(!p?.ws)continue;
         sendServer(p.ws,link.room.code,'RESULT',{
           result:winnerSeat===null?'PHOTO FINISH':winnerSeat===seat?'WIN':'LOSE',
           winnerSeat,finishes:{A:a,B:b}
