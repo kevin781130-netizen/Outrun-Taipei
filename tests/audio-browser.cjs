@@ -5,7 +5,8 @@ async function audioBrowserChecks(browser,url,errors){
  page.on('pageerror',error=>errors.push(error.message));
  await page.addInitScript(()=>{window.requestAnimationFrame=()=>0});
  const run=code=>page.evaluate(code=>window.__audit(code),code);
- const state=expected=>page.waitForFunction(expected=>window.__audit('audioCtx.state')===expected,expected);
+ // The deterministic game probe disables animation frames, so poll audio by timer.
+ const state=expected=>page.waitForFunction(expected=>window.__audit('audioCtx.state')===expected,expected,{polling:50,timeout:5000});
  const visibility=async hidden=>{
   await page.evaluate(hidden=>{
    Object.defineProperty(document,'hidden',{configurable:true,value:hidden});
