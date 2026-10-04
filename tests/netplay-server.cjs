@@ -46,6 +46,7 @@ async function runNetplayServerTests(){
     const [sa,sb]=await Promise.all([startA,startB]);
     check(sa.payload.routeId==='4B'&&sb.payload.routeId==='4B','server authority keeps host route for both seats');
     check(sa.payload.seed===sb.payload.seed&&sa.payload.startAt===sb.payload.startAt,'server shares one seed and start timestamp');
+    check(sa.payload.startAt-sa.payload.serverTime>=3000&&sa.payload.startAt-sa.payload.serverTime<=5000,'server start includes authoritative clock reference');
     check(sa.payload.seat==='A'&&sb.payload.seat==='B','server assigns A/B seats');
 
     await new Promise(resolve=>setTimeout(resolve,45));
