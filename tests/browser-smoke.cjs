@@ -2,6 +2,7 @@ const fs=require('node:fs'),path=require('node:path'),http=require('node:http');
 const assert=require('node:assert/strict');
 const {chromium}=require(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES?process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES+'/playwright':'playwright');
 const {scenarios}=require('./scenarios.cjs');
+const {audioBrowserChecks}=require('./audio-browser.cjs');
 (async()=>{
  const source=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
  assert(!source.includes('__audit'),'test bridge must never ship in game');
@@ -9,10 +10,11 @@ const {scenarios}=require('./scenarios.cjs');
  const server=http.createServer((req,res)=>{res.setHeader('Content-Type','text/html; charset=utf-8');res.end(req.url.startsWith('/audit')?injected:source)});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const url=`http://127.0.0.1:${server.address().port}`;
- const browser=await chromium.launch({headless:true});
  const output=path.join(__dirname,'../test-results');fs.mkdirSync(output,{recursive:true});
- const errors=[];let summary;
+ const errors=[];let summary,browser;
  try{
+  browser=await chromium.launch({headless:true});
+  const audio=await audioBrowserChecks(browser,url,errors);
   const page=await browser.newPage({viewport:{width:1280,height:800}});
   page.on('pageerror',error=>errors.push(error.message));
   await page.addInitScript(()=>{window.requestAnimationFrame=()=>0});
@@ -69,7 +71,7 @@ const {scenarios}=require('./scenarios.cjs');
    const live=await context.newPage();live.on('pageerror',error=>errors.push(error.message));
    await live.goto(url);
    assert.equal(await live.locator('#build-version').isVisible(),true,`${name} build version visible`);
-   assert.match(await live.locator('#build-version').textContent(),/V51\.0/,`${name} correct V51 build label`);
+   assert.match(await live.locator('#build-version').textContent(),/V51\.1/,`${name} correct V51.1 build label`);
    await live.locator('#start-btn').click();
    assert.equal(await live.locator('#radio-actions').isVisible(),true);
    await live.locator('#radio-next').click();
@@ -92,8 +94,8 @@ const {scenarios}=require('./scenarios.cjs');
    await context.close();
   }
   assert.deepEqual(errors,[],'browser runtime errors');
-  fs.writeFileSync(path.join(output,'verification.json'),JSON.stringify({status:'passed',...summary,viewports:3,runtimeErrors:errors},null,2));
-  console.log({status:'passed',...summary,viewports:3});
+  fs.writeFileSync(path.join(output,'verification.json'),JSON.stringify({status:'passed',...summary,viewports:3,...audio,runtimeErrors:errors},null,2));
+  console.log({status:'passed',...summary,viewports:3,...audio});
  }catch(error){fs.writeFileSync(path.join(output,'verification.json'),JSON.stringify({status:'failed',error:error.stack,runtimeErrors:errors},null,2));throw error;}
- finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
+ finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1});
