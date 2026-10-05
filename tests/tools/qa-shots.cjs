@@ -31,6 +31,9 @@ const {chromium}=require('playwright');
  const speedShots=[100,160,220,280,325];
  for(const v of speedShots){await run(base('4D')+`speed=${v};playerZ=170*SEGMENT_LENGTH;boosting=${v>285};render(0);`);await shot('09-speed-'+v);}
  for(const id of ['1A','2A','2B','3A','3B','3C','4A','4B','4C','4D','5A','5B','5C','5D','5E']){await run(base(id,'sprint')+`speed=190;playerZ=220*SEGMENT_LENGTH;updateHUD();render(0);`);await shot('11-route-'+id);}
+ for(const mood of ['sunset','neon'])for(const id of ['1A','2B','3A','4B','4D','5C','5D','5E']){await run(base(id,'sprint')+`skyMood='${mood}';speed=200;playerZ=230*SEGMENT_LENGTH;updateHUD();render(0);`);await shot(`13-${mood}-${id}`);}
+ for(const mood of ['sunset','neon']){await run(base('1A')+`skyMood='${mood}';speed=205;playerZ=175*SEGMENT_LENGTH;const spec=TRAFFIC_TYPES;const mk=(k,x,dz,sp)=>({x:x*roadFactor(),z:playerZ+PLAYER_DEPTH+dz,previousX:x*roadFactor(),previousZ:playerZ+PLAYER_DEPTH+dz,speed:sp,spec:spec[k],type:k,phase:0,hitTimer:0,laneTarget:x*roadFactor(),screenBox:null,color:spec[k].colors[0],near:false});traffic=[mk('taxi',.3,1500,150),mk('bus',-.35,3000,130),mk('euro_gt',.05,5200,200),mk('scooter',-.1,800,150)];updateHUD();render(0);`);await shot('14-traffic-'+mood);}
+ await run(base('4B','sprint')+`skyMood='sunset';speed=190;playerZ=240*SEGMENT_LENGTH;isDrifting=true;driftState='drift';driftDirection=1;driftAngle=34;slipAngle=10;updateHUD();render(0);`);await shot('15-drift-mountain');
  const pp=await open(390,844);await pp.waitForTimeout(300);await pp.screenshot({path:path.join(out,'10-portrait-menu.png')});
  for(const [name,w,h] of [['portrait',390,844],['landscape',844,390]]){
   const q=await open(w,h);const r=c=>q.evaluate(c=>window.__audit(c),c);await q.waitForTimeout(250);

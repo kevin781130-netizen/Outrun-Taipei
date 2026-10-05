@@ -4,7 +4,8 @@ const html=fs.readFileSync(process.env.UI_INDEX||path.join(__dirname,'../index.h
 const body=html.slice(0,html.indexOf('<script'));
 const failures=[];
 // 1. No stale hard-coded rule numbers in markup.
-for(const rx of [/280\s*\/\s*300/,/4\.00\s*(s|秒)/,/極速\s*280/,/氮氣極速\s*300/,/CAP[^<]{0,10}280/])if(rx.test(body))failures.push(`stale hard-coded rule number in markup: ${rx}`);
+for(const rx of [/285\s*\/\s*325/,/極速\s*285/,/氮氣極速\s*325/,/280\s*\/\s*300/,/4\.00\s*(s|秒)/,/極速\s*280/,/氮氣極速\s*300/,/CAP[^<]{0,10}280/])if(rx.test(body))failures.push(`stale hard-coded rule number in markup: ${rx}`);
+for(const rx of [/(BOOST|NITRO)\s+[0-9]{3}\b/])if(rx.test(html))failures.push(`stale hard-coded speed in script text: ${rx}`);
 // 2. data-rule keys must exist in ruleValues().
 const keys=new Set([...body.matchAll(/data-rule="([A-Za-z]+)"/g)].map(m=>m[1]));
 const defined=new Set((html.match(/function ruleValues\(\)\{[\s\S]*?\n\}/)||[''])[0].match(/\b([A-Za-z]+):/g)?.map(x=>x.slice(0,-1))||[]);
@@ -15,7 +16,7 @@ const visible=[];
 for(const m of html.matchAll(/(?:aria-label|title)="([^"]*)"|>([^<>{}\n]*[^\s<>{}][^<>{}\n]*)</g))visible.push(m[1]||m[2]);
 for(const m of html.matchAll(/(?:eyebrow|title|textContent|innerHTML)\s*[:=]\s*(['"`])((?:(?!\1).)*)\1/g))visible.push(m[2]);
 for(const text of visible)if(/\bV51(?!\.\d*\s*起)\b/.test(text)&&!/V51 起/.test(text))failures.push(`stale V51 text visible to players: ${text.slice(0,80)}`);
-if(!/<title>[^<]*V52/.test(html))failures.push('page title is not V52');
+if(!/<title>[^<]*V53/.test(html))failures.push('page title is not V53');
 // 4. No checkpoint camera shake.
 const cp=(html.match(/function awardCheckpoint\(\)\{[\s\S]*?\n\}/)||[''])[0];
 if(/screenShake/.test(cp))failures.push('awardCheckpoint must not touch screenShake');
