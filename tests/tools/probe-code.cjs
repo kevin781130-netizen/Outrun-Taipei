@@ -54,7 +54,7 @@ module.exports={
  TRAFFIC:`(function(id,policy,seconds){
  v34Mode='sprint';selectedRoute=routeForId(id);resetGame();gameStarted=true;raceActive=true;overlay.classList.add('hidden');timeLeft=9999;
  for(const k of Object.keys(keys))keys[k]=false;
- let cp=0;const orig=window.__origNear||nearMiss;window.__origNear=orig;nearMiss=function(c,g){cp++;return orig(c,g);};
+ let cp=0;const orig=window.__origAward||awardClosePass;window.__origAward=orig;awardClosePass=function(c,d){cp++;return orig(c,d);};
  playerX=0;speed=200;currentGear='HIGH';let crashes=0,draft=0,t=0,dist0=playerZ,minGap=9,pass=0,lane=0;
  const seen=new Set();
  for(let i=0;i<seconds*60;i++){
@@ -70,7 +70,7 @@ module.exports={
   if(playerZ>=(FORK_WARN-40)*SEGMENT_LENGTH)break;
   for(const c of traffic){const dz=c.z-playerZ-PLAYER_DEPTH;if(dz<0&&dz>-400&&!seen.has(c)){seen.add(c);pass++;}}
  }
- nearMiss=orig;
+ awardClosePass=orig;
  return {id,policy,seconds:+t.toFixed(1),meters:Math.round((playerZ-dist0)/SEGMENT_LENGTH*SEGMENT_METERS),avgKmh:Math.round((playerZ-dist0)/SEGMENT_LENGTH/t*SEGMENT_METERS*3.6),crashes,closePasses:cp,passed:pass,draftSec:+draft.toFixed(1)};
 })`
 };

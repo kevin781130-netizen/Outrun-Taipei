@@ -20,7 +20,7 @@ if(!/<title>[^<]*V52/.test(html))failures.push('page title is not V52');
 const cp=(html.match(/function awardCheckpoint\(\)\{[\s\S]*?\n\}/)||[''])[0];
 if(/screenShake/.test(cp))failures.push('awardCheckpoint must not touch screenShake');
 // 5. Near-miss must stay shake free.
-const nm=(html.match(/function nearMiss\([\s\S]*?\n\}/)||[''])[0];
-if(/screenShake/.test(nm))failures.push('nearMiss must not touch screenShake');
+const nm=(html.match(/function awardClosePass\([\s\S]*?\n\}/)||[''])[0];
+if(/screenShake/.test(nm))failures.push('awardClosePass must not touch screenShake');
 if(failures.length){console.error(failures.join('\n'));process.exit(1);}
 console.log(JSON.stringify({uiConsistency:'passed',ruleKeys:[...keys]}));

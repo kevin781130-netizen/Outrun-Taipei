@@ -864,9 +864,11 @@ function initAudio(){
   startRadio();
 }
 
-function fmNote(carrierFreq, modRatio=2.0, modIndex=150, dur=0.18, gain=0.04, wave='sine'){
-  if(!audioCtx || radioTrack === 0) return;
-  const now = audioCtx.currentTime;
+// Core FM voice. GAMEPLAY SFX call sfxTone directly (never gated by the radio); music goes through fmNote.
+// delay schedules on the audio clock so multi-note cues need no timers.
+function sfxTone(carrierFreq, modRatio=2.0, modIndex=150, dur=0.18, gain=0.04, wave='sine', pan=0, delay=0){
+  if(!audioCtx) return;
+  const now = audioCtx.currentTime + delay;
   const c = audioCtx.createOscillator(), m = audioCtx.createOscillator();
   const mg = audioCtx.createGain(), cg = audioCtx.createGain();
 
@@ -880,11 +882,19 @@ function fmNote(carrierFreq, modRatio=2.0, modIndex=150, dur=0.18, gain=0.04, wa
   cg.gain.exponentialRampToValueAtTime(0.0001, now + dur);
 
   m.connect(mg); mg.connect(c.frequency);
-  c.connect(cg); cg.connect(masterGain);
+  c.connect(cg);
+  let tail = cg;
+  if(pan && audioCtx.createStereoPanner){const pn = audioCtx.createStereoPanner(); pn.pan.setValueAtTime(clamp(pan, -1, 1), now); cg.connect(pn); tail = pn;}
+  tail.connect(masterGain);
 
-  c.onended = () => { c.disconnect(); m.disconnect(); mg.disconnect(); cg.disconnect(); };
+  c.onended = () => { c.disconnect(); m.disconnect(); mg.disconnect(); cg.disconnect(); if(tail !== cg) tail.disconnect(); };
   m.start(now); c.start(now);
   m.stop(now + dur + 0.02); c.stop(now + dur + 0.02);
+}
+// Music only: the radio switch silences this, never gameplay SFX.
+function fmNote(carrierFreq, modRatio=2.0, modIndex=150, dur=0.18, gain=0.04, wave='sine'){
+  if(radioTrack === 0) return;
+  sfxTone(carrierFreq, modRatio, modIndex, dur, gain, wave);
 }
 
 function drumHit(type='kick', dur=0.12, gain=0.05){
@@ -969,9 +979,9 @@ function initOceanSurf(){
 }
 
 // Formant Voice Synthesizer (Vocal Tract Emulation: "CHECKPOINT!", "GO!")
-function voiceFormant(word='checkpoint'){
+function voiceFormant(word='checkpoint', delay=0){
   if(!audioCtx) return;
-  const now = audioCtx.currentTime;
+  const now = audioCtx.currentTime + delay;
   const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
   osc.type = 'sawtooth';
 
@@ -1020,30 +1030,17 @@ function playGearShiftSound(){
 
 function playCheckpointChime(){
   if(!audioCtx) return;
-  const notes = [523.25, 659.25, 783.99, 1046.50];
-  notes.forEach((f, i) => {
-    setTimeout(() => { fmNote(f, 2.0, 80, 0.28, 0.035, 'triangle'); }, i * 75);
-  });
-  setTimeout(() => { voiceFormant('checkpoint'); }, 200);
+  [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => sfxTone(f, 2.0, 80, 0.28, 0.035, 'triangle', 0, i * 0.075));
+  voiceFormant('checkpoint', 0.2);
 }
 
 function playCountdownBeep(high=false){
   if(!audioCtx) return;
-  fmNote(high ? 987.77 : 493.88, 2.0, 60, 0.22, 0.045, 'triangle');
-  if(high) setTimeout(() => { voiceFormant('go'); }, 80);
+  sfxTone(high ? 987.77 : 493.88, 2.0, 60, 0.22, 0.045, 'triangle');
+  if(high) voiceFormant('go', 0.08);
 }
 
-// V52 radio-independent SFX: short blips and a soft pass-by whoosh (original synthesis, no samples).
-function sfxBlip(freq,dur=.08,gain=.03,pan=0){
-  if(!audioCtx)return;
-  const now=audioCtx.currentTime,o=audioCtx.createOscillator(),g=audioCtx.createGain();
-  o.type='triangle';o.frequency.setValueAtTime(freq,now);
-  g.gain.setValueAtTime(gain,now);g.gain.exponentialRampToValueAtTime(.0001,now+dur);
-  o.connect(g);let tail=g;
-  if(audioCtx.createStereoPanner){const pn=audioCtx.createStereoPanner();pn.pan.setValueAtTime(clamp(pan,-1,1),now);g.connect(pn);tail=pn;}
-  tail.connect(masterGain);o.onended=()=>{o.disconnect();g.disconnect();if(tail!==g)tail.disconnect();};
-  o.start(now);o.stop(now+dur+.02);
-}
+// V52 radio-independent SFX: soft pass-by whoosh (original synthesis, no samples).
 function playClosePassWhoosh(pan=0,tight=false){
   if(!audioCtx)return;
   const now=audioCtx.currentTime,len=Math.floor(audioCtx.sampleRate*.22),buf=audioCtx.createBuffer(1,len,audioCtx.sampleRate),d=buf.getChannelData(0);
@@ -1133,7 +1130,8 @@ function startRadio(){
 // Pure mapping so the speed->wind curve can be regression-tested without an audio device.
 function v52WindProfile(speedNow){
   const t = clamp(speedNow / 325, 0, 1.05);
-  return { gain: 0.003 + Math.pow(t, 2.2) * 0.034, freq: 380 + Math.pow(t, 1.2) * 1800 };
+  const onset = clamp((speedNow - 30) / 60, 0, 1), fade = onset * onset * (3 - 2 * onset); // silent below 30 km/h, full by 90
+  return { gain: 0.0001 + fade * (0.003 + Math.pow(t, 2.2) * 0.034), freq: 380 + Math.pow(t, 1.2) * 1800 };
 }
 function updateAudio(){
   if(!audioCtx || !engineCarrier) return;
@@ -2318,25 +2316,44 @@ function bankStyle(){
   styleBank = 0; styleCombo = 1; driftTime = 0;
 }
 // V52 TAIPEI CLOSE PASS: a visible, genuinely close, genuinely fast, collision-free pass earns a small score. No shake, no combo coupling.
-const V52_CLOSEPASS=Object.freeze({minSpeed:150,minClosing:45,gapMin:.012,gapMax:.09,tightGap:.045,points:Object.freeze([120,240]),chainWindow:3,chainStep:.25,chainCap:3,fxLife:.8,shake:0,chargeReward:0});
+const V52_CLOSEPASS=Object.freeze({candidateLife:4,minSpeed:150,minClosing:45,gapMin:.012,gapMax:.09,tightGap:.045,points:Object.freeze([120,240]),chainWindow:3,chainStep:.25,chainCap:3,fxLife:.8,shake:0,chargeReward:0});
 let closePassChain=0,closePassTimer=0,closePassFx=[],closePassTotal=0;
 function v52ClosePassEligible(car,gap,dz){
   return !!car.screenBox&&!car.near&&car.hitTimer<=0&&!crashSequence&&collisionCooldown<=0&&driveGear==='D'&&motionDirection===1
     &&speed>=V52_CLOSEPASS.minSpeed&&speed-car.speed>=V52_CLOSEPASS.minClosing
-    &&Math.abs(dz)<480&&gap>=V52_CLOSEPASS.gapMin&&gap<V52_CLOSEPASS.gapMax;
+    &&Math.abs(dz)<trafficContactDepth(car)*1.5&&gap>=V52_CLOSEPASS.gapMin&&gap<V52_CLOSEPASS.gapMax;
 }
-function nearMiss(car,gap=V52_CLOSEPASS.gapMax){
+// Longitudinal half-length of the traffic contact box (same value trafficContact uses).
+function trafficContactDepth(car){return 210+car.spec.h*2;}
+// Arm (or refresh) a candidate. No score yet: the pass only counts once the car is safely behind the player.
+function armClosePass(car,gap){
+  const box=car.screenBox,side=box&&box.cx<W/2?-1:1;
+  const c=car.cp||(car.cp={age:0,gap,tight:false,side,x:W/2,y:H*.6,pan:car.x>0?.7:-.7});
+  c.gap=Math.min(c.gap,gap);c.tight=c.gap<V52_CLOSEPASS.tightGap;c.side=side;
+  if(box){c.x=box.cx;c.y=box.t;c.pan=(box.cx-W/2)/(W/2);}
+  return c;
+}
+function clearClosePassCandidates(){for(const car of traffic)car.cp=null;}
+// Award once, when the passed car has fully cleared the player's contact depth.
+function awardClosePass(car,c){
   car.near=true;
-  const tight=gap<V52_CLOSEPASS.tightGap;
   closePassTotal++;
   closePassChain=closePassTimer>0?Math.min(V52_CLOSEPASS.chainCap,closePassChain+1):0;closePassTimer=V52_CLOSEPASS.chainWindow;
-  const pts=Math.round(V52_CLOSEPASS.points[tight?1:0]*(1+closePassChain*V52_CLOSEPASS.chainStep));
+  const pts=Math.round(V52_CLOSEPASS.points[c.tight?1:0]*(1+closePassChain*V52_CLOSEPASS.chainStep));
   score+=pts;
-  const box=car.screenBox,side=box&&box.cx<W/2?-1:1;
-  closePassFx.push({t:0,x:box?box.cx:W/2,y:box?box.t:H*.6,side,pts,tight,chain:closePassChain});
+  closePassFx.push({t:0,x:c.x,y:c.y,side:c.side,pts,tight:c.tight,chain:closePassChain});
   if(closePassFx.length>3)closePassFx.shift();
-  playClosePassWhoosh(box?(box.cx-W/2)/(W/2):(car.x>0?.7:-.7),tight);
+  playClosePassWhoosh(c.pan,c.tight);
   return pts;
+}
+function stepClosePassCandidate(car,dt){
+  const c=car.cp;if(!c)return;
+  c.age+=dt;
+  if(crashSequence||driveGear!=='D'||motionDirection!==1||c.age>V52_CLOSEPASS.candidateLife){car.cp=null;return;}
+  if(car.z-playerZ-PLAYER_DEPTH<-trafficContactDepth(car)){
+    car.cp=null;
+    if(speed>=V52_CLOSEPASS.minSpeed&&collisionCooldown<=0)awardClosePass(car,c);
+  }
 }
 function updateClosePass(dt){
   closePassTimer=Math.max(0,closePassTimer-dt);if(closePassTimer===0)closePassChain=0;
@@ -2385,7 +2402,7 @@ function triggerCrash(car, hit, isObstacle=false){
   for(let i=0; i<25; i++){
     addParticle(hx + rand(-20, 20), hy + rand(-10, 10), rand(-150, 150), rand(-180, -30), rand(0.25, 0.65), rand(3, 7), 'spark');
   }
-  closePassChain=0;closePassTimer=0;closePassFx=[];
+  closePassChain=0;closePassTimer=0;closePassFx=[];clearClosePassCandidates();
   crashSequence={t:0,anim:0,duration:V52_FLOW.crashDuration,impactSpeed:speed,side:pushDir};
   resetDrivingState();
   exitBoost=0;cleanDriftTime=0;lateralVelocity=0;boosting=false;boostRemaining=0;nitroLatch=false;reverseWindow=0;
@@ -2683,7 +2700,7 @@ function update(dt){
     if(dz < -1800 && playerZ + 24000 < trafficLimit){
       car.z=Math.min(playerZ+seededRange(22000,56000),trafficLimit);
       car.x=seededRange(-.65,.65)*roadFactor();car.laneTarget=seededRange(-.60,.60)*roadFactor();
-      car.previousX=car.x;car.previousZ=car.z;car.near = false; car.screenBox = null;
+      car.previousX=car.x;car.previousZ=car.z;car.near = false; car.screenBox = null; car.cp = null;
     }
     if(dz > 2600) car.near = false;
   }
@@ -2698,8 +2715,9 @@ function update(dt){
     }else if(car.screenBox&&!car.near&&car.hitTimer<=0){
       const dz=car.z-playerZ-PLAYER_DEPTH,half=trafficHalfWidth(car)+PLAYER_HALF_WIDTH;
       const gap=Math.abs(playerX-car.x)-half;
-      if(v52ClosePassEligible(car,gap,dz))nearMiss(car,gap);
+      if(v52ClosePassEligible(car,gap,dz))armClosePass(car,gap);
     }
+    if(car.cp)stepClosePassCandidate(car,dt);
   }
 
   updateClosePass(dt);
@@ -3329,7 +3347,7 @@ function v52ApproachTick(){
   if(last<0||cur<last||cur-last>40)return false;
   for(const sign of v52ApproachSigns()){
     if(sign.index>last&&sign.index<=cur){
-      sfxBlip(sign.meters<=100?740:587.33,.09,.03);
+      sfxTone(sign.meters<=100?740:587.33,2.0,40,.09,.03,'triangle');
       return true;
     }
   }
@@ -4574,7 +4592,7 @@ function trafficContact(previous,car){
   // Relative swept AABB catches overtakes and reversing at any render rate.
   const from=[previous.x-(car.previousX??car.x),previous.z+PLAYER_DEPTH-(car.previousZ??car.z)];
   const to=[playerX-car.x,playerZ+PLAYER_DEPTH-car.z];
-  const limits=[PLAYER_HALF_WIDTH+trafficHalfWidth(car),210+car.spec.h*2];
+  const limits=[PLAYER_HALF_WIDTH+trafficHalfWidth(car),trafficContactDepth(car)];
   let enter=0,exit=1;
   for(let axis=0;axis<2;axis++){
     const delta=to[axis]-from[axis],half=limits[axis];

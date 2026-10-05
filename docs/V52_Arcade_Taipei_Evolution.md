@@ -102,20 +102,25 @@ Findings:
 2. Picture change is compressed against real speed: 160 to 280 km/h is 1.75x faster but only 1.38x more picture motion. Zoom crop is 1 to 2 px, so there is almost no camera component (good for comfort).
 3. The engine note barely separates speeds. Computed from the audio formulas, carrier frequency was about 159 Hz at 160 km/h, about 143 Hz at 220 km/h after the AT upshift, and about 163 Hz at 280 km/h. By ear 160 and 280 differ by about 3%.
 
-Change: a speed-driven road-wind layer (`v52WindProfile`), band-passed noise whose gain rises about 2.7x and whose centre frequency about 1.6x between 160 and 280 km/h, independent of gear. No camera motion and no new lines were added. Regression asserts both the pixel-flow ordering and the wind curve.
+Change: a speed-driven road-wind layer (`v52WindProfile`), silent at rest (gain 0.0001 at 0 km/h, still the floor at 20 km/h, fading in between 30 and 90 km/h), band-passed noise whose gain rises about 2.7x and whose centre frequency about 1.6x between 160 and 280 km/h, independent of gear. No camera motion and no new lines were added. Regression asserts both the pixel-flow ordering and the wind curve.
 
 ## 4. Traffic: Taipei Close Pass (replaces the old near-miss)
 
 Problem: the existing `nearMiss` fired at any speed, gave no feedback beyond a toast, shook the camera (`screenShake 3.5`, above the V50 comfort budget), blew the horn, and bumped the drift combo.
 
-New rule (original, constants in `V52_CLOSEPASS`):
-- Player at least 150 km/h and closing at least 45 km/h, on D gear forward.
-- Lateral gap between 0.012 and 0.09 road units (0.045 or less is a tight pass), car at the player's depth, car visible (has a screen box), no collision or cooldown state, one reward per car.
-- Reward: 120 points, or 240 for a tight pass. Passes within 3 seconds chain up to +75%. A crash clears the chain. Total close passes and collisions appear on the result card.
+New rule (original, constants in `V52_CLOSEPASS`). A Close Pass has two stages:
+- **Candidate (`armClosePass`)**: player at least 150 km/h and closing at least 45 km/h, D gear forward, car visible, lateral gap 0.012 to 0.09 road units (under 0.045 is tight), car within 1.5x its contact depth of the player, no collision or cooldown state. This only records the minimum gap, side and screen position on the car. **No score, no total, no chain, no feedback.**
+- **Completed (`awardClosePass`)**: when the candidate car's `dz` falls below minus its contact depth (`trafficContactDepth(car)` = the same longitudinal half-length `trafficContact` uses, 210 + 2x sprite height), i.e. it is geometrically behind the whole contact box, and speed is still at least 150 km/h. Only then: 120 points (240 if tight), `closePassTotal`, chain (3 s window, up to +75%), label and whoosh. One award per car.
+- Any crash (traffic or barrier) clears every candidate, the chain and the labels, so a candidate that ends in a collision pays nothing. A pass completed earlier keeps its points. Candidates also expire after 4 s, or if the player leaves D gear or reverses.
+- The earlier version (Phase 2 first commit) paid at the moment of arming, so a pass that ended in a collision one frame later still kept its score. `nearMiss()` was renamed `awardClosePass()` to match.
 - Feedback: a small Chinese label near the car ("擦身而過 +120", "極限擦身 +240"), fading in 0.8 s, and a soft band-passed whoosh panned to the car. **No camera shake, no drift-combo coupling, no nitro reward.**
-- Considered and rejected: nitro or drift-charge reward (would make weaving through traffic a farmable charge source), auto-magnetism, long combo UI.
+- Considered and rejected: nitro or drift-charge reward (farmable charge source), auto-magnetism, long combo UI.
 
 Scoring change goes under the new competitive namespace (section 11).
+
+### 4.1 Audio routing
+
+Music and gameplay SFX are separated. `fmNote()` (music scheduler) is the only path gated by the radio switch; it delegates to `sfxTone()`. Countdown, GO voice, checkpoint chime and voice, approach tick and close-pass whoosh call the SFX path directly and play with the radio off. Multi-note cues are scheduled on the audio clock (`delay`), not with timers. Existing direct-oscillator SFX (shift, horn, coin, screech, nitro) were never radio-gated.
 
 ## 5. Visual depth audit (OBSERVED, screenshots)
 
