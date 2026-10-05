@@ -1,4 +1,5 @@
 const assert=require('node:assert/strict');
+const {CORNER,SPEED}=require('./tools/probe-code.cjs');
 async function scenarios(run,{render=true}={}){
  let checks=0;
  async function check(code,message){const value=await run(code);assert.equal(value,true,message);checks++;}
@@ -168,6 +169,61 @@ async function scenarios(run,{render=true}={}){
  }
  await run(reset+"flash=0;awardCheckpoint();window.__cpFlash=flash;window.__cpTint=flashTint;");
  await check(`window.__cpFlash>=V52_FLOW.checkpointFlash&&window.__cpTint!=='255,255,255'`,'V52 checkpoint gives a warm gold flash');
+ // ---- V52 Phase 2 -------------------------------------------------------------------------------
+ // Checkpoint feedback must not lean on camera shake.
+ await run(reset+"screenShake=0;flash=0;checkpointPassed=false;stageLevel=0;v34Mode='arcade';awardCheckpoint();window.__cpShake=screenShake;");
+ await check(`window.__cpShake===0&&flash>=V52_FLOW.checkpointFlash`,'V52 checkpoint feedback uses chime + gold flash and adds no camera shake');
+ // Player-facing rule numbers come from gameplay constants.
+ await check(`(()=>{const v=ruleValues();return v.topSpeed===COMPETITION.topSpeed&&v.boostSpeed===COMPETITION.boostSpeed&&v.lowSpeed===GEAR_RULES.LOW.max&&v.highSpeed===GEAR_RULES.HIGH.max&&Number(v.nitroDuration)===NITRO_RULES.duration&&v.nitroCapacity===NITRO_RULES.capacity;})()`,'V52 rule labels are derived from authoritative constants');
+ // Corner differentiation: shared safe-speed rule, over-speed push only on grip.
+ await check(`v52SafeCornerSpeed(.3)>v52SafeCornerSpeed(1.5)&&v52SafeCornerSpeed(1.5)>v52SafeCornerSpeed(3.6)&&v52SafeCornerSpeed(9)===V52_CORNER.safeMin`,'V52 safe corner speed falls with bend demand');
+ await check(`v52OverspeedPush(150,3.6)===0&&Math.abs(v52OverspeedPush(280,.3))<.005&&v52OverspeedPush(280,3.6)>.1&&v52OverspeedPush(280,-3.6)<-.1&&v52OverspeedPush(260,3.6)<v52OverspeedPush(285,3.6)`,'V52 over-speed push only appears above the safe speed and follows bend direction');
+ await run(reset+"v34Mode='sprint';selectedRoute=routeForId('1A');resetGame();const sg=segments[400];window.__hudEntry=(()=>{for(let i=0;i<segments.length;i++)segments[i].curve=0;segments[420].curve=3.0;playerZ=400*SEGMENT_LENGTH;speed=200;updateDrivingHUD();return document.getElementById('corner-speed').textContent;})();");
+ await check(`window.__hudEntry.includes(String(Math.round(v52SafeCornerSpeed(3.0))))`,'V52 HUD recommended entry speed is the physics safe speed, not a second table');
+ const sim=async(c,v,p)=>JSON.parse(await run(`JSON.stringify((${CORNER})(${c},${v},'${p}'))`));
+ const sShallow={coast:await sim(.3,280,'coast'),grip:await sim(.3,280,'grip'),drift:await sim(.3,280,'drift')};
+ const sMed={grip:await sim(.9,280,'grip'),drift:await sim(.9,280,'drift')};
+ const sHair={coast:await sim(3.6,280,'coast'),grip:await sim(3.6,280,'grip'),lift:await sim(3.6,280,'lift'),drift:await sim(3.6,280,'drift')};
+ const sTight={grip:await sim(2.2,280,'grip'),drift:await sim(2.2,280,'drift')};
+ assert.ok(sShallow.coast.maxX<.2&&!sShallow.coast.crashed,'shallow bend barely moves an unsteered car');checks++;
+ assert.ok(sHair.coast.maxX>.55&&sHair.coast.maxX>sShallow.coast.maxX*4,'hairpin demands real steering while shallow does not');checks++;
+ assert.ok(sHair.grip.time-sShallow.grip.time>1.0,'carrying 280 km/h through a hairpin with grip costs clear time');checks++;
+ assert.ok(sHair.grip.duty>sShallow.grip.duty*2,'hairpin needs much more steering input than a shallow bend');checks++;
+ assert.ok(sHair.drift.time<=sHair.grip.time+.05&&sHair.drift.charge>=60&&!sHair.drift.crashed,'drift is viable and earns nitro charge in a hairpin');checks++;
+ assert.ok(sTight.drift.time<=sTight.grip.time+.1&&sTight.drift.charge>=60,'drift keeps pace with grip and charges nitro in tight bends');checks++;
+ assert.ok(sShallow.drift.time>sShallow.grip.time+.15&&sMed.drift.offroad+sMed.drift.time>sMed.grip.time+2,'drift is a poor line on gentle and medium bends (grip is the right tool)');checks++;
+ assert.ok(sHair.lift.time>sHair.grip.time-.05,'pre-lifting is never free in a hairpin');checks++;
+ // Close pass.
+ const cp=`const spec=TRAFFIC_TYPES.taxi;const mk=(gap,spd)=>({x:(trafficHalfWidth({spec})+PLAYER_HALF_WIDTH)+gap,z:playerZ+PLAYER_DEPTH,previousX:0,previousZ:0,speed:spd,spec,type:'taxi',phase:0,hitTimer:0,near:false,laneTarget:0,screenBox:{l:400,r:520,t:380,b:470,cx:460,cy:420}});`;
+ await run(reset+cp+"speed=210;playerX=0;collisionCooldown=0;screenShake=0;score=0;styleCombo=1;closePassChain=0;closePassTimer=0;closePassTotal=0;window.__c1=mk(.06,120);window.__e1=v52ClosePassEligible(window.__c1,.06,0);window.__p1=nearMiss(window.__c1,.06);window.__c2=mk(.02,120);window.__p2=nearMiss(window.__c2,.02);window.__shake=screenShake;window.__combo=styleCombo;");
+ await check(`window.__e1&&window.__p1===V52_CLOSEPASS.points[0]&&window.__p2===Math.round(V52_CLOSEPASS.points[1]*(1+V52_CLOSEPASS.chainStep))&&closePassTotal===2&&score===window.__p1+window.__p2`,'V52 close pass scores wide/tight tiers and chains within the window');
+ await check(`window.__shake===0&&window.__combo===1&&V52_CLOSEPASS.shake===0&&V52_CLOSEPASS.chargeReward===0`,'V52 close pass adds no camera shake, no drift-combo coupling and no nitro reward');
+ await run(reset+cp+"playerX=0;collisionCooldown=0;crashSequence=null;window.__rej=[];const q=(spd,gap,mod)=>{speed=spd;collisionCooldown=0;crashSequence=null;driveGear='D';motionDirection=1;const c=mk(gap,mod.carSpeed??120);if(mod.noBox)c.screenBox=null;if(mod.hit)c.hitTimer=.5;if(mod.cool)collisionCooldown=1;return v52ClosePassEligible(c,gap,mod.dz??0);};window.__rej=[q(210,.06,{}),q(120,.06,{}),q(210,.06,{carSpeed:190}),q(210,.005,{}),q(210,.2,{}),q(210,.06,{noBox:true}),q(210,.06,{hit:true}),q(210,.06,{cool:true}),q(210,.06,{dz:900})];");
+ await check(`JSON.stringify(window.__rej)==='[true,false,false,false,false,false,false,false,false]'`,'V52 close pass requires speed, closing speed, true proximity, visibility, no collision state and same-depth contact');
+ await run(reset+cp+"speed=210;collisionCooldown=0;crashSequence=null;score=0;closePassChain=0;closePassTimer=0;closePassTotal=0;nearMiss(mk(.06,120),.06);triggerCrash(null,null,true);window.__afterCrash=[closePassChain,closePassTimer,closePassFx.length];");
+ await check(`window.__afterCrash.every(v=>v===0)`,'V52 crash clears the close-pass chain (crashing never pays)');
+ await run(reset+"v34Mode='sprint';selectedRoute=routeForId('1A');resetGame();gameStarted=true;raceActive=true;timeLeft=999;traffic=[];for(let i=0;i<segments.length;i++)segments[i].curve=0;playerX=0;playerZ=300*SEGMENT_LENGTH;speed=200;currentGear='HIGH';collisionCooldown=0;screenShake=0;closePassTotal=0;score=0;const spec=TRAFFIC_TYPES.taxi,half=trafficHalfWidth({spec})+PLAYER_HALF_WIDTH,cx=half+.05;const ph=Math.asin(Math.min(1,cx/(.58*roadFactor())))-simulationTime*.13;traffic=[{x:cx,z:playerZ+PLAYER_DEPTH+1500,previousX:cx,previousZ:playerZ+PLAYER_DEPTH+1500,speed:110,targetSpeed:0,spec,type:'taxi',phase:ph,hitTimer:0,laneTarget:cx,screenBox:null,near:false}];keys.KeyW=true;let crashed=false;for(let i=0;i<150&&!crashSequence;i++){update(1/60);}window.__liveCP=[closePassTotal,!!crashSequence,screenShake,score>0];");
+ await check(`window.__liveCP[0]===1&&window.__liveCP[1]===false&&window.__liveCP[2]<1`,'V52 a real visible fast pass triggers exactly one close pass without a crash or shake');
+ // Speed-linked wind rush: 160 and 280 km/h must sound clearly different regardless of gear.
+ await check(`(()=>{const a=v52WindProfile(100),b=v52WindProfile(160),c=v52WindProfile(220),d=v52WindProfile(280);return a.gain<b.gain&&b.gain<c.gain&&c.gain<d.gain&&d.gain/b.gain>2&&d.freq/b.freq>1.3;})()`,'V52 wind rush separates 160 from 280 km/h');
+ // Speed perception measured from pixels: world flow must carry the sensation, not overlay lines.
+ const flow={};
+ for(const v of [100,160,220,280]){flow[v]={on:JSON.parse(await run(`JSON.stringify((${SPEED})(${v},true))`)),off:JSON.parse(await run(`JSON.stringify((${SPEED})(${v},false))`))};}
+ assert.ok(flow[100].off.all<flow[160].off.all&&flow[160].off.all<flow[220].off.all&&flow[220].off.all<flow[280].off.all,'picture flow grows with speed');checks++;
+ assert.ok(flow[280].off.all/flow[160].off.all>1.25&&flow[280].off.road/flow[100].off.road>1.7,'280 km/h looks clearly faster than 160 km/h from world flow alone');checks++;
+ assert.ok(Math.abs(flow[280].on.all-flow[280].off.all)/flow[280].on.all<.12,'overlay lines contribute less than 12 percent of the picture flow at 280 km/h');checks++;
+ // Route vocabulary: 15 distinct road-furniture silhouettes, every route differs from every other in >=4 vocabulary features.
+ await check(`new Set(Object.values(V52_EDGE_STYLE)).size===15&&Object.keys(V52_EDGE_STYLE).length===15`,'V52 every route owns a distinct road-furniture silhouette');
+ const vocab=JSON.parse(await run(`JSON.stringify((()=>{const o=[];for(const id of ${JSON.stringify(routes)}){v34Mode='sprint';selectedRoute=routeForId(id);resetGame();const sc=scene(),cs=segments.map(s=>Math.abs(s.curve));o.push({id,arch:currentNode.archetype,type:sc.type,props:sc.props,lanes:sc.lanes,width:sc.width,edge:V52_EDGE_STYLE[id],water:[districtSurface(80,-1),districtSurface(80,1)].includes('water'),hills:sc.hills>25,tight:cs.filter(c=>c>=1.4).length/cs.length>.15,traffic:currentNode.traffic,sky:sc.sunset[0]});}return o;})())`));
+ let minDiff=99,minPair='';
+ for(let i=0;i<vocab.length;i++)for(let j=i+1;j<vocab.length;j++){const a=vocab[i],b=vocab[j];let d=0;for(const k of ['arch','type','props','lanes','width','edge','water','hills','tight','sky'])if(a[k]!==b[k])d++;if(Math.abs(a.traffic-b.traffic)>4)d++;if(d<minDiff){minDiff=d;minPair=a.id+'/'+b.id;}}
+ assert.ok(minDiff>=4,`route vocabulary pair ${minPair} differs in only ${minDiff} features`);checks++;
+ await check(`${JSON.stringify(routes)}.every(id=>{v34Mode='sprint';selectedRoute=routeForId(id);resetGame();ctx.save();const r=drawV52EdgeProp(V52_EDGE_STYLE[id],1,3,1.2);ctx.restore();return r===true;})`,'V52 every route furniture style draws');
+ // Start cadence and finish hierarchy.
+ await run(reset+"v34Mode='arcade';selectedRoute=routeForId('4D');inRadioScreen=true;dipSettings.coin='free';confirmRadioAndStart();window.__readyCard=[stageCard.classList.contains('show'),stageDetail.textContent,stageCardTimer];rpm=800;for(let i=0;i<40;i++)update(1/60);window.__revRpm=rpm;");
+ await check(`window.__readyCard[0]&&window.__readyCard[1].includes('READY')&&window.__readyCard[2]>=3.5&&window.__revRpm>2000`,'V52 start shows the route card during the countdown and revs the engine');
+ await run(reset+"v34Mode='arcade';stageLevel=4;timeLeft=12.3;score=12345;crashCount=1;closePassTotal=4;fillResultStats(true);window.__stats=(document.getElementById('celeb-stats').innerHTML.match(/<div>/g)||[]).length;celebrationCard.classList.remove('show');gameOver=false;finishGame(false);window.__failCard=celebrationCard.classList.contains('show');clearTimeout(resultTimer);");
+ await check(`window.__stats===4&&window.__failCard&&celebTitle.textContent.includes('TIME UP')`,'V52 results show a four-number summary and a clear time-up card');
  return {checks,routes:routes.length,branchPaths:16};
 }
 module.exports={scenarios};
