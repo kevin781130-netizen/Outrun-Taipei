@@ -164,7 +164,7 @@ async function scenarios(run,{render=true}={}){
  await run(reset+"speed=120;playerX=0;const sg=v52ApproachSigns()[1];playerZ=(sg.index-1)*SEGMENT_LENGTH+5;v52LastSeg=-1;v52ApproachTick();window.__tickBefore=v52LastSeg;playerZ=(sg.index+1)*SEGMENT_LENGTH;window.__tickFires=v52ApproachTick();");
  await check(`window.__tickFires===true`,'V52 approach tick fires exactly when passing a board');
  for(const id of ['2B','3A','4D','5E']){
-  await run(`v34Mode='sprint';selectedRoute=routeForId('${id}');resetGame();gameStarted=true;raceActive=true;traffic=[];timeLeft=999;const sg=v52ApproachSigns()[2];playerZ=(sg.index-60)*SEGMENT_LENGTH;playerX=0;speed=150;render(0);window.__signDraw=0;const seg=segments[sg.index];ctx.save();window.__signDraw=drawApproachSign(seg.p1.screen,sg);ctx.restore();window.__signFinite=Object.values(seg.p1.screen).every(v=>typeof v!=='number'||Number.isFinite(v));`);
+  await run(`v34Mode='sprint';selectedRoute=routeForId('${id}');resetGame();gameStarted=true;raceActive=true;traffic=[];timeLeft=999;const sg=v52ApproachSigns()[2];playerZ=(sg.index-60)*SEGMENT_LENGTH;playerX=0;speed=150;render(0);window.__signDraw=0;const seg=segments[sg.index];ctx.save();window.__signDraw=drawApproachSign(placeApproachSign(sg),sg);ctx.restore();window.__signFinite=Object.values(seg.p1.screen).every(v=>typeof v!=='number'||Number.isFinite(v));`);
   await check(`window.__signFinite&&(window.__signDraw===0||window.__signDraw===1)`,`${id} approach board projection stays finite`);
  }
  await run(reset+"flash=0;awardCheckpoint();window.__cpFlash=flash;window.__cpTint=flashTint;");
@@ -272,6 +272,84 @@ async function scenarios(run,{render=true}={}){
  }
  await check(`V53_WALL_ROUTES.every(id=>SCENES[id]&&['mountain'].includes(Object.values(STAGES.flat()).find(n=>n.id===id)?.archetype))`,'V53 retaining walls appear only on mountain archetype routes');
  await check(`(()=>{const hue=hex=>{const r=parseInt(hex.slice(1,3),16)/255,g=parseInt(hex.slice(3,5),16)/255,b=parseInt(hex.slice(5,7),16)/255,mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;if(d<.001)return [0,0];const l=(mx+mn)/2,sat=d/(1-Math.abs(2*l-1));let h=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4;h*=60;if(h<0)h+=360;return [h,sat];};const bad=[];const check=(name,arr)=>{for(const c of arr){if(typeof c!=='string'||!/^#[0-9a-f]{6}$/i.test(c))continue;const [h,s]=hue(c);if(s>.18&&h>=255&&h<=346)bad.push(name+':'+c);}};for(const [k,v] of Object.entries(THEMES))check('theme '+k,[...v.sky,v.mountain,v.horizon]);for(const [k,v] of Object.entries(V40_ART))check('art '+k,[...v.sky,v.mountain,v.sun]);for(const [k,v] of Object.entries(SCENES))check('scene '+k,[...v.sunset,...v.night]);window.__badHue=bad;return bad.length===0;})()`,'V53 sky and mountain palettes contain no purple or magenta (no generic neon drift)');
+ // ---- V53.1 roadside anchors ---------------------------------------------------------------------------------
+ const RS=`(function(id,sit){
+  const level=routeForId(id).level,arcade=(sit==='fork'||sit==='transition');
+  if(arcade&&level>=4)return {skipped:true};
+  v34Mode=arcade?'arcade':'sprint';selectedRoute=routeForId(id);
+  if(arcade)setStage(...Object.values(routeForId(id)));else resetGame();
+  gameStarted=true;raceActive=true;traffic=[];playerX=0;
+  const cv={straight:0,shallow:.4,medium:1.0,tight:2.4}[sit];
+  if(cv!==undefined)for(let i=0;i<segments.length;i++)segments[i].curve=cv;
+  let idxs;if(sit==='fork')idxs=[FORK_START+12,FORK_START+45,FORK_START+90,STAGE_END-40];else if(sit==='transition')idxs=[STAGE_END+8,STAGE_END+55,STAGE_SWITCH-12];else idxs=[140,330,Math.round(STAGE_END*.5),700];
+  const kinds=[{kind:'sign',inner:.31,foot:.02,mode:'ground'},{kind:'edge',inner:.105,foot:.03,gapN:.02,bank:true},{kind:'pole',inner:.02,foot:.02,gapN:.4,mode:'ground'},{kind:'deck',inner:.02,foot:.015,mode:'deck'}];
+  const bad=[];let checked=0;
+  for(const idx of idxs){
+   playerZ=Math.max(0,(idx-50))*SEGMENT_LENGTH;playerX=0;projectRoad();
+   const seg=segments[idx],p=seg.p1.screen;if(!(seg.p1.camera.z>CAMERA_DEPTH))continue;
+   const cx=roadsideCorridorsX(idx),cxDeck=roadsideCorridorsX(idx,0);
+   for(const side of [-1,1])for(const k of kinds){
+    const a=roadsideAnchor(idx,side,k),surf=districtSurface(idx,side);checked++;
+    if(k.kind!=='deck'&&k.mode==='ground'&&(surf==='water'||surf==='elevated')&&a.ok){bad.push(['ground-on-'+surf,id,sit,idx,side,k.kind]);continue;}
+    if(k.kind==='deck'&&surf==='elevated'&&!a.ok){bad.push(['deck-mount-missing',id,sit,idx,side,a.reason]);continue;}
+    if(!a.ok)continue;
+    if(!roadsideAnchorValid(a))bad.push(['invalid',id,sit,idx,side,k.kind]);
+    const lo=Math.min(a.innerX,a.outerX),hi=Math.max(a.innerX,a.outerX);
+    for(const c of (a.mode==='deck'?cxDeck:cx))if(hi>c.left&&lo<c.right)bad.push(['body-in-road',id,sit,idx,side,k.kind]);
+    if(!(Number.isFinite(a.x)&&Number.isFinite(a.y)&&Number.isFinite(a.scale)&&Number.isFinite(lo)&&Number.isFinite(hi)))bad.push(['non-finite',id,sit,idx,side,k.kind]);
+    if(Math.abs(a.groundY-p.y)>1e-6)bad.push(['ground-y',id,sit,idx,side,k.kind]);
+   }
+   if(sit==='fork'||sit==='transition'){const m=roadsideMedianAnchor(idx,{kind:'edge',inner:.105,gapN:.02});if(m.ok){const lo=Math.min(m.innerX,m.outerX),hi=Math.max(m.innerX,m.outerX);for(const c of cx)if(hi>c.left&&lo<c.right)bad.push(['median-in-road',id,sit,idx]);}}
+  }
+  return {checked,bad:bad.slice(0,6)};
+ })`;
+ let rsChecked=0;
+ for(const id of routes)for(const sit of ['straight','shallow','medium','tight','fork','transition']){
+  const r=JSON.parse(await run(`JSON.stringify((${RS})('${id}','${sit}'))`));
+  if(r.skipped)continue;
+  assert.deepEqual(r.bad,[],`${id}/${sit} roadside anchors stay outside the drivable corridor, off water and off the void beside elevated decks`);rsChecked+=r.checked;
+ }
+ assert.ok(rsChecked>2000,'checked '+rsChecked+' V53.1 roadside anchors exercised');checks++;
+ // Approach boards: every route and mode resolves to a valid ground board or deck gantry.
+ for(const id of routes)for(const mode of ['arcade','sprint','cruise']){
+  const r=JSON.parse(await run(`(()=>{const lvl=routeForId('${id}').level;v34Mode='${mode}';selectedRoute=routeForId('${id}');if('${mode}'==='arcade')setStage(...Object.values(routeForId('${id}')));else resetGame();gameStarted=true;raceActive=true;traffic=[];
+   const out=[];for(const sg of v52ApproachSigns()){playerZ=Math.max(0,sg.index-60)*SEGMENT_LENGTH;playerX=0;projectRoad();const pl=placeApproachSign(sg);const elev=districtSurface(sg.index,1)==='elevated';
+    let ok=!!pl&&pl.kind===(elev?'gantry':'ground');let inRoad=false;
+    if(pl&&pl.kind==='ground'){ok=ok&&roadsideAnchorValid(pl.a)&&pl.a.surface==='land';const cx=roadsideCorridorsX(sg.index),lo=Math.min(pl.a.x-pl.a.w*.31,pl.a.x+pl.a.w*.31),hi=Math.max(pl.a.x-pl.a.w*.31,pl.a.x+pl.a.w*.31);for(const c of cx)if(hi>c.left&&lo<c.right)inRoad=true;}
+    if(pl&&pl.kind==='gantry'){ok=ok&&roadsideAnchorValid(pl.L)&&roadsideAnchorValid(pl.R)&&pl.L.x<pl.R.x;}
+    out.push([ok,inRoad]);}
+   return JSON.stringify(out);})()`));
+  assert.ok(r.length===3&&r.every(x=>x[0]&&!x[1]),`${id}/${mode} approach boards are placed on a free shoulder (whole board clear of the road) or a deck gantry`);checks++;
+ }
+ // Gate and gantry posts stand outside the outer edge plus shoulder.
+ await check(`(()=>{for(const id of ${JSON.stringify(routes.filter(i=>!['5A','5B','5C','5D','5E'].includes(i)))}){v34Mode='arcade';selectedRoute=routeForId(id);setStage(...Object.values(routeForId(id)));for(const idx of [FORK_START-52,FORK_START+64,FORK_START+120]){const g=roadsideGatePostN(idx);for(const side of [-1,1])if(g<roadsideEdgeN(idx,side)+V53_1_ROADSIDE.shoulderN)return false;}}return true;})()`,'V53.1 checkpoint gates and route gantries put their posts beyond the shoulder, including inside the fork');
+ // Rendered frames only log valid anchors; start gantry is a world object.
+ for(const id of routes){
+  const r=JSON.parse(await run(`(()=>{v34Mode='sprint';selectedRoute=routeForId('${id}');resetGame();gameStarted=true;raceActive=true;traffic=[];skyMood='sunset';const res=[];for(const z of [60,200,340]){playerZ=z*SEGMENT_LENGTH;playerX=0;speed=180;render(0);res.push([roadsideAnchorLog.length,roadsideAnchorLog.every(a=>!a.ok||roadsideAnchorValid(a))]);}return JSON.stringify(res);})()`));
+  assert.ok(r.every(x=>x[1]),`${id} every roadside anchor created while rendering is valid`);checks++;
+ }
+ await check(`(()=>{v34Mode='arcade';selectedRoute=routeForId('1A');setStage(...Object.values(routeForId('1A')));gameStarted=true;raceActive=true;playerZ=0;playerX=0;speed=0;render(0);return roadsideAnchorLog.some(a=>a.kind==='start-gantry'&&a.ok&&roadsideAnchorValid(a))&&drawStartingScene.toString().includes('roundRect')===false;})()`,'V53.1 the start board is a real overhead gantry standing on the shoulders');
+ await check(`(()=>{DEBUG_ROADSIDE_ANCHORS===false})()||DEBUG_ROADSIDE_ANCHORS===false`,'V53.1 roadside debug overlay is off by default');
+ // ---- V53.1 landmark quality ---------------------------------------------------------------------------------
+ await check(`(()=>{const src=drawNeihuTechHeadquarters.toString();return !/NEIHU TECH PARK|shadowBlur|#00e5ff|#64ffda/.test(src)&&/lmOffice/.test(src)&&(src.match(/lmOffice\\(/g)||[]).length>=4;})()`,'V53.1 Neihu is a multi-building office district (no neon sign, no glow, no cyan tech box)');
+ for(const mood of ['sunset','neon']){
+  for(const id of routes){
+   const r=JSON.parse(await run(`(()=>{v34Mode='sprint';selectedRoute=routeForId('${id}');resetGame();gameStarted=true;raceActive=true;traffic=[];skyMood='${mood}';speed=180;playerX=0;const out=[];
+    const heights=stageLandmarkPlan.map(h=>h.heightWorld);
+    for(const h of stageLandmarkPlan){const sp=h.sprite;const row={name:h.name,finite:[sp.width,sp.height,sp.left,sp.top,h.artUnits,h.worldOffset].every(Number.isFinite),grounded:sp.top+sp.height>=-3&&sp.top+sp.height<=30,hasHeight:Number.isFinite(h.height)||true,cov:[],clear:true};
+     for(const d of [200,120,80,50]){playerZ=Math.max(0,h.seg-d)*SEGMENT_LENGTH;render(0);const e=landmarkDrawLog.find(l=>l.id===h.id);if(!e)continue;row.cov.push([d,e.pixelWidth/W,e.pixelHeight/H]);
+      if(h.side!==0){const pr=landmarkProjection(h);if(pr){const left=pr.x+sp.left*pr.scale,right=left+sp.width*pr.scale;for(const c of roadsideCorridorsX(h.seg)){if(right>c.left&&left<c.right&&h.side!==0)row.clear=false;}}}}
+     out.push(row);}
+    return JSON.stringify({out,heights});})()`));
+   for(const row of r.out){
+    assert.ok(row.finite&&row.grounded,`${id}/${mood} ${row.name} sprite is finite and its base sits on the ground line`);checks++;
+    assert.ok(row.clear,`${id}/${mood} ${row.name} stays out of the drivable road at depth`);checks++;
+    assert.ok(row.cov.every(c=>c[1]<=0.6&&c[2]<=0.86),`${id}/${mood} ${row.name} never covers more than 60 percent of the width or 86 percent of the height at 50+ segments (${JSON.stringify(row.cov)})`);checks++;
+   }
+   if(mood==='sunset'&&r.heights.length>1)assert.ok(new Set(r.heights).size>1,`${id} landmarks use individual proportions, not one route height`);
+  }
+ }
+ await check(`Object.values(STAGE_LANDMARKS).flat().every(h=>Number.isFinite(h.height)&&h.height>=2400&&h.height<=19000)&&Object.values(STAGE_LANDMARKS).flat().filter(h=>h.height>9000).length===1`,'V53.1 every landmark has its own world height and only Taipei 101 is a super-tall');
  return {checks,routes:routes.length,branchPaths:16};
 }
 module.exports={scenarios};
