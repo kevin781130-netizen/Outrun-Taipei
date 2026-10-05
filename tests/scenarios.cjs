@@ -33,7 +33,7 @@ async function scenarios(run,{render=true}={}){
  await check(`window.__v46Vista>0&&window.__v46Props>=0&&[playerZ,playerX,speed,traffic.length,currentNode.id].every((v,i)=>v===window.__v46Before[i])`,'V46 art layers render without mutating gameplay state');
  await check(`['urban','expressway','coastal','mountain'].includes(v46SceneFamily())&&v46VistaProfile().density>0`,'V46 scaler art profile is generated from Taipei stage archetype');
  await check(`V47_CLEAN_ROOM_REFERENCE.observationOnly&&V47_CLEAN_ROOM_REFERENCE.sourceCode===false&&V47_CLEAN_ROOM_REFERENCE.sourceAssets===false&&V47_CLEAN_ROOM_REFERENCE.decompilation===false&&V47_CLEAN_ROOM_REFERENCE.directSyntaxTranslation===false&&V47_CLEAN_ROOM_REFERENCE.exactHandlingCurveCopy===false&&V47_CLEAN_ROOM_REFERENCE.distinctiveModeClone===false&&V47_CLEAN_ROOM_REFERENCE.distinctiveRouteUICopy===false&&V47_CLEAN_ROOM_REFERENCE.licensedVehicleIdentity===false&&V47_CLEAN_ROOM_REFERENCE.independentImplementation`,'V47 reference guard enforces independent clean-room implementation');
- await check(`COMPETITION.version==='51.0'&&V51_HANDLING.independentModel&&V51_HANDLING.gearDriftClone===false&&V51_HANDLING.distinctiveModeClone===false&&V51_HANDLING.exactHandlingCurveCopy===false&&V51_HANDLING.patentedMechanicReplication===false`,'V51 handling keeps independent recovery model');
+ await check(`COMPETITION.version==='52.0'&&V51_HANDLING.independentModel&&V51_HANDLING.gearDriftClone===false&&V51_HANDLING.distinctiveModeClone===false&&V51_HANDLING.exactHandlingCurveCopy===false&&V51_HANDLING.patentedMechanicReplication===false`,'V51 handling keeps independent recovery model');
  await check(`v51SteeringProfile(70,false).response>v51SteeringProfile(270,false).response&&v51SteeringProfile(70,false).authority>v51SteeringProfile(270,false).authority&&v51SteeringProfile(270,false).authority>=.89`,'V50 steering preserves high-speed authority without excessive camera motion');
  await check(`v51SteeringProfile(220,false).liftGrip>1.15&&v51SteeringProfile(220,false).brakeRotation>.13&&DRIFT51.entryMinSpeed===58&&DRIFT51.entryRamp<=.055&&DRIFT51.maxBodyYaw===40&&DRIFT51.recoverResponse>DRIFT51.yawResponse`,'V51 drift entry stays accessible while physical yaw remains controlled');
  await run(`playerZ=190*SEGMENT_LENGTH;playerX=0;speed=185;projectRoad();window.__v47Before=[playerZ,playerX,speed,traffic.length,currentNode.id];window.__v47Depth=drawV47CinematicDepth(H*.51,scene());window.__v47Mass=drawV47ForegroundMass(projectedRoad);`);
@@ -147,6 +147,27 @@ async function scenarios(run,{render=true}={}){
  await check(`!gameOver&&playerZ===0&&timeLeft===window.__cruiseTime`,'cruise loops without countdown');
  await run(`stageVisualBlend=1;nitroStock=2;boostRemaining=2;resetGame();`);
  await check(`nitroStock===0&&boostRemaining===0&&stageVisualBlend===0&&!crashSequence`,'new run clears transient effects and boosts');
+ // V52 arcade flow: shorter crash interruption, stronger re-entry, approach signage, competitive namespace bump.
+ await check(`V52_FLOW.crashDuration<=3.0&&V52_FLOW.crashDuration<4.1&&V52_FLOW.recoverySpeed>75&&V52_FLOW.recoverySpeed<=110&&V52_FLOW.autoRailAssist===false&&V52_FLOW.exactSourceCopy===false`,'V52 crash interruption is shorter without any auto-rail assist');
+ await check(`bestRecordKey('1A').endsWith(':52.0')&&arcadeBoardKey().endsWith(':52.0')`,'V52 competitive records use a new namespace instead of mixing with V51 physics');
+ await run(reset+"speed=180;playerX=0;collisionCooldown=0;triggerCrash(null,null,true);window.__crashDur=crashSequence.duration;window.__crashT=0;for(let i=0;i<400&&crashSequence;i++){update(1/60);window.__crashT+=1/60;}window.__crashDone=!crashSequence;window.__crashSpeed=speed;window.__crashGrace=collisionCooldown;");
+ await check(`window.__crashDone&&window.__crashT<=3.1&&window.__crashT>=2.7&&window.__crashSpeed===V52_FLOW.recoverySpeed&&window.__crashGrace>=1.5`,'V52 crash recovers within ~3s at a speed that rejoins the flow');
+ await run(reset+"crashSequence={t:0,anim:0,duration:V52_FLOW.crashDuration,impactSpeed:150,side:1};update(1.0);window.__anim=crashSequence.anim;window.__animT=crashSequence.t;crashSequence=null;");
+ await check(`Math.abs(window.__anim-window.__animT*V52_FLOW.crashAnimScale)<1e-9&&window.__anim>1.3`,'V52 chase animation plays on a compressed clock instead of being cut off');
+ for(const id of routes){
+  for(const mode of ['arcade','sprint','cruise']){
+   await run(`v34Mode='${mode}';stageLevel=0;selectedRoute=routeForId('${id}');if('${mode}'==='arcade'){setStage(...Object.values(routeForId('${id}')));}else{resetGame();}`);
+   await check(`(()=>{const t=v52ApproachTarget(),signs=v52ApproachSigns();return !!t&&signs.length===3&&signs.every(x=>x.index<t.index&&x.index>20&&Number.isFinite(x.index))&&signs[0].index<signs[1].index&&signs[1].index<signs[2].index&&signs[0].meters===500})()`,`${id}/${mode} approach boards count down 500/300/100 before the target`);
+  }
+ }
+ await run(reset+"speed=120;playerX=0;const sg=v52ApproachSigns()[1];playerZ=(sg.index-1)*SEGMENT_LENGTH+5;v52LastSeg=-1;v52ApproachTick();window.__tickBefore=v52LastSeg;playerZ=(sg.index+1)*SEGMENT_LENGTH;window.__tickFires=v52ApproachTick();");
+ await check(`window.__tickFires===true`,'V52 approach tick fires exactly when passing a board');
+ for(const id of ['2B','3A','4D','5E']){
+  await run(`v34Mode='sprint';selectedRoute=routeForId('${id}');resetGame();gameStarted=true;raceActive=true;traffic=[];timeLeft=999;const sg=v52ApproachSigns()[2];playerZ=(sg.index-60)*SEGMENT_LENGTH;playerX=0;speed=150;render(0);window.__signDraw=0;const seg=segments[sg.index];ctx.save();window.__signDraw=drawApproachSign(seg.p1.screen,sg);ctx.restore();window.__signFinite=Object.values(seg.p1.screen).every(v=>typeof v!=='number'||Number.isFinite(v));`);
+  await check(`window.__signFinite&&(window.__signDraw===0||window.__signDraw===1)`,`${id} approach board projection stays finite`);
+ }
+ await run(reset+"flash=0;awardCheckpoint();window.__cpFlash=flash;window.__cpTint=flashTint;");
+ await check(`window.__cpFlash>=V52_FLOW.checkpointFlash&&window.__cpTint!=='255,255,255'`,'V52 checkpoint gives a warm gold flash');
  return {checks,routes:routes.length,branchPaths:16};
 }
 module.exports={scenarios};

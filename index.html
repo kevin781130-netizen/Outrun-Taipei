@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>台北極速傳說｜Taipei Sunset Drive V51</title>
+<title>台北極速傳說｜Taipei Sunset Drive V52</title>
 <style>
   :root{
     --arcade-red:#e61e2b; --arcade-yellow:#ffd200; --arcade-blue:#0090ea; --arcade-teal:#00e5ff;
@@ -576,7 +576,7 @@ body{background:radial-gradient(ellipse at 50% 20%,#152a41,#050c14 65%);}
     </div>
   </div>
   <div id="build-version" role="status" aria-label="目前遊戲版本">
-    <span>CURRENT TEST BUILD</span><strong>V51.1</strong><span>SIDEWAYS DRIFT · CLEAN-ROOM · TAIPEI</span>
+    <span>CURRENT TEST BUILD</span><strong>V52.0</strong><span>ARCADE FLOW · CLEAN-ROOM · TAIPEI</span>
   </div>
 </div>
 
@@ -1514,7 +1514,7 @@ function chargeDriftNitro(dt){
   nitro=clamp(nitro,0,100);
 }
 
-let screenShake = 0, flash = 0, bestScore = 0;
+let screenShake = 0, flash = 0, bestScore = 0, flashTint = '255,255,255';
 let stageLevel = 0, stageColumn = 0, currentNode = STAGES[0][0], routeHistory = [], stageChoices = [];
 let pendingChoice = 'left', choiceLocked = false, lastForkChoice = '';
 let stageEntryChoice = null, stageTransition = null;
@@ -2279,7 +2279,7 @@ function triggerCrash(car, hit, isObstacle=false){
   for(let i=0; i<25; i++){
     addParticle(hx + rand(-20, 20), hy + rand(-10, 10), rand(-150, 150), rand(-180, -30), rand(0.25, 0.65), rand(3, 7), 'spark');
   }
-  crashSequence={t:0,duration:4.1,impactSpeed:speed,side:pushDir};
+  crashSequence={t:0,anim:0,duration:V52_FLOW.crashDuration,impactSpeed:speed,side:pushDir};
   resetDrivingState();
   exitBoost=0;cleanDriftTime=0;lateralVelocity=0;boosting=false;boostRemaining=0;nitroLatch=false;reverseWindow=0;
   crashCount++; isDrifting = false; isDrafting = false; driftAngle = 0; steer = 0;
@@ -2288,7 +2288,7 @@ function triggerCrash(car, hit, isObstacle=false){
 
 function updateCrash(dt){
   const c = crashSequence;
-  c.t += dt; raceElapsed+=dt;
+  c.t += dt; c.anim=c.t*V52_FLOW.crashAnimScale; raceElapsed+=dt;
   isDrifting = false; isDrafting = false; driftAngle = 0; steer = 0;
   speed = Math.max(0, c.impactSpeed * (1 - c.t / 0.75));
   playerZ += speed * WORLD_SPEED * dt;
@@ -2300,10 +2300,10 @@ function updateCrash(dt){
   if(v34Mode!=='cruise') timeLeft=Math.max(0,timeLeft-dt);
   if(timeLeft <= 0){ finishGame(false); return; }
 
-  if(!c.chaseAnnounced&&c.t>=1.65){c.chaseAnnounced=true;say('等等！車子自己跑了！');}
+  if(!c.chaseAnnounced&&c.anim>=1.65){c.chaseAnnounced=true;say('等等！車子自己跑了！');}
 
   if(c.t >= c.duration){
-    crashSequence=null;resetDrivingState();playerX=clamp(playerX,-drivableHalf()*.76,drivableHalf()*.76);speed=75;currentGear='LOW';driveGear='D';motionDirection=1;reverseWindow=0;nitroLatch=false; collisionCooldown = 2.0;
+    crashSequence=null;resetDrivingState();playerX=clamp(playerX,-drivableHalf()*.76,drivableHalf()*.76);speed=V52_FLOW.recoverySpeed;currentGear='LOW';driveGear='D';motionDirection=1;reverseWindow=0;nitroLatch=false; collisionCooldown = V52_FLOW.recoveryGrace;
     say('GET BACK IN! STEP ON IT! 🏁');
   }
   updateHUD();
@@ -2315,8 +2315,8 @@ function awardCheckpoint(){
   checkpointBonus = stageTimeBudget(stageLevel + 1, stageColumn);
   timeLeft += checkpointBonus;
   score += 3500 + (stageLevel + 1) * 900;
-  playCheckpointChime();
-  styleMessage('CHECK POINT', `TIME +${checkpointBonus}s`);
+  playCheckpointChime();flash=Math.max(flash,V52_FLOW.checkpointFlash);flashTint='255,214,110';screenShake=Math.max(screenShake,1.2);
+  styleMessage('檢查站通過 CHECK POINT', `TIME +${checkpointBonus}s`);
   say('TIME EXTENSION! FORK AHEAD! 🌴');
 }
 
@@ -2415,7 +2415,7 @@ function update(dt){
   bubbleTimer = Math.max(0, bubbleTimer - dt); if(bubbleTimer === 0) bubble.classList.remove('show');
   styleTimer = Math.max(0, styleTimer - dt); if(styleTimer === 0) stylePop.classList.remove('show');
   stageCardTimer = Math.max(0, stageCardTimer - dt); if(stageCardTimer === 0) stageCard.classList.remove('show');
-  flash = Math.max(0, flash - dt); screenShake *= Math.pow(0.001, dt);
+  flash = Math.max(0, flash - dt); if(flash<=0)flashTint='255,255,255'; screenShake *= Math.pow(0.001, dt);
   collisionCooldown = Math.max(0, collisionCooldown - dt); updateAudio();
   if(!gameStarted || gameOver || paused) return;
 
@@ -2535,6 +2535,7 @@ function update(dt){
   playerZ=Math.max(0,playerZ+speed*WORLD_SPEED*dt*motionDirection);
   if(v34Mode!=='cruise') timeLeft=Math.max(0,timeLeft-dt);
 
+  v52ApproachTick();
   if(v34Mode==='arcade' && stageLevel < 4 && playerZ >= (FORK_START - 52) * SEGMENT_LENGTH) awardCheckpoint();
   if(timeLeft <= 0){ finishGame(false); return; }
 
@@ -3175,6 +3176,48 @@ function drawCheckpointGate(p, label='CHECK POINT'){
   ctx.restore();
 }
 
+// V52: Taiwan-highway style green distance boards count down to the checkpoint / goal (pacing + readability, no physics).
+function v52ApproachTarget(){
+  if(v34Mode==='arcade'){
+    if(stageLevel<4)return checkpointPassed?null:{index:FORK_START-52,zh:'檢查站',en:'CHECK POINT'};
+    return {index:FINISH_LINE,zh:'終點',en:'GOAL'};
+  }
+  return {index:soloFinishIndex(),zh:'終點',en:v34Mode==='sprint'?'FINISH':'LOOP'};
+}
+function v52ApproachSigns(){
+  const t=v52ApproachTarget();if(!t)return [];
+  return V52_FLOW.approachMeters.map(m=>({meters:m,index:t.index-Math.round(m/SEGMENT_METERS),zh:t.zh,en:t.en})).filter(x=>x.index>20);
+}
+function drawApproachSign(p,sign){
+  if(!p||!p.scale||p.w<14||p.w>360)return 0;
+  const env=roadEnvelope(sign.index),x=p.x+p.w*(env+V52_FLOW.signSideGap);
+  const bw=p.w*.62,bh=p.w*.36,ph=p.w*.64,top=p.y-ph,left=x-bw/2;
+  if(top+bh<0||x<-bw||x>W+bw)return 0;
+  ctx.save();
+  ctx.fillStyle='#5d696d';ctx.fillRect(x-p.w*.018,top+bh*.9,p.w*.036,ph-bh*.9);
+  const g=ctx.createLinearGradient(0,top,0,top+bh);g.addColorStop(0,'#0f7a49');g.addColorStop(1,'#07502e');
+  ctx.fillStyle=g;ctx.fillRect(left,top,bw,bh);
+  ctx.strokeStyle='#f3f6ee';ctx.lineWidth=Math.max(1,p.w*.012);ctx.strokeRect(left+1,top+1,bw-2,bh-2);
+  if(bw>34){
+    v40FitSignText(`${sign.zh} ${sign.en}`,left+bw*.06,top+bh*.07,bw*.88,bh*.30,bh*.24,'#ffe570');
+    v40FitSignText(`${sign.meters} M`,left+bw*.06,top+bh*.40,bw*.88,bh*.50,bh*.46,'#ffffff');
+  }
+  ctx.restore();
+  return 1;
+}
+let v52LastSeg=-1;
+function v52ApproachTick(){
+  const cur=Math.floor(playerZ/SEGMENT_LENGTH),last=v52LastSeg;v52LastSeg=cur;
+  if(last<0||cur<last||cur-last>40)return false;
+  for(const sign of v52ApproachSigns()){
+    if(sign.index>last&&sign.index<=cur){
+      if(audioCtx)fmNote(sign.meters<=100?740:587.33,2.0,40,0.09,0.03,'triangle');
+      return true;
+    }
+  }
+  return false;
+}
+
 function drawRouteGantry(p, n, index){
   if(!p || !p.scale || p.w < 24) return;
   const fp = clamp((index - FORK_START) / (STAGE_END - FORK_START), 0, 1), fg = forkGeometry(fp);
@@ -3202,6 +3245,7 @@ function drawRouteGantry(p, n, index){
 function drawForkObjects(start){
   const objects = [];
   const add = (index, draw) => { if(index > start && index < start + DRAW_DISTANCE) objects.push({ index, draw }); };
+  for(const sign of v52ApproachSigns())add(sign.index,p=>drawApproachSign(p,sign));
   if(v34Mode!=='arcade'){
     add(soloFinishIndex(),p=>drawCheckpointGate(p,v34Mode==='sprint'?'TIME ATTACK FINISH':'CRUISE LOOP'));
   }else if(stageLevel < 4){
@@ -3504,7 +3548,7 @@ function drawPlayer(){
  const pose=v51DriftVisualPose();
  let cx=W/2+pose.offsetX,cy=H-65+brakeVisual*2-wanganTuning.suspension*2+chassisPitch*.75,scale=1,yaw=pose.yaw,roll=chassisRoll;
  if(Math.abs(playerX)>drivableHalf()&&!crashSequence)cy+=Math.sin(simulationTime*24)*1.2;
- if(crashSequence){const p=crashPose(crashSequence.t,crashSequence.side);cx=p.x;cy=p.y;scale=p.scale;roll=p.roll;yaw=0;}
+ if(crashSequence){const p=crashPose(crashSequence.anim,crashSequence.side);cx=p.x;cy=p.y;scale=p.scale;roll=p.roll;yaw=0;}
  ctx.save();ctx.translate(cx,cy);ctx.scale(scale*pose.scaleX,scale);if(roll)ctx.rotate(roll*Math.PI/180);
  if(!crashSequence){ctx.fillStyle='#08142088';ctx.beginPath();ctx.ellipse(pose.shadowX-chassisRoll*1.2,21,currentCar.isBike?32:108*(1+pose.intensity*.18),12,0,0,Math.PI*2);ctx.fill();
   if(wanganTuning.neon&&speed>50){ctx.fillStyle=['#4bbfc6aa','#e667a1aa','#ecc36aaa'][wanganTuning.neon-1];ctx.beginPath();ctx.ellipse(pose.shadowX*.6,25,currentCar.isBike?26:92*(1+pose.intensity*.14),5,0,0,Math.PI*2);ctx.fill();}}
@@ -3741,7 +3785,7 @@ function render(dt){
   drawStageProgress();
   drawVignette();
   if(flash > 0){
-    ctx.fillStyle = `rgba(255,255,255,${clamp(flash * 2.5, 0, 0.35)})`;
+    ctx.fillStyle = `rgba(${flashTint},${clamp(flash * 2.5, 0, 0.35)})`;
     ctx.fillRect(0, 0, W, H);
   }
   ctx.restore();
@@ -4064,7 +4108,14 @@ function drawMiramarWheel(x,y,s){
 }
 
 // V40 competition rules: V39 simulation core + V40 drift calibration; art never changes physics.
-const COMPETITION=Object.freeze({version:'51.0',dashWindow:.45,topSpeed:285,boostSpeed:325,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
+const COMPETITION=Object.freeze({version:'52.0',dashWindow:.45,topSpeed:285,boostSpeed:325,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
+// V52 arcade-flow rules (independent): shorter crash interruption, stronger re-entry, Taiwan-style approach signage.
+const V52_FLOW=Object.freeze({
+  crashDuration:2.9,crashAnimScale:4.1/2.9,recoverySpeed:96,recoveryGrace:1.6,
+  approachMeters:Object.freeze([500,300,100]),signSideGap:.34,checkpointFlash:.16,
+  exactSourceCopy:false,autoRailAssist:false
+});
+const SEGMENT_METERS=SEGMENT_LENGTH/WORLD_SPEED/3.6;
 const GEAR_RULES=Object.freeze({
  LOW:{max:185,lowTorque:1.30,highTorque:.60},
  HIGH:{max:285,lowTorque:.96,highTorque:.50}
@@ -5159,13 +5210,14 @@ function drawArcadeRunner(p,t,passenger,side){
  ctx.restore();
 }
 function drawChaseScene(c){
+ const tt=c.anim??c.t;
  for(const passenger of [false,true]){
-  const pose=runnerPose(c.t,c.side,passenger);
-  if(pose.phase==='run')for(const k of [2,1]){ctx.save();ctx.globalAlpha=k===2?.12:.24;drawArcadeRunner({...pose,x:pose.x-c.side*k*23,y:pose.y+2},c.t-k*.045,passenger,c.side);ctx.restore();}
-  drawArcadeRunner(pose,c.t,passenger,c.side);
+  const pose=runnerPose(tt,c.side,passenger);
+  if(pose.phase==='run')for(const k of [2,1]){ctx.save();ctx.globalAlpha=k===2?.12:.24;drawArcadeRunner({...pose,x:pose.x-c.side*k*23,y:pose.y+2},tt-k*.045,passenger,c.side);ctx.restore();}
+  drawArcadeRunner(pose,tt,passenger,c.side);
  }
  ctx.save();ctx.font='italic 900 24px sans-serif';ctx.textAlign='center';ctx.fillStyle='#fff4bd';ctx.strokeStyle='#402f27';ctx.lineWidth=5;
- const text=c.t<.8?'哇！人比車還快！！':c.t<1.65?'車車：我先走囉！':c.t<3.6?'等等！珍奶還在車上！':'上車！假裝沒發生！';
+ const text=tt<.8?'哇！人比車還快！！':tt<1.65?'車車：我先走囉！':tt<3.6?'等等！珍奶還在車上！':'上車！假裝沒發生！';
  ctx.strokeText(text,W/2,H*.60);ctx.fillText(text,W/2,H*.60);ctx.restore();
 }
 
