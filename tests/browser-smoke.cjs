@@ -21,6 +21,10 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
   await page.goto(url+'/audit');
   const run=code=>page.evaluate(code=>window.__audit(code),code);
   summary=await scenarios(run);
+  // V52: rendered menu numbers must equal the gameplay constants (real DOM).
+  const ruleDom=await run(`(()=>{applyRuleLabels();const els=[...document.querySelectorAll('[data-rule]')];const v=ruleValues();return {n:els.length,ok:els.every(el=>el.textContent===String(v[el.dataset.rule])&&el.textContent.length>0),menu:document.querySelector('#overlay .spec-grid')?.textContent||''};})()`);
+  assert(ruleDom.n>=6&&ruleDom.ok,'every data-rule label shows the authoritative constant');
+  assert(ruleDom.menu.includes('285')&&ruleDom.menu.includes('325')&&ruleDom.menu.includes('2.8')&&!ruleDom.menu.includes('4.00'),'menu speed caps and nitro duration match gameplay');
   // End-to-end keyboard probe: actual DOM key events must create drift charge and allow direct N activation.
   await run(`v34Mode='cruise';selectedRoute=routeForId('4B');resetGame();gameStarted=true;raceActive=true;paused=false;gameOver=false;inRadioScreen=false;crashSequence=null;traffic=[];overlay.classList.add('hidden');const candidates=segments.filter(s=>s.index>80&&s.index<STAGE_END-80);const target=candidates.reduce((best,seg)=>Math.abs(seg.curve)>Math.abs(best.curve)?seg:best,candidates[0]);window.__driftIndex=target.index;playerZ=target.index*SEGMENT_LENGTH;speed=150;roadGrip=1;driveGear='D';motionDirection=1;currentGear='LOW';nitro=0;nitroStock=0;boostRemaining=0;`);
   await page.keyboard.down('KeyW');await page.keyboard.down('ArrowRight');await page.keyboard.down('ShiftLeft');
@@ -71,7 +75,7 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
    const live=await context.newPage();live.on('pageerror',error=>errors.push(error.message));
    await live.goto(url);
    assert.equal(await live.locator('#build-version').isVisible(),true,`${name} build version visible`);
-   assert.match(await live.locator('#build-version').textContent(),/V51\.1/,`${name} correct V51.1 build label`);
+   assert.match(await live.locator('#build-version').textContent(),/V52\.0/,`${name} correct V52.0 build label`);
    await live.locator('#start-btn').click();
    assert.equal(await live.locator('#radio-actions').isVisible(),true);
    await live.locator('#radio-next').click();
