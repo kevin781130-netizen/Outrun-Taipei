@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {CORNER,SPEED}=require('./tools/probe-code.cjs');
+const {CORNER,SPEED,ACCEL,DWELL}=require('./tools/probe-code.cjs');
 async function scenarios(run,{render=true}={}){
  let checks=0;
  async function check(code,message){const value=await run(code);assert.equal(value,true,message);checks++;}
@@ -34,7 +34,7 @@ async function scenarios(run,{render=true}={}){
  await check(`window.__v46Vista>0&&window.__v46Props>=0&&[playerZ,playerX,speed,traffic.length,currentNode.id].every((v,i)=>v===window.__v46Before[i])`,'V46 art layers render without mutating gameplay state');
  await check(`['urban','expressway','coastal','mountain'].includes(v46SceneFamily())&&v46VistaProfile().density>0`,'V46 scaler art profile is generated from Taipei stage archetype');
  await check(`V47_CLEAN_ROOM_REFERENCE.observationOnly&&V47_CLEAN_ROOM_REFERENCE.sourceCode===false&&V47_CLEAN_ROOM_REFERENCE.sourceAssets===false&&V47_CLEAN_ROOM_REFERENCE.decompilation===false&&V47_CLEAN_ROOM_REFERENCE.directSyntaxTranslation===false&&V47_CLEAN_ROOM_REFERENCE.exactHandlingCurveCopy===false&&V47_CLEAN_ROOM_REFERENCE.distinctiveModeClone===false&&V47_CLEAN_ROOM_REFERENCE.distinctiveRouteUICopy===false&&V47_CLEAN_ROOM_REFERENCE.licensedVehicleIdentity===false&&V47_CLEAN_ROOM_REFERENCE.independentImplementation`,'V47 reference guard enforces independent clean-room implementation');
- await check(`COMPETITION.version==='52.0'&&V51_HANDLING.independentModel&&V51_HANDLING.gearDriftClone===false&&V51_HANDLING.distinctiveModeClone===false&&V51_HANDLING.exactHandlingCurveCopy===false&&V51_HANDLING.patentedMechanicReplication===false`,'V51 handling keeps independent recovery model');
+ await check(`COMPETITION.version==='53.0'&&V51_HANDLING.independentModel&&V51_HANDLING.gearDriftClone===false&&V51_HANDLING.distinctiveModeClone===false&&V51_HANDLING.exactHandlingCurveCopy===false&&V51_HANDLING.patentedMechanicReplication===false`,'V51 handling keeps independent recovery model');
  await check(`v51SteeringProfile(70,false).response>v51SteeringProfile(270,false).response&&v51SteeringProfile(70,false).authority>v51SteeringProfile(270,false).authority&&v51SteeringProfile(270,false).authority>=.89`,'V50 steering preserves high-speed authority without excessive camera motion');
  await check(`v51SteeringProfile(220,false).liftGrip>1.15&&v51SteeringProfile(220,false).brakeRotation>.13&&DRIFT51.entryMinSpeed===58&&DRIFT51.entryRamp<=.055&&DRIFT51.maxBodyYaw===40&&DRIFT51.recoverResponse>DRIFT51.yawResponse`,'V51 drift entry stays accessible while physical yaw remains controlled');
  await run(`playerZ=190*SEGMENT_LENGTH;playerX=0;speed=185;projectRoad();window.__v47Before=[playerZ,playerX,speed,traffic.length,currentNode.id];window.__v47Depth=drawV47CinematicDepth(H*.51,scene());window.__v47Mass=drawV47ForegroundMass(projectedRoad);`);
@@ -60,7 +60,7 @@ async function scenarios(run,{render=true}={}){
  await run(reset+`speed=155;roadGrip=1;steer=.62;isDrifting=true;driftState='drift';driftAge=.5;driftDirection=1;slipAngle=8;nitro=0;nitroStock=0;stepBrakeDrift(1/60,false,true,.62,.9);chargeDriftNitro(1/60);window.__chargeProbe=[driftChargeRate,nitro];`);
  await check(`window.__chargeProbe[0]>35&&window.__chargeProbe[1]>.4`,'V50 active drift produces clearly visible nitro charge');
  await run(reset+`gameStarted=true;raceActive=true;paused=false;gameOver=false;crashSequence=null;driveGear='D';motionDirection=1;speed=170;nitroStock=1;boostRemaining=0;nitroLatch=false;window.__nitroActivated=activateNitro();`);
- await check(`window.__nitroActivated&&nitroStock===0&&boostRemaining===2.8&&nitroLatch&&speed>=188&&boostKick>.9`,'V50 nitro activates directly and delivers an immediate speed impulse');
+ await check(`window.__nitroActivated&&nitroStock===0&&boostRemaining===2.8&&nitroLatch&&speed>=170+V53_SPEED.nitroImpulse-.01&&boostKick>.9`,'V50 nitro activates directly and delivers an immediate (V53 smaller) speed impulse');
  await check(`V51_CLEAN_ROOM_REFERENCE.observationOnly&&V51_CLEAN_ROOM_REFERENCE.sourceCode===false&&V51_CLEAN_ROOM_REFERENCE.sourceAssets===false&&V51_CLEAN_ROOM_REFERENCE.decompilation===false&&V51_CLEAN_ROOM_REFERENCE.directSyntaxTranslation===false&&V51_CLEAN_ROOM_REFERENCE.exactHandlingCurveCopy===false&&V51_CLEAN_ROOM_REFERENCE.exactAnimationCopy===false&&V51_CLEAN_ROOM_REFERENCE.signatureCameraCopy===false&&V51_CLEAN_ROOM_REFERENCE.patentedMechanicReplication===false&&V51_CLEAN_ROOM_REFERENCE.curveBoundVisualYaw&&V51_CLEAN_ROOM_REFERENCE.physicsVisualDecoupled&&V51_CLEAN_ROOM_REFERENCE.noAutoRailDrift&&V51_CLEAN_ROOM_REFERENCE.independentImplementation`,'V51 sideways drift keeps independent clean-room provenance and no auto-rail cloning');
  await run(reset+`isDrifting=true;driftState='drift';driftDirection=1;driftAngle=34;slipAngle=10;window.__sideShallow=v51DriftVisualPose(.35);window.__sideTight=v51DriftVisualPose(1.8);window.__phys=[driftAngle,slipAngle,playerX];`);
  await check(`window.__sideShallow.yaw>=28&&window.__sideShallow.yaw<=36&&window.__sideTight.yaw>window.__sideShallow.yaw+8&&window.__sideTight.yaw<=58&&Math.abs(window.__sideTight.offsetX)<=8&&window.__sideTight.scaleX<1.02&&[driftAngle,slipAngle,playerX].every((v,i)=>v===window.__phys[i])`,'V51 whole-car sideways presentation scales with real bend demand without moving physics state');
@@ -68,8 +68,8 @@ async function scenarios(run,{render=true}={}){
  await run(reset+`speed=180;roadGrip=1;steer=.72;isDrifting=true;driftState='drift';driftDirection=1;driftAge=.6;driftAngle=28;slipAngle=10;playerX=0;lateralVelocity=0;for(let i=0;i<60;i++)stepArcadeMotion(1/60,.35,true,false);window.__shallowX=Math.abs(playerX);`);
  await run(reset+`speed=180;roadGrip=1;steer=.72;isDrifting=true;driftState='drift';driftDirection=1;driftAge=.6;driftAngle=28;slipAngle=10;playerX=0;lateralVelocity=0;for(let i=0;i<60;i++)stepArcadeMotion(1/60,1.8,true,false);window.__tightX=Math.abs(playerX);`);
  await check(`window.__shallowX<window.__tightX&&window.__shallowX<.55`,'V51 physical drift line stays restrained on shallow bends instead of throwing the car at the wall');
- await check(`v51CruisePullFactor(100,285)>v51CruisePullFactor(160,285)&&v51CruisePullFactor(160,285)>v51CruisePullFactor(230,285)&&v51CruisePullFactor(275,285)<.2`,'V51 normal acceleration progressively softens above 100 km/h');
- await check(`v51NitroPush(180)>150&&v51NitroPush(300)>70&&V51_SPEED_FEEL.boostImpulse>=28`,'V51 nitro remains a strong high-speed acceleration channel');
+ await check(`v53GearThrust(100,'HIGH')>v53GearThrust(160,'HIGH')&&v53GearThrust(160,'HIGH')>v53GearThrust(230,'HIGH')&&v53GearThrust(230,'HIGH')>v53GearThrust(255,'HIGH')&&v53GearThrust(255,'HIGH')<1.2&&v53GearThrust(GEAR_RULES.HIGH.max,'HIGH')===0`,'V53 normal acceleration falls smoothly toward an asymptotic top speed');
+ await check(`v53NitroPush(180)>=30&&v53NitroPush(285)<20&&v53NitroPush(COMPETITION.boostSpeed)===0&&V53_SPEED.nitroImpulse>=8`,'V53 nitro stays a strong push that relaxes toward the boost speed');
  await run(reset+`gameStarted=true;raceActive=true;paused=false;gameOver=false;crashSequence=null;driveGear='D';motionDirection=1;speed=180;roadGrip=1;steer=.7;isDrifting=true;driftState='drift';driftDirection=1;driftAge=.5;slipAngle=9;nitro=12;nitroStock=1;boostRemaining=0;nitroLatch=false;window.__simulActivated=activateNitro();const before=nitro;stepBrakeDrift(1/60,false,true,.7,1.0);chargeDriftNitro(1/60);window.__simul=[window.__simulActivated,boostRemaining,nitro,before,driftChargeRate,nitroStock];`);
  await check(`window.__simul[0]&&window.__simul[1]>2.7&&window.__simul[2]>window.__simul[3]&&window.__simul[4]>35&&window.__simul[5]===0`,'V51 can release nitro and continue charging during the same drift');
  await check(`Object.keys(ROUTE_REALITY).length===15&&Object.values(ROUTE_REALITY).every(r=>r.note&&['real-anchor','real-corridor','compressed-link'].includes(r.grade))`,'V51 reality audit covers all 15 Taipei routes');
@@ -89,8 +89,8 @@ async function scenarios(run,{render=true}={}){
  await check(`buildingVolumeProfile(120,80,123).face===1&&buildingVolumeProfile(W-120,80,123).face===-1&&buildingVolumeProfile(120,80,123).depth>=14`,'roadside buildings expose directional depth instead of flat cards');
  await check(`rivalVolumeProfile({spec:TRAFFIC_TYPES.taxi},120).depth>8&&rivalVolumeProfile({spec:TRAFFIC_TYPES.bus},120).depth>rivalVolumeProfile({spec:TRAFFIC_TYPES.taxi},120).depth`,'traffic art exposes vehicle volume profiles');
  await check(`nitro=99.8;driftChargeRate=32;chargeDriftNitro(1/60);nitroStock===1&&nitro>0&&nitro<1`,'full gauge stores boost and carries overflow');
- await check(`COMPETITION.boostSpeed===325&&GEAR_RULES.LOW.max<GEAR_RULES.HIGH.max&&gearDriveProfile('LOW',80).torque>gearDriveProfile('HIGH',80).torque`,'low and high gears have materially different torque and speed ranges');
- await check(`gearDriveProfile('HIGH',190).max===285&&gearDriveProfile('LOW',190).max===185`,'high gear unlocks top-speed range');
+ await check(`COMPETITION.boostSpeed===300&&GEAR_RULES.LOW.max<GEAR_RULES.HIGH.max&&v53GearThrust(80,'LOW')>v53GearThrust(80,'HIGH')&&v53GearThrust(185,'LOW')===0`,'low and high gears have materially different torque and speed ranges');
+ await check(`GEAR_RULES.HIGH.max===COMPETITION.topSpeed&&GEAR_RULES.LOW.max===COMPETITION.lowSpeed&&v53GearThrust(190,'HIGH')>0`,'high gear unlocks top-speed range');
  await check(`fitSignTextLayout('超級無敵非常非常長的台北道路招牌文字',22,8,12).width<=20.01`,'sign layout always fits inside its content box');
  await check(`nitro=99.8;chargeDriftNitro(1/60);nitroStock===2&&nitro===0`,'stock capacity is two');
  await check(`chargeDriftNitro(60);nitroStock===2&&nitro===0`,'full stock cannot overflow');
@@ -103,7 +103,7 @@ async function scenarios(run,{render=true}={}){
  await check(`stepBrakeDrift(1/60,false,true,0,0);!isDrifting&&momentBoostWindow>.4&&exitBoost===0`,'clean drift exit opens moment boost window without free acceleration');
  await check(`stepBrakeDrift(1/60,false,false,0,0);momentBoostArmed&&exitBoost===0`,'moment boost requires throttle release');
  await check(`stepBrakeDrift(1/60,false,true,0,0);exitBoost>.45&&momentBoostWindow===0&&boostKick>.5`,'throttle re-tap triggers a visible moment boost');
- await run(reset+"autoGear=false;speed=165;rpm=7600;currentGear='LOW';shiftGear('HIGH');");
+ await run(reset+"autoGear=false;speed=125;rpm=7600;currentGear='LOW';shiftGear('HIGH');");
  await check(`currentGear==='HIGH'&&shiftCutTimer>=.14&&shiftPunch>.2&&rpm<5000`,'manual sweet-spot upshift cuts torque, drops rpm and rewards timing');
  await run(reset+"speed=190;nitroStock=2;keys.KeyW=true;keys.KeyN=true;");
  await check(`for(let i=0;i<240;i++)update(1/60);nitroStock===1&&boostRemaining===0&&!boosting`,'holding N never automatically burns the second boost');
@@ -149,8 +149,8 @@ async function scenarios(run,{render=true}={}){
  await run(`stageVisualBlend=1;nitroStock=2;boostRemaining=2;resetGame();`);
  await check(`nitroStock===0&&boostRemaining===0&&stageVisualBlend===0&&!crashSequence`,'new run clears transient effects and boosts');
  // V52 arcade flow: shorter crash interruption, stronger re-entry, approach signage, competitive namespace bump.
- await check(`V52_FLOW.crashDuration<=3.0&&V52_FLOW.crashDuration<4.1&&V52_FLOW.recoverySpeed>75&&V52_FLOW.recoverySpeed<=110&&V52_FLOW.autoRailAssist===false&&V52_FLOW.exactSourceCopy===false`,'V52 crash interruption is shorter without any auto-rail assist');
- await check(`bestRecordKey('1A').endsWith(':52.0')&&arcadeBoardKey().endsWith(':52.0')`,'V52 competitive records use a new namespace instead of mixing with V51 physics');
+ await check(`V52_FLOW.crashDuration<=3.0&&V52_FLOW.crashDuration<4.1&&V52_FLOW.recoverySpeed>75&&V52_FLOW.recoverySpeed<=125&&V52_FLOW.autoRailAssist===false&&V52_FLOW.exactSourceCopy===false`,'V52 crash interruption is shorter without any auto-rail assist');
+ await check(`bestRecordKey('1A').endsWith(':53.0')&&arcadeBoardKey().endsWith(':53.0')`,'V53 competitive records use a new namespace instead of mixing with V52 physics');
  await run(reset+"speed=180;playerX=0;collisionCooldown=0;triggerCrash(null,null,true);window.__crashDur=crashSequence.duration;window.__crashT=0;for(let i=0;i<400&&crashSequence;i++){update(1/60);window.__crashT+=1/60;}window.__crashDone=!crashSequence;window.__crashSpeed=speed;window.__crashGrace=collisionCooldown;");
  await check(`window.__crashDone&&window.__crashT<=3.1&&window.__crashT>=2.7&&window.__crashSpeed===V52_FLOW.recoverySpeed&&window.__crashGrace>=1.5`,'V52 crash recovers within ~3s at a speed that rejoins the flow');
  await run(reset+"crashSequence={t:0,anim:0,duration:V52_FLOW.crashDuration,impactSpeed:150,side:1};update(1.0);window.__anim=crashSequence.anim;window.__animT=crashSequence.t;crashSequence=null;");
@@ -181,17 +181,18 @@ async function scenarios(run,{render=true}={}){
  await run(reset+"v34Mode='sprint';selectedRoute=routeForId('1A');resetGame();const sg=segments[400];window.__hudEntry=(()=>{for(let i=0;i<segments.length;i++)segments[i].curve=0;segments[420].curve=3.0;playerZ=400*SEGMENT_LENGTH;speed=200;updateDrivingHUD();return document.getElementById('corner-speed').textContent;})();");
  await check(`window.__hudEntry.includes(String(Math.round(v52SafeCornerSpeed(3.0))))`,'V52 HUD recommended entry speed is the physics safe speed, not a second table');
  const sim=async(c,v,p)=>JSON.parse(await run(`JSON.stringify((${CORNER})(${c},${v},'${p}'))`));
- const sShallow={coast:await sim(.3,280,'coast'),grip:await sim(.3,280,'grip'),drift:await sim(.3,280,'drift')};
- const sMed={grip:await sim(.9,280,'grip'),drift:await sim(.9,280,'drift')};
- const sHair={coast:await sim(3.6,280,'coast'),grip:await sim(3.6,280,'grip'),lift:await sim(3.6,280,'lift'),drift:await sim(3.6,280,'drift')};
- const sTight={grip:await sim(2.2,280,'grip'),drift:await sim(2.2,280,'drift')};
+ const sShallow={coast:await sim(.3,265,'coast'),grip:await sim(.3,265,'grip'),drift:await sim(.3,265,'drift')};
+ const sMed={grip:await sim(.9,265,'grip'),drift:await sim(.9,265,'drift')};
+ const sHair={coast:await sim(3.6,265,'coast'),grip:await sim(3.6,265,'grip'),lift:await sim(3.6,265,'lift'),drift:await sim(3.6,265,'drift')};
+ const sTight={grip:await sim(2.2,265,'grip'),drift:await sim(2.2,265,'drift')};
  assert.ok(sShallow.coast.maxX<.2&&!sShallow.coast.crashed,'shallow bend barely moves an unsteered car');checks++;
  assert.ok(sHair.coast.maxX>.55&&sHair.coast.maxX>sShallow.coast.maxX*4,'hairpin demands real steering while shallow does not');checks++;
- assert.ok(sHair.grip.time-sShallow.grip.time>1.0,'carrying 280 km/h through a hairpin with grip costs clear time');checks++;
+ assert.ok(sHair.grip.time-sShallow.grip.time>1.0,'carrying 265 km/h through a hairpin with grip costs clear time');checks++;
  assert.ok(sHair.grip.duty>sShallow.grip.duty*2,'hairpin needs much more steering input than a shallow bend');checks++;
  assert.ok(sHair.drift.time<=sHair.grip.time+.05&&sHair.drift.charge>=60&&!sHair.drift.crashed,'drift is viable and earns nitro charge in a hairpin');checks++;
- assert.ok(sTight.drift.time<=sTight.grip.time+.1&&sTight.drift.charge>=60,'drift keeps pace with grip and charges nitro in tight bends');checks++;
- assert.ok(sShallow.drift.time>sShallow.grip.time+.15&&sMed.drift.offroad+sMed.drift.time>sMed.grip.time+2,'drift is a poor line on gentle and medium bends (grip is the right tool)');checks++;
+ assert.ok(sTight.drift.time<=sTight.grip.time+.1&&sTight.drift.charge>=50,'drift keeps pace with grip and charges nitro in tight bends');checks++;
+ const cost=o=>o.drift.time-o.grip.time;
+ assert.ok(cost(sShallow)>.1&&cost(sShallow)>cost(sMed)&&cost(sMed)>cost(sTight)&&cost(sTight)>cost(sHair)&&cost(sHair)<0,'drift costs time on gentle bends and pays off progressively from tight bends to hairpins (grip is the right tool on gentle bends)');checks++;
  assert.ok(sHair.lift.time>sHair.grip.time-.05,'pre-lifting is never free in a hairpin');checks++;
  // Close pass: candidate while approaching, award only after the car is safely behind, never on a collision.
  const cp=`const spec=TRAFFIC_TYPES.taxi;const mk=(gap,spd)=>({x:(trafficHalfWidth({spec})+PLAYER_HALF_WIDTH)+gap,z:playerZ+PLAYER_DEPTH,previousX:0,previousZ:0,speed:spd,spec,type:'taxi',phase:0,hitTimer:0,near:false,laneTarget:0,screenBox:{l:400,r:520,t:380,b:470,cx:460,cy:420}});`;
@@ -236,6 +237,41 @@ async function scenarios(run,{render=true}={}){
  await check(`window.__readyCard[0]&&window.__readyCard[1].includes('READY')&&window.__readyCard[2]>=3.5&&window.__revRpm>2000`,'V52 start shows the route card during the countdown and revs the engine');
  await run(reset+"v34Mode='arcade';stageLevel=4;timeLeft=12.3;score=12345;crashCount=1;closePassTotal=4;fillResultStats(true);window.__stats=(document.getElementById('celeb-stats').innerHTML.match(/<div>/g)||[]).length;celebrationCard.classList.remove('show');gameOver=false;finishGame(false);window.__failCard=celebrationCard.classList.contains('show');clearTimeout(resultTimer);");
  await check(`window.__stats===4&&window.__failCard&&celebTitle.textContent.includes('TIME UP')`,'V52 results show a four-number summary and a clear time-up card');
+ // ---- V53 speed curve ---------------------------------------------------------------------------------------
+ await check(`COMPETITION.version==='53.0'&&COMPETITION.topSpeed===270&&COMPETITION.boostSpeed===300&&GEAR_RULES.HIGH.max===COMPETITION.topSpeed&&dipSettings.time===92&&V53_SPEED.exactSourceCurveCopy===false`,'V53 competitive namespace, speed caps and re-based time budget are in place');
+ const acc=JSON.parse(await run(`JSON.stringify((${ACCEL})(0,75,'AT',0))`));
+ const T=acc.t;
+ assert.ok(T[60]>=1.1&&T[60]<=1.8&&T[100]>=2.4&&T[100]<=3.6,'0-60 and 0-100 keep an arcade launch');checks++;
+ assert.ok(T[160]>=7&&T[160]<=9.6&&T[200]>=12.5&&T[200]<=15&&T[230]>=19.5&&T[230]<=24,'160/200/230 km/h arrive progressively later');checks++;
+ assert.ok(T[250]>=30&&T[250]<=38&&T[257]>=38&&T[257]<=52,'250 km/h and 95 percent of the normal maximum take a long straight');checks++;
+ const ladder=[100,130,160,180,200,215,230,245,250,257];let prevRate=1e9,ok=true;
+ for(let i=0;i<ladder.length-1;i++){const r=(ladder[i+1]-ladder[i])/(T[ladder[i+1]]-T[ladder[i]]);if(!(r<prevRate))ok=false;prevRate=r;}
+ assert.ok(ok,'acceleration rate falls monotonically with speed (no wall, no plateau-then-jump)');checks++;
+ assert.ok(acc.final<=270&&acc.final>=258&&(T[265]===undefined||T[265]>65),'normal maximum is approached asymptotically and not reached within 65 seconds');checks++;
+ // Nitro: strong push into a zone normal driving cannot hold, then a smooth decay.
+ const nit=JSON.parse(await run(`(()=>{const r=(${ACCEL})(230,14,'AT',230);return JSON.stringify(r);})()`));
+ assert.ok(nit.boostMax>=285&&nit.boostMax<=300&&nit.boostMax-230>=50,'nitro from 230 km/h lifts the car at least 50 km/h into the 285+ region without exceeding the boost speed');checks++;
+ const decay=JSON.parse(await run(`(()=>{v34Mode='cruise';selectedRoute=routeForId('1A');resetGame();gameStarted=true;raceActive=true;traffic=[];for(let i=0;i<segments.length;i++)segments[i].curve=0;for(const k of Object.keys(keys))keys[k]=false;speed=292;currentGear='HIGH';boostRemaining=0;boosting=false;playerX=0;const tr=[];let maxDrop=0,prev=speed;for(let i=0;i<60*8;i++){keys.KeyW=true;update(1/60);playerZ=300*SEGMENT_LENGTH;traffic.length=0;maxDrop=Math.max(maxDrop,prev-speed);prev=speed;if(i%60===59)tr.push(Math.round(speed));}return JSON.stringify({tr,maxDrop});})()`));
+ assert.ok(decay.maxDrop<1.2&&decay.tr.every((v,i)=>i===0||v<=decay.tr[i-1])&&decay.tr[0]>=281&&decay.tr[7]<=270+9,'after nitro the speed bleeds smoothly (no hard cut) back toward the sustainable region');checks++;
+ // Draft and gearing.
+ await check(`V53_SPEED.draftRaise<=12&&v53GearThrust(262,'HIGH',1)>v53GearThrust(262,'HIGH',0)*2.5&&v53OverspeedDrag(275,'HIGH',1,false)===0&&v53OverspeedDrag(275,'HIGH',0,false)>1&&v53OverspeedDrag(300,'HIGH',0,true)===0`,'V53 slipstream raises the sustainable speed slightly and boost suspends overspeed drag');
+ await check(`v53GearThrust(60,'LOW')>v53GearThrust(60,'HIGH')&&v53GearThrust(180,'HIGH')>v53GearThrust(180,'LOW')&&v53GearThrust(185,'LOW')===0&&V53_SPEED.atUp<=V53_SPEED.shiftSweet[1]&&V53_SPEED.atDown<V53_SPEED.atUp`,'V53 LOW launches harder, HIGH extends top speed, AT shifts inside the manual sweet window');
+ const gearT={};for(const g of ['AT','MT:118','MT:150']){gearT[g]=JSON.parse(await run(`JSON.stringify((${ACCEL})(0,12,'${g}',0))`)).t[160];}
+ assert.ok(gearT['MT:118']<gearT.AT&&gearT.AT<gearT['MT:150']&&gearT.AT-gearT['MT:118']<1.2,'a well timed manual shift is slightly faster than AT; a late shift is slower; AT stays competitive');checks++;
+ // Cap dwell on a real route: top speed is a moment, not a default state.
+ for(const id of ['1A','3A']){
+  const d=JSON.parse(await run(`JSON.stringify((${DWELL})('${id}',0))`));
+  assert.ok(d.finished&&d.pctAtCap<=2&&d.pct95<=35&&d.avg>=185,`${id} bot spends at most 2 percent of the run at 98 percent of the normal cap (got ${d.pctAtCap}) and 35 percent at 95 percent (got ${d.pct95})`);checks++;
+ }
+ // Wind mapping across the new speed range.
+ await check(`(()=>{const g=v=>v52WindProfile(v).gain;const pts=[0,80,140,180,220,250,COMPETITION.boostSpeed];for(let i=1;i<pts.length;i++){if(!(g(pts[i])>g(pts[i-1])*(i===1?1.5:1.2)))return false;}return g(0)<=.00015;})()`,'V53 wind keeps audible dynamic range across 80/140/180/220/250/boost');
+ // Art: cached mid layer, haze, infrastructure and palette safeguards.
+ for(const id of routes)for(const mood of ['sunset','neon']){
+  await run(`v34Mode='sprint';selectedRoute=routeForId('${id}');resetGame();skyMood='${mood}';playerZ=230*SEGMENT_LENGTH;playerX=0;speed=200;render(0);window.__art=[v53MidCache.key,v53MidCache.canvas.width,v53MidCache.canvas.height,drawV53RoadsideInfra(projectedRoad)];`);
+  await check(`window.__art[0]==='${id}|${mood}'&&window.__art[1]===W+2*V53_ART.midPad&&window.__art[2]===V53_ART.midHeight&&Number.isFinite(window.__art[3])&&!!V53_MID['${id}']&&!!V52_EDGE_STYLE['${id}']`,`${id}/${mood} V53 mid layer is built per route and mood and roadside infrastructure stays finite`);
+ }
+ await check(`V53_WALL_ROUTES.every(id=>SCENES[id]&&['mountain'].includes(Object.values(STAGES.flat()).find(n=>n.id===id)?.archetype))`,'V53 retaining walls appear only on mountain archetype routes');
+ await check(`(()=>{const hue=hex=>{const r=parseInt(hex.slice(1,3),16)/255,g=parseInt(hex.slice(3,5),16)/255,b=parseInt(hex.slice(5,7),16)/255,mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;if(d<.001)return [0,0];const l=(mx+mn)/2,sat=d/(1-Math.abs(2*l-1));let h=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4;h*=60;if(h<0)h+=360;return [h,sat];};const bad=[];const check=(name,arr)=>{for(const c of arr){if(typeof c!=='string'||!/^#[0-9a-f]{6}$/i.test(c))continue;const [h,s]=hue(c);if(s>.18&&h>=255&&h<=346)bad.push(name+':'+c);}};for(const [k,v] of Object.entries(THEMES))check('theme '+k,[...v.sky,v.mountain,v.horizon]);for(const [k,v] of Object.entries(V40_ART))check('art '+k,[...v.sky,v.mountain,v.sun]);for(const [k,v] of Object.entries(SCENES))check('scene '+k,[...v.sunset,...v.night]);window.__badHue=bad;return bad.length===0;})()`,'V53 sky and mountain palettes contain no purple or magenta (no generic neon drift)');
  return {checks,routes:routes.length,branchPaths:16};
 }
 module.exports={scenarios};

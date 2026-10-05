@@ -24,7 +24,8 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
   // V52: rendered menu numbers must equal the gameplay constants (real DOM).
   const ruleDom=await run(`(()=>{applyRuleLabels();const els=[...document.querySelectorAll('[data-rule]')];const v=ruleValues();return {n:els.length,ok:els.every(el=>el.textContent===String(v[el.dataset.rule])&&el.textContent.length>0),menu:document.querySelector('#overlay .spec-grid')?.textContent||''};})()`);
   assert(ruleDom.n>=6&&ruleDom.ok,'every data-rule label shows the authoritative constant');
-  assert(ruleDom.menu.includes('285')&&ruleDom.menu.includes('325')&&ruleDom.menu.includes('2.8')&&!ruleDom.menu.includes('4.00'),'menu speed caps and nitro duration match gameplay');
+  const ruleVals=await run(`JSON.stringify(ruleValues())`).then(JSON.parse);
+  assert(ruleDom.menu.includes(String(ruleVals.topSpeed))&&ruleDom.menu.includes(String(ruleVals.boostSpeed))&&ruleDom.menu.includes(String(ruleVals.nitroDuration))&&!ruleDom.menu.includes('4.00'),'menu speed caps and nitro duration match gameplay');
   // End-to-end keyboard probe: actual DOM key events must create drift charge and allow direct N activation.
   await run(`v34Mode='cruise';selectedRoute=routeForId('4B');resetGame();gameStarted=true;raceActive=true;paused=false;gameOver=false;inRadioScreen=false;crashSequence=null;traffic=[];overlay.classList.add('hidden');const candidates=segments.filter(s=>s.index>80&&s.index<STAGE_END-80);const target=candidates.reduce((best,seg)=>Math.abs(seg.curve)>Math.abs(best.curve)?seg:best,candidates[0]);window.__driftIndex=target.index;playerZ=target.index*SEGMENT_LENGTH;speed=150;roadGrip=1;driveGear='D';motionDirection=1;currentGear='LOW';nitro=0;nitroStock=0;boostRemaining=0;`);
   await page.keyboard.down('KeyW');await page.keyboard.down('ArrowRight');await page.keyboard.down('ShiftLeft');
@@ -59,7 +60,7 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
   await page.keyboard.up('ShiftLeft');await page.keyboard.up('ArrowRight');await page.keyboard.up('KeyW');
   assert(simultaneous[0]&&simultaneous[1],'boost remains active while the car is drifting');
   assert(simultaneous[2]>beforeSim&&simultaneous[3]>0,'nitro meter continues charging during active boost drift');
-  assert(simultaneous[4]>210,'nitro delivers a strong forward surge');
+  assert(simultaneous[4]>releaseFrame[5]+6,'nitro delivers a forward surge (V53: relaxing push, smaller impulse)');
   assert(Math.abs(simultaneous[5])>30,'whole-car visual yaw is clearly sideways during a real tight bend');
   const tightCap=await run(`v51VisualCurveCap(v51CurrentCurve())`);assert(Math.abs(simultaneous[5])<=tightCap+.1,'tight-bend sideways yaw stays within curve-derived cap');
   await run(`const candidates=segments.filter(s=>s.index>80&&s.index<STAGE_END-80);const shallow=candidates.reduce((best,seg)=>Math.abs(Math.abs(seg.curve)-.35)<Math.abs(Math.abs(best.curve)-.35)?seg:best,candidates[0]);playerZ=shallow.index*SEGMENT_LENGTH;isDrifting=true;driftState='drift';driftDirection=Math.sign(shallow.curve)||1;driftAngle=30*driftDirection;slipAngle=9*driftDirection;render(0);window.__shallowVisual=[Math.abs(v51DriftVisualYaw()),v51VisualCurveCap(v51CurrentCurve()),Math.abs(v51CurrentCurve())];`);
@@ -75,7 +76,7 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
    const live=await context.newPage();live.on('pageerror',error=>errors.push(error.message));
    await live.goto(url);
    assert.equal(await live.locator('#build-version').isVisible(),true,`${name} build version visible`);
-   assert.match(await live.locator('#build-version').textContent(),/V52\.0/,`${name} correct V52.0 build label`);
+   assert.match(await live.locator('#build-version').textContent(),/V53\.0/,`${name} correct V53.0 build label`);
    await live.locator('#start-btn').click();
    assert.equal(await live.locator('#radio-actions').isVisible(),true);
    await live.locator('#radio-next').click();

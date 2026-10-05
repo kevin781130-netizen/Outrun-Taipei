@@ -20,7 +20,7 @@ module.exports={
    if(policy==='brake'){ if(dEntry<16&&dEntry>6){keys.KeyS=true;keys.KeyW=false;} ctrl(tx,.04); }
    if(policy==='drift'){
      if(dEntry<12&&dEntry>5){keys.KeyW=false;}               // lift to set the nose
-     if(dEntry<=6&&z<A+LEN-6){const wantRelease=playerX*sgn>.30&&neutralRun<12;neutralRun=wantRelease?neutralRun+1:0;keys.ArrowRight=!wantRelease&&sgn>0;keys.ArrowLeft=!wantRelease&&sgn<0;if(!isDrifting&&dEntry>3)keys.ShiftLeft=true;} // steer into the bend, helper pulse at entry
+     if(dEntry<=6&&z<A+LEN-6){const wantRelease=playerX*sgn>.30&&neutralRun<12;neutralRun=wantRelease?neutralRun+1:0;const away=playerX*sgn>.72;keys.ArrowRight=away?sgn<0:(!wantRelease&&sgn>0);keys.ArrowLeft=away?sgn>0:(!wantRelease&&sgn<0);if(!isDrifting&&dEntry>3)keys.ShiftLeft=true;} // steer into the bend, helper pulse at entry
      else if(z>=A+LEN-6&&z<A+LEN-1){keys.ArrowRight=sgn<0;keys.ArrowLeft=sgn>0;} // countersteer to exit
      else ctrl(tx,.04);
    }
@@ -72,5 +72,69 @@ module.exports={
  }
  awardClosePass=orig;
  return {id,policy,seconds:+t.toFixed(1),meters:Math.round((playerZ-dist0)/SEGMENT_LENGTH*SEGMENT_METERS),avgKmh:Math.round((playerZ-dist0)/SEGMENT_LENGTH/t*SEGMENT_METERS*3.6),crashes,closePasses:cp,passed:pass,draftSec:+draft.toFixed(1)};
-})`
+})`,
+ // Straight-line acceleration on flat road, throttle only, AT or MT. marks = speeds whose first-reach time is recorded.
+ ACCEL:`(function(start,seconds,gearMode,nitroAt){
+  v34Mode='cruise';selectedRoute=routeForId('1A');resetGame();gameStarted=true;raceActive=true;overlay.classList.add('hidden');traffic=[];timeLeft=9999;
+  for(let i=0;i<segments.length;i++)segments[i].curve=0;for(const k of Object.keys(keys))keys[k]=false;
+  const mtShift=String(gearMode).startsWith('MT')?Number(String(gearMode).split(':')[1]||118):null;autoGear=mtShift===null;playerX=0;playerZ=100*SEGMENT_LENGTH;speed=start;currentGear=start>140?'HIGH':'LOW';driveGear='D';motionDirection=1;crashSequence=null;collisionCooldown=0;
+  const marks=[60,100,130,160,180,200,215,230,245,250,257,265,270,280,285,290,295,300,305],t={},trace=[];let t0=0,boostStart=null,boostMax=0;
+  for(let i=0;i<seconds*60;i++){
+   keys.KeyW=true;
+   if(nitroAt&&speed>=nitroAt&&boostStart===null){nitroStock=1;keys.KeyN=true;update(1/60);keys.KeyN=false;boostStart=i/60;}
+   else update(1/60);
+   if(mtShift!==null&&currentGear==='LOW'&&speed>=mtShift)shiftGear('HIGH');
+   playerZ=300*SEGMENT_LENGTH;traffic.length=0;
+   const now=(i+1)/60;for(const m of marks)if(t[m]===undefined&&speed>=m)t[m]=+now.toFixed(2);
+   if(boosting)boostMax=Math.max(boostMax,speed);
+   if(i%60===59)trace.push(Math.round(speed));
+  }
+  return {start,gearMode,t,trace,final:Math.round(speed),boostMax:Math.round(boostMax)};
+ })`,
+ // Whole-route driving bot: grip line, dodges traffic, lifts for corners (HUD safe speed), no drift, no nitro. Measures time near the cap.
+ DWELL:`(function(id,driftBot){
+  v34Mode='sprint';selectedRoute=routeForId(id);resetGame();gameStarted=true;raceActive=true;overlay.classList.add('hidden');timeLeft=9999;
+  for(const k of Object.keys(keys))keys[k]=false;autoGear=true;speed=0;
+  const cap=COMPETITION.topSpeed;let neutralRun=0,nitroUses=0,boostT=0,near95=0,near=0,total=0,sum=0,hits=0,maxSpeed=0;const t0=raceElapsed;
+  const end=soloFinishIndex()*SEGMENT_LENGTH;
+  for(let i=0;i<60*400&&playerZ<end&&!gameOver;i++){
+   const idx=Math.floor(playerZ/SEGMENT_LENGTH);let worst=0;const look=Math.round(clamp(speed*WORLD_SPEED*1.1/SEGMENT_LENGTH,10,40));
+   for(let k=idx+4;k<Math.min(segments.length,idx+look);k++)worst=Math.max(worst,Math.abs(segments[k].curve));
+   const safe=v52SafeCornerSpeed(worst);
+   keys.KeyW=speed<safe+8;keys.KeyS=false;keys.ArrowLeft=false;keys.ArrowRight=false;
+   let tgt=0,nearC=null;for(const c of traffic){const dz=c.z-playerZ-PLAYER_DEPTH;if(dz>0&&dz<7000&&Math.abs(c.x-playerX)<.32&&(!nearC||dz<nearC.dz))nearC={c,dz};}
+   if(nearC)tgt=playerX>=nearC.c.x?Math.min(.6,nearC.c.x+.4):Math.max(-.6,nearC.c.x-.4);
+   const e=tgt-playerX;keys.ArrowRight=e>.05;keys.ArrowLeft=e<-.05;
+   if(driftBot){
+    const cur=segments[idx].curve,sg=Math.sign(cur);keys.ShiftLeft=false;keys.KeyN=false;
+    if(Math.abs(cur)>=1.0&&speed>110&&!nearC){
+      keys.KeyW=true;const wantRelease=playerX*sg>.30&&neutralRun<12;neutralRun=wantRelease?neutralRun+1:0;const away=playerX*sg>.72;
+      keys.ArrowRight=away?sg<0:(!wantRelease&&sg>0);keys.ArrowLeft=away?sg>0:(!wantRelease&&sg<0);
+      if(!isDrifting&&Math.abs(steer)>.1)keys.ShiftLeft=true;
+    } else if(worst<.3&&nitroStock>0&&speed>150&&!boosting&&!nearC){keys.KeyN=true;nitroUses++;}
+    if(boosting)boostT+=1/60;
+   }
+   const was=crashSequence;update(1/60);if(crashSequence&&!was)hits++;
+   if(crashSequence){continue;}
+   total++;sum+=speed;maxSpeed=Math.max(maxSpeed,speed);if(speed>=cap*.98)near++;if(speed>=cap*.95)near95++;
+  }
+  return {id,seconds:+(raceElapsed-t0).toFixed(1),pctAtCap:+(100*near/Math.max(1,total)).toFixed(1),pct95:+(100*near95/Math.max(1,total)).toFixed(1),avg:Math.round(sum/Math.max(1,total)),max:Math.round(maxSpeed),crashes:hits,nitroUses,boostSec:+boostT.toFixed(1),finished:playerZ>=end};
+ })`,
+ // Arcade checkpoint timing: seconds for the grip/dodge bot to reach the first checkpoint and each stage fork.
+ ARCADE_STAGE:`(function(id){
+  v34Mode='arcade';selectedRoute=routeForId(id);setStage(...Object.values(routeForId(id)));gameStarted=true;raceActive=true;overlay.classList.add('hidden');
+  const lvl0=stageLevel;timeLeft=9999;for(const k of Object.keys(keys))keys[k]=false;autoGear=true;speed=0;checkpointPassed=false;let tCp=null,t=0,hits=0;
+  for(let i=0;i<60*300&&!gameOver;i++){
+   const idx=Math.floor(playerZ/SEGMENT_LENGTH);let worst=0;const look=Math.round(clamp(speed*WORLD_SPEED*1.1/SEGMENT_LENGTH,10,40));
+   for(let k=idx+4;k<Math.min(segments.length,idx+look);k++)worst=Math.max(worst,Math.abs(segments[k].curve));
+   const safe=v52SafeCornerSpeed(worst);keys.KeyW=speed<safe+8;keys.ArrowLeft=false;keys.ArrowRight=false;
+   let tgt=0,nearC=null;for(const c of traffic){const dz=c.z-playerZ-PLAYER_DEPTH;if(dz>0&&dz<7000&&Math.abs(c.x-playerX)<.32&&(!nearC||dz<nearC.dz))nearC={c,dz};}
+   if(nearC)tgt=playerX>=nearC.c.x?Math.min(.6,nearC.c.x+.4):Math.max(-.6,nearC.c.x-.4);
+   const e=tgt-playerX;keys.ArrowRight=e>.05;keys.ArrowLeft=e<-.05;
+   const was=crashSequence;update(1/60);if(crashSequence&&!was)hits++;t+=1/60;
+   if(checkpointPassed&&tCp===null){tCp=+t.toFixed(1);}
+   if(stageTransition||stageLevel!==lvl0)break;
+  }
+  return {id,tCheckpoint:tCp,tStageEnd:+t.toFixed(1),hits,budget:dipSettings.time};
+ })`
 };
