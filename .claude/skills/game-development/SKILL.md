@@ -1,193 +1,238 @@
 ---
 name: game-development
-description: Mandatory repository constitution for game-development changes. Apply before any repository mutation. Browser playability is the primary delivery constraint; detect the real engine/stack first and preserve the current playable path.
+description: Mandatory repository constitution. Unity is the primary development engine going forward, browser playability is a protected release requirement, and the existing playable game must remain intact during migration.
 ---
 
-# Game Development Constitution — Browser Playable First
+# Game Development Constitution — Unity Primary, Browser Playable, Legacy Safe
 
 This is the mandatory repository-level engineering constitution.
 
-## 0. Highest principle: Browser Playable First
+## 0. Three constitutional principles
 
-If this project is currently playable in a browser, or has a browser/WebGL target, that capability is a protected product requirement.
+These rules apply before any repository mutation.
 
-Before any create/edit/delete/move/rename:
-1. Read and apply this skill.
-2. Preserve browser playability unless the user explicitly authorizes breaking or removing it.
-3. Do not introduce a dependency, API, engine feature, asset format, build requirement, or hosting requirement that silently makes the browser version stop working.
-4. When a requested feature conflicts with browser compatibility, prefer a browser-compatible implementation or fallback. If no reasonable compatible path exists, explain the tradeoff before treating browser support as expendable.
-5. System/platform policies and the user's explicit current request take precedence over repository policy.
+### Principle 1 — Preserve the existing playable game
 
-Do not bypass, weaken, delete, rename, or replace this constitution unless the user explicitly asks to change repository governance.
+The currently working game is the **Legacy Stable** version.
 
-## 1. Detect the real engine/runtime first
+- Do not delete, overwrite, disable, or casually rewrite the existing playable version.
+- Keep its current browser entry point and deployment path working.
+- Existing gameplay/assets may be studied and reused as reference for the Unity version.
+- Bug fixes to Legacy Stable are allowed when needed, but new major development should prefer the Unity track.
+- Never remove Legacy Stable merely because a Unity version exists.
+- Replacing the production/browser entry point requires a verified Unity WebGL build and explicit user intent to cut over.
 
-Never assume Unity, Unreal, Godot, Three.js, Babylon.js, or any other engine.
+### Principle 2 — Unity is the primary development engine from now on
 
-Inspect repository evidence before editing.
+For new gameplay systems, major features, architecture work, graphics systems, physics, UI systems, and future expansion, **prefer Unity** unless the user explicitly requests another implementation.
 
-Common markers:
-- Web: `package.json`, HTML/CSS/JS/TS, `src/`, Vite/Webpack, Three.js, Babylon.js, Phaser, PixiJS, PlayCanvas, WebGL/WebGPU.
-- Unity: `Assets/`, `Packages/manifest.json`, `ProjectSettings/ProjectVersion.txt`.
-- Godot: `project.godot`.
-- Unreal: `*.uproject`, `Config/`, `Content/`, `Source/`.
+If the repository does not yet contain a Unity project:
+- treat creation of a parallel Unity project as the preferred migration direction;
+- keep it isolated from Legacy Stable so existing browser playability is not disturbed;
+- do not convert the legacy game in-place;
+- preserve legacy source/assets while porting behavior incrementally.
 
-Follow the stack that actually exists. Do not create Unity/Unreal/Godot structure just because this is a game project.
+Once a Unity project exists, new primary development should target that Unity project by default.
 
-## 2. Preserve the current playable/deployment path
+Do not require the user to repeat "use Unity" in every prompt.
 
-The current working runtime is the default source of truth.
+### Principle 3 — Browser Playable is a release requirement
 
-If browser playable:
-- keep direct browser playability;
-- preserve the existing build/bundler/static-hosting path;
-- preserve GitHub Pages or equivalent static deployment compatibility when currently used;
-- avoid local-machine-only paths and services;
-- preserve asset loading from deployed URLs.
+The Unity version must be designed with **Unity WebGL/Web** as a first-class release target.
 
-Do not migrate engines/frameworks merely because another engine is more powerful.
+- Do not introduce features that silently make the browser build impossible.
+- Avoid desktop-only native DLLs/plugins unless a browser-compatible fallback exists.
+- Avoid unrestricted local-filesystem assumptions.
+- Consider WebGL memory, download size, shaders, audio, input, threading/platform limitations, and performance.
+- Do not claim WebGL compatibility or build success unless actually verified.
 
-If an engine migration is explicitly requested, keep the existing playable path available until the replacement browser/WebGL build is verified.
+System/platform policies and the user's explicit current request take precedence over this repository policy.
 
-## 3. Inspect before changing
+Do not weaken, delete, rename, or replace this constitution unless the user explicitly asks to change repository governance.
 
-Read only relevant files, including when present:
+## 1. Migration model
+
+Use a **parallel migration**, not a destructive rewrite.
+
+Default lifecycle:
+
+1. Legacy Stable remains playable.
+2. Unity version is created/extended in parallel.
+3. Features are ported incrementally.
+4. Unity WebGL build is tested.
+5. Feature parity and critical gameplay are verified.
+6. Only then may the main deployment switch to Unity WebGL, and only with explicit user intent.
+7. Even after cutover, retain the legacy implementation unless the user explicitly requests removal.
+
+Never leave the repository in a state where neither version is playable.
+
+## 2. Detect the actual repository state
+
+Before editing, inspect:
 - `README*`, `CONTRIBUTING*`, agent instructions;
-- package/build manifests;
-- relevant source/assets/tests;
-- CI and deployment workflows.
+- `package.json`, source and deployment files;
+- Unity markers: `Assets/`, `Packages/manifest.json`, `ProjectSettings/ProjectVersion.txt`;
+- tests and CI workflows;
+- current browser entry points.
 
-Determine:
-- runtime/engine/version;
-- dependencies;
-- architecture and naming;
-- test/build/deploy commands;
-- gameplay systems affected.
+Classify work into:
+- **Legacy Stable**
+- **Unity Primary**
+- **Shared assets/docs/tooling**
 
-Do not guess versions/APIs when repository evidence exists.
+Do not mistake a web legacy implementation for the intended long-term engine. The long-term preferred engine is Unity.
 
-## 4. Minimal coherent changes
+## 3. Unity project rules
 
-Search for analogous code first.
+When Unity exists, inspect:
+- `ProjectSettings/ProjectVersion.txt`
+- `Packages/manifest.json`
+- relevant `.asmdef`
+- relevant source/assets/tests
 
-Prefer extending existing systems and preserving:
-- controls;
-- save/progression formats;
-- physics feel;
-- public interfaces;
-- deployment behavior.
+Follow the declared Unity version and existing packages.
 
-Avoid unrelated refactors, unnecessary frameworks, duplicate managers, and broad rewrites.
-
-## 5. Gameplay and real-time safety
-
-Before gameplay changes, identify current behavior and ownership of state/timing.
-
-Preserve unaffected mechanics. Fix root causes rather than hiding symptoms.
-
-In real-time loops:
-- avoid unnecessary allocation;
-- cache stable lookups;
-- avoid accidental O(n²) work;
-- avoid rebuilding static geometry/UI every frame;
-- avoid excessive production logging.
-
-## 6. Browser/Web rules
-
-For browser games:
-- respect the existing JS/TS/module conventions;
-- keep the current bundler unless migration is requested;
-- preserve keyboard/gamepad/touch support when present;
-- respect `requestAnimationFrame`, fixed-step simulation, or the existing game loop;
-- do not silently require WebGPU, SharedArrayBuffer, cross-origin isolation, browser extensions, native binaries, or special hosting;
-- when adding optional modern browser features, provide graceful fallback when practical.
-
-For WebGL/WebGPU/Three.js/Babylon.js/PlayCanvas:
-- reuse existing renderer/scene/camera/loader patterns;
-- avoid per-frame creation of meshes/materials/textures;
-- dispose replaced GPU resources;
-- preserve coordinate and unit conventions;
-- preserve asset URLs and loading behavior.
-
-For web physics:
-- keep the existing physics library/timestep;
-- preserve 2D vs 3D conventions;
-- do not mix transform-driven and physics-driven ownership without understanding the current design.
-
-## 7. Unity rules — WebGL is a protected target
-
-Activate only when Unity markers exist.
-
-Inspect Unity version, packages, relevant asmdefs, assets, and tests.
-
-Protect serialization:
+Protect Unity serialization:
 - never casually change `.meta` GUIDs or serialized file IDs;
 - move assets with their `.meta`;
-- preserve Inspector data on serialized-field renames;
-- do not hand-author large Scene/Prefab YAML graphs without strong evidence.
+- preserve Inspector data when renaming serialized fields, using `FormerlySerializedAs` when appropriate;
+- avoid hand-authoring large Scene/Prefab YAML graphs without strong repository evidence;
+- keep Editor-only APIs out of runtime assemblies.
 
-For Browser Playable First:
-- treat Unity WebGL/Web as a release target;
-- avoid native desktop-only DLLs/plugins unless a browser fallback exists;
-- avoid assumptions about unrestricted local filesystem access;
-- avoid platform-only APIs without conditional/fallback behavior;
-- consider browser memory, download size, shader compatibility, audio/input limitations, and performance;
-- do not introduce a package until WebGL/browser compatibility is established from project evidence or authoritative documentation;
-- do not claim WebGL build success unless it actually ran.
+Follow the existing Unity choices for:
+- Input System vs legacy input;
+- Built-in/URP/HDRP;
+- 2D vs 3D physics;
+- UGUI vs UI Toolkit;
+- package and assembly conventions.
 
-Follow the project's existing Input System, render pipeline, physics dimension, UI system, and package conventions. Do not migrate them unless explicitly requested.
+Do not migrate these subsystems unless the task requires it.
 
-## 8. Other engines
+## 4. Unity WebGL rules
 
-Godot: preserve version, node/resource/signal structure and web-export compatibility when browser delivery is required.
+Treat WebGL/Web as a formal release target.
 
-Unreal: preserve modules, Blueprint/C++ interfaces and asset references; when browser delivery is a requirement, do not assume Unreal is an appropriate web target without explicitly resolving the delivery strategy.
+Before adding packages or platform features:
+- check browser/WebGL compatibility;
+- prefer portable C# and Unity APIs;
+- avoid native plugins without browser equivalents;
+- avoid assumptions about OS filesystem/process access;
+- avoid features that depend on unsupported threading/platform APIs;
+- keep build size and runtime memory reasonable;
+- provide fallbacks for optional features where practical.
 
-## 9. Assets, security, and repository hygiene
+When networking is involved, use browser-compatible transports/protocols for the WebGL target.
 
-Do not break asset paths or references. Search references before moving/renaming assets.
+When persistence is involved, use a WebGL-compatible strategy rather than assuming desktop filesystem behavior.
 
-Preserve licenses/notices. Never commit credentials, API keys, signing secrets, machine-specific paths, IDE caches, or generated engine caches unless intentionally tracked.
+## 5. Legacy Stable rules
 
-For Unity, do not commit `Library/`, `Temp/`, `Logs/`, or `obj/`.
+Legacy Stable exists to protect playability during migration.
 
-## 10. Validation
+- Do not rewrite legacy merely to imitate Unity architecture.
+- Avoid large refactors unless needed for an actual bug or migration bridge.
+- Preserve current URL/entry point/build path.
+- Preserve controls and gameplay unless the user requests changes.
+- If a feature is being developed primarily in Unity, do not duplicate a full implementation in Legacy Stable unless needed to keep the current game usable.
 
-Before finishing:
-1. inspect changed files and final diff;
-2. run relevant tests/lint/build checks available in the repo;
+Legacy changes should be conservative.
+
+## 6. Feature routing
+
+For a new feature request:
+
+1. Inspect whether the Unity Primary track exists.
+2. If Unity exists, implement the feature there by default.
+3. If Unity does not yet exist, prefer advancing the parallel Unity migration rather than expanding legacy architecture indefinitely.
+4. Change Legacy Stable only when necessary for:
+   - critical bug fixes;
+   - keeping the existing version playable;
+   - temporary compatibility/bridge work;
+   - an explicit user request.
+5. Never destroy the old implementation as part of adding the new one.
+
+## 7. Gameplay preservation
+
+Before porting or changing gameplay:
+- identify current behavior in Legacy Stable;
+- preserve the intended feel unless the user requests redesign;
+- preserve controls, progression, scoring, timing, and core rules where applicable;
+- treat the legacy behavior as a reference specification during Unity migration.
+
+When Unity behavior intentionally differs, document the difference.
+
+## 8. Assets and content
+
+Prefer reusing source assets legally and cleanly.
+
+- Do not break asset paths/references.
+- Search references before renaming/moving.
+- Preserve licenses and notices.
+- Distinguish source assets from generated/build outputs.
+- Do not commit credentials, API keys, signing secrets, or machine-specific paths.
+
+For Unity, do not commit:
+- `Library/`
+- `Temp/`
+- `Logs/`
+- `obj/`
+
+## 9. Performance
+
+For real-time gameplay:
+- avoid unnecessary per-frame allocation;
+- cache stable lookups;
+- avoid accidental O(n²) loops;
+- avoid rebuilding static objects every frame;
+- avoid excessive logging in hot paths.
+
+For WebGL, pay special attention to memory pressure, asset size, CPU cost, draw calls, and shader complexity.
+
+Do not sacrifice correctness for speculative micro-optimization.
+
+## 10. Validation gates
+
+Before finishing any change:
+
+1. inspect changed files;
+2. run available tests/lint/build checks;
 3. run `git diff --check` when possible;
-4. verify no unrelated files changed;
-5. verify deployment/browser entry points still make sense.
+4. inspect the final diff;
+5. verify no unrelated files changed;
+6. verify Legacy Stable entry points were not accidentally broken;
+7. verify Unity/WebGL assumptions honestly.
 
-Never claim runtime/browser/engine validation unless it actually ran.
+Never claim:
+- Unity compilation succeeded unless Unity actually compiled;
+- PlayMode succeeded unless it actually ran;
+- WebGL build succeeded unless it actually built;
+- browser playability was tested unless it actually was.
 
-Clearly distinguish:
-- static/repository validation performed;
-- browser smoke test still needed;
-- Unity Editor/PlayMode/WebGL build or other engine validation still needed.
+Clearly report what was validated and what still needs runtime verification.
 
-## 11. Required workflow
+## 11. Cutover gate
 
-For features:
-1. detect runtime/engine;
-2. identify browser/deployment constraints;
-3. read relevant architecture and analogous implementation;
-4. change the minimum files;
-5. update tests where practical;
-6. check references;
-7. review diff;
-8. run available validation;
-9. report changes, files, validation, and remaining runtime checks.
+Do not replace Legacy Stable as the primary deployed game until all are true:
 
-For bugs:
-1. trace the failing path from repository evidence;
-2. find the smallest plausible root cause;
-3. check timing/state ownership/call sites/references;
-4. fix the root cause;
-5. add regression coverage where practical;
-6. validate honestly.
+- Unity version covers the required core gameplay for the intended cutover;
+- a Unity WebGL build succeeds;
+- critical browser smoke tests pass;
+- deployment is confirmed;
+- the user explicitly intends to switch the primary version.
+
+Until then, Legacy Stable remains the safe playable fallback.
+
+## 12. Required handoff
+
+Report:
+- **Track:** Legacy Stable / Unity Primary / Shared
+- **Change:** what changed
+- **Files:** key files modified
+- **Migration impact:** what moved closer to Unity
+- **Browser status:** whether existing browser play remains intact
+- **Validation:** exact checks performed
+- **Still needed:** Unity Editor/WebGL/browser verification, if any
 
 ## Preferred outcome
 
-The best change improves the requested behavior while keeping the game directly playable through its existing browser path. Engine choice is secondary; browser delivery is the protected product constraint unless the user explicitly changes that requirement.
+Future development steadily moves toward Unity while the existing game remains continuously playable. Unity becomes the primary implementation, WebGL remains a protected release target, and migration never destroys the current working game.
