@@ -1,0 +1,6 @@
+{
+  "name": "Taipei.Runtime",
+  "rootNamespace": "Taipei",
+  "references": [],
+  "autoReferenced": true
+}

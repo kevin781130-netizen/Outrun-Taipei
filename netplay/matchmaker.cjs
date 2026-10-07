@@ -23,8 +23,8 @@ class TwinLinkMatchmaker{
   constructor(){this.waiting=[];this.rooms=new Map();this.nextRoom=1;}
   join(player){
     if(!player||!player.playerId)throw new Error('playerId required');
-    if(this.waiting.some(p=>p.playerId===player.playerId)||[...this.rooms.values()].some(r=>r.players.some(p=>p.playerId===player.playerId)))throw new Error('player already queued');
     const normalized={playerId:String(player.playerId),region:String(player.region||'global'),skill:Number.isFinite(player.skill)?player.skill:0,pingMs:Number.isFinite(player.pingMs)?player.pingMs:999};
+    if(this.waiting.some(p=>p.playerId===normalized.playerId)||[...this.rooms.values()].some(r=>r.players.some(p=>p.playerId===normalized.playerId)))throw new Error('player already queued');
     const idx=this.waiting.findIndex(p=>p.region===normalized.region&&Math.abs(p.skill-normalized.skill)<=400&&Math.max(p.pingMs,normalized.pingMs)<=180);
     if(idx<0){this.waiting.push(normalized);return {status:'queued',position:this.waiting.length};}
     const opponent=this.waiting.splice(idx,1)[0],roomId='TL-'+String(this.nextRoom++).padStart(6,'0');
@@ -34,6 +34,7 @@ class TwinLinkMatchmaker{
     return {status:'matched',room};
   }
   leave(playerId){
+    playerId=String(playerId);
     const i=this.waiting.findIndex(p=>p.playerId===playerId);
     if(i>=0){this.waiting.splice(i,1);return true;}
     for(const [id,room] of this.rooms)if(room.players.some(p=>p.playerId===playerId)){this.rooms.delete(id);return true;}

@@ -1,5 +1,13 @@
 # Taipei Sunset Drive V53.1
 
+## Unity Primary · Retro Art Study v0.1
+
+新增平行的 `unity/` 專案（Unity **6000.0.62f1**，Built-in renderer）。以十五條既有路線資料建立原創低多邊形台北場景、車體、交通車、夕陽／霓虹光影、景深霧、Point 取樣、有限色阶與淡掃描線。先用於美術和操控驗收；**尚未完成整款遊戲移植，也尚未通過 Unity 編譯／Web build 驗證**。
+
+用 Unity Hub 開啟 `unity/`，執行 `Taipei > Create Art Preview`，按 Play；`Taipei > Build Web Art Preview` 另行輸出到 `unity/Builds/WebArtPreview/`。操作／驗收／差異清單見 [Unity 說明](unity/README.md) 和 [本次稽核](docs/Unity_Retro_Art_and_Bug_Audit.md)。
+
+原本 `index.html` 繼續作為 Legacy Stable。這次僅修復手把插槽／斷線／背景輸入、缺少全螢幕 API，以及配對器數值 ID 的問題；競技版本和美術維持 V53.1。
+
 原創台北街機公路遊戲。採用 1990 年代大型機公路賽車常見的高速景深構圖，以及現代甩尾集氣／加速循環；所有程式、美術與音效均採獨立實作。
 
 ## Play

@@ -1,2 +1,9 @@
 node_modules/
 test-results/
+unity/Library/
+unity/Temp/
+unity/Logs/
+unity/obj/
+unity/UserSettings/
+unity/Builds/
+unity/TestResults/

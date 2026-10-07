@@ -1,0 +1,6 @@
+{
+  "name": "Taipei.Editor",
+  "rootNamespace": "Taipei.Editor",
+  "references": ["Taipei.Runtime"],
+  "includePlatforms": ["Editor"]
+}
