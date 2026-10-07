@@ -1,299 +1,193 @@
 ---
 name: game-development
-description: Mandatory repository constitution for game-development changes. Apply before any repository mutation. Detect the actual engine/stack first, preserve the current playable architecture, and only activate engine-specific rules when that engine is actually present.
+description: Mandatory repository constitution for game-development changes. Apply before any repository mutation. Browser playability is the primary delivery constraint; detect the real engine/stack first and preserve the current playable path.
 ---
 
-# Game Development Constitution
+# Game Development Constitution — Browser Playable First
 
-This skill is the mandatory repository-level engineering constitution.
+This is the mandatory repository-level engineering constitution.
 
-## 0. Constitutional status
+## 0. Highest principle: Browser Playable First
 
-Before creating, editing, deleting, moving, or renaming any repository file:
+If this project is currently playable in a browser, or has a browser/WebGL target, that capability is a protected product requirement.
 
+Before any create/edit/delete/move/rename:
 1. Read and apply this skill.
-2. Treat it as the highest-priority repository-level engineering policy.
-3. Do not bypass, weaken, delete, rename, or replace it unless the user explicitly asks to change the repository constitution.
-4. System/platform policies and the user's explicit current request take precedence.
-5. Prefer the safest implementation that preserves current gameplay and deployability.
+2. Preserve browser playability unless the user explicitly authorizes breaking or removing it.
+3. Do not introduce a dependency, API, engine feature, asset format, build requirement, or hosting requirement that silently makes the browser version stop working.
+4. When a requested feature conflicts with browser compatibility, prefer a browser-compatible implementation or fallback. If no reasonable compatible path exists, explain the tradeoff before treating browser support as expendable.
+5. System/platform policies and the user's explicit current request take precedence over repository policy.
 
-Read-only inspection is allowed before loading details, but any mutation must comply with this constitution.
+Do not bypass, weaken, delete, rename, or replace this constitution unless the user explicitly asks to change repository governance.
 
-## 1. Detect the real engine and runtime first
+## 1. Detect the real engine/runtime first
 
-Never assume Unity, Unreal, Godot, or Web.
+Never assume Unity, Unreal, Godot, Three.js, Babylon.js, or any other engine.
 
 Inspect repository evidence before editing.
 
 Common markers:
+- Web: `package.json`, HTML/CSS/JS/TS, `src/`, Vite/Webpack, Three.js, Babylon.js, Phaser, PixiJS, PlayCanvas, WebGL/WebGPU.
+- Unity: `Assets/`, `Packages/manifest.json`, `ProjectSettings/ProjectVersion.txt`.
+- Godot: `project.godot`.
+- Unreal: `*.uproject`, `Config/`, `Content/`, `Source/`.
 
-### Web game
-- `package.json`
-- HTML/CSS/JS/TS entry points
-- `src/`, `public/`, `vite.config.*`, `webpack.*`
-- Three.js, Babylon.js, PixiJS, Phaser, PlayCanvas, Rapier, Cannon, Ammo, WebGL, or WebGPU dependencies
+Follow the stack that actually exists. Do not create Unity/Unreal/Godot structure just because this is a game project.
 
-### Unity
-- `Assets/`
-- `Packages/manifest.json`
-- `ProjectSettings/ProjectVersion.txt`
-
-### Godot
-- `project.godot`
-
-### Unreal
-- `*.uproject`
-- `Config/`, `Content/`, `Source/`
-
-If markers conflict, inspect the actual build/run entry points before deciding.
-
-## 2. Preserve the current playable path
+## 2. Preserve the current playable/deployment path
 
 The current working runtime is the default source of truth.
 
-Do not migrate engines or frameworks merely because another engine is more powerful.
+If browser playable:
+- keep direct browser playability;
+- preserve the existing build/bundler/static-hosting path;
+- preserve GitHub Pages or equivalent static deployment compatibility when currently used;
+- avoid local-machine-only paths and services;
+- preserve asset loading from deployed URLs.
 
-If the project currently runs in a browser:
-- preserve browser playability by default;
-- do not introduce Unity/Unreal/Godot requirements unless explicitly requested;
-- prefer changes that remain deployable to the project's existing static hosting or web deployment path.
+Do not migrate engines/frameworks merely because another engine is more powerful.
 
-If the project currently uses an engine:
-- preserve that engine unless migration is explicitly requested.
+If an engine migration is explicitly requested, keep the existing playable path available until the replacement browser/WebGL build is verified.
 
 ## 3. Inspect before changing
 
-Read only the relevant files, including when present:
-- `README*`
-- `CONTRIBUTING*`
-- root agent instructions
-- package/build manifests
-- relevant source files
-- relevant tests
-- CI workflows
-- deployment configuration
+Read only relevant files, including when present:
+- `README*`, `CONTRIBUTING*`, agent instructions;
+- package/build manifests;
+- relevant source/assets/tests;
+- CI and deployment workflows.
 
 Determine:
-- runtime/engine and version when declared
-- dependencies
-- architecture
-- naming conventions
-- build/test/deploy commands
-- existing gameplay systems that may be affected
+- runtime/engine/version;
+- dependencies;
+- architecture and naming;
+- test/build/deploy commands;
+- gameplay systems affected.
 
-Do not guess APIs or versions when repository evidence exists.
+Do not guess versions/APIs when repository evidence exists.
 
-## 4. Minimal coherent change
+## 4. Minimal coherent changes
 
-Search for analogous code before creating new abstractions.
+Search for analogous code first.
 
-Prefer:
-- extending existing systems;
-- reusing established utilities;
-- preserving save formats, controls, physics feel, progression, and public interfaces;
-- narrow, reviewable changes.
+Prefer extending existing systems and preserving:
+- controls;
+- save/progression formats;
+- physics feel;
+- public interfaces;
+- deployment behavior.
 
-Avoid:
-- unrelated cleanup;
-- unnecessary manager/singleton layers;
-- new frameworks when existing infrastructure is sufficient;
-- broad rewrites unless the request requires them.
+Avoid unrelated refactors, unnecessary frameworks, duplicate managers, and broad rewrites.
 
-## 5. Gameplay preservation
+## 5. Gameplay and real-time safety
 
-When changing gameplay:
-- identify the current behavior first;
-- preserve unaffected controls and game rules;
-- avoid accidental difficulty spikes or progression breaks;
-- preserve deterministic/random behavior when it matters;
-- avoid changing timing-sensitive mechanics without checking their call/update loop;
-- keep tuning values centralized when the project already uses configuration/constants.
+Before gameplay changes, identify current behavior and ownership of state/timing.
 
-For bug fixes, fix the root cause rather than only hiding symptoms.
-
-## 6. Web game rules
-
-When the project is browser-based:
-
-- keep direct browser playability unless explicitly asked otherwise;
-- follow the repository's existing JS/TS/module style;
-- preserve the current bundler/build system;
-- do not add heavyweight dependencies for functionality already available in the stack;
-- avoid per-frame garbage creation in hot render/update loops when practical;
-- avoid repeated DOM queries or expensive allocations in animation loops;
-- respect `requestAnimationFrame`, fixed-step simulation, or the existing game loop;
-- preserve mobile/touch controls when present;
-- preserve keyboard/gamepad controls when present;
-- do not silently require cross-origin-isolated features, WebGPU, SharedArrayBuffer, or special hosting unless the project already uses them or the user explicitly requests them;
-- provide graceful fallback when introducing optional modern browser features.
-
-### Web 3D
-
-When using Three.js/Babylon.js/PlayCanvas/WebGL/WebGPU:
-- reuse existing scene, camera, renderer, material, loader, and asset-management patterns;
-- dispose GPU resources when replacing long-lived geometry/material/texture resources;
-- avoid creating meshes/materials every frame;
-- preserve coordinate-system and unit conventions;
-- preserve asset URLs and loading behavior;
-- do not switch rendering engines without explicit migration intent.
-
-### Web physics
-
-When Rapier/Cannon/Ammo/other physics exists:
-- follow the existing physics library and timestep strategy;
-- preserve 2D vs 3D conventions;
-- avoid mixing transform-driven and physics-driven movement without understanding ownership;
-- keep render transforms synchronized with physics using the project's established pattern.
-
-## 7. Unity rules
-
-Only activate this section when Unity markers exist.
-
-Before editing inspect:
-- `ProjectSettings/ProjectVersion.txt`
-- `Packages/manifest.json`
-- relevant `.asmdef`
-- relevant assets and tests
-
-Protect serialization:
-- never casually change `.meta` GUIDs or serialized file IDs;
-- move assets with their `.meta` files;
-- preserve Inspector data when renaming serialized fields, using `FormerlySerializedAs` when appropriate;
-- do not hand-author large Scene/Prefab YAML graphs without strong repository evidence;
-- do not claim Editor/PlayMode/build validation unless it actually ran.
-
-Follow the project's existing:
-- Input System or legacy input;
-- Built-in/URP/HDRP pipeline;
-- 2D/3D physics;
-- UGUI/UI Toolkit;
-- package/version conventions.
-
-Do not migrate these systems unless explicitly requested.
-
-## 8. Godot rules
-
-Only activate when `project.godot` exists.
-
-- follow the project's Godot version and GDScript/C# choice;
-- preserve node paths, exported properties, resources, and signals;
-- avoid broad scene rewrites when a script-level fix is sufficient;
-- preserve input-map actions and project settings unless the task requires changes;
-- do not claim scene/runtime validation unless Godot actually ran.
-
-## 9. Unreal rules
-
-Only activate when an Unreal project is detected.
-
-- follow the declared engine/project conventions;
-- preserve module boundaries and reflection macros;
-- avoid casual binary asset edits;
-- prefer source/config changes when no Editor is available;
-- preserve Blueprint/C++ interfaces and serialized references;
-- do not claim Editor/Cook/Package validation unless it actually ran.
-
-## 10. Assets and references
-
-For all stacks:
-- do not break asset paths;
-- do not rename/move referenced assets without searching call sites;
-- avoid replacing original source assets with generated derivatives unless requested;
-- preserve licensing/notices;
-- do not commit credentials or private API keys.
-
-If an asset pipeline has generated outputs, distinguish source from generated files before editing.
-
-## 11. Performance
-
-Before optimizing, identify the actual hot path when evidence exists.
+Preserve unaffected mechanics. Fix root causes rather than hiding symptoms.
 
 In real-time loops:
 - avoid unnecessary allocation;
 - cache stable lookups;
 - avoid accidental O(n²) work;
 - avoid rebuilding static geometry/UI every frame;
-- avoid excessive logging in production loops.
+- avoid excessive production logging.
 
-Do not trade correctness or maintainability for speculative micro-optimization.
-
-## 12. Tests and validation
-
-Use the repository's actual validation tools.
-
-Before finishing:
-1. inspect changed files;
-2. run relevant tests/lint/build checks that are available;
-3. run `git diff --check` when possible;
-4. inspect the final diff;
-5. verify no unrelated files changed;
-6. verify no secrets, local paths, caches, or generated junk were added.
-
-Never claim runtime behavior was validated unless it actually ran.
-
-Distinguish clearly between:
-- static/repository validation performed;
-- browser/runtime/engine verification still needed.
-
-## 13. Deployment safety
-
-Preserve the project's existing deployment path unless change is requested.
+## 6. Browser/Web rules
 
 For browser games:
-- keep entry points and asset paths compatible with hosting;
-- avoid absolute local filesystem paths;
-- preserve GitHub Pages/static hosting compatibility when that is the current deployment model.
+- respect the existing JS/TS/module conventions;
+- keep the current bundler unless migration is requested;
+- preserve keyboard/gamepad/touch support when present;
+- respect `requestAnimationFrame`, fixed-step simulation, or the existing game loop;
+- do not silently require WebGPU, SharedArrayBuffer, cross-origin isolation, browser extensions, native binaries, or special hosting;
+- when adding optional modern browser features, provide graceful fallback when practical.
 
-For engine projects:
-- preserve CI/build configuration and artifact expectations.
+For WebGL/WebGPU/Three.js/Babylon.js/PlayCanvas:
+- reuse existing renderer/scene/camera/loader patterns;
+- avoid per-frame creation of meshes/materials/textures;
+- dispose replaced GPU resources;
+- preserve coordinate and unit conventions;
+- preserve asset URLs and loading behavior.
 
-## 14. Required feature workflow
+For web physics:
+- keep the existing physics library/timestep;
+- preserve 2D vs 3D conventions;
+- do not mix transform-driven and physics-driven ownership without understanding the current design.
 
-1. Detect engine/runtime and version.
-2. Read relevant architecture and closest analogous implementation.
-3. Identify minimum affected files.
-4. Implement narrowly.
-5. Update tests when practical.
-6. Search for stale symbols/broken references.
-7. Review diff.
-8. Run available validation.
-9. Report:
-   - what changed;
-   - important files;
-   - validation actually performed;
-   - runtime/engine checks still required.
+## 7. Unity rules — WebGL is a protected target
 
-## 15. Required bug-fix workflow
+Activate only when Unity markers exist.
 
-1. Trace the failing path from repository evidence.
-2. Identify the smallest plausible root cause.
-3. Check call sites, state ownership, timing, and references.
-4. Fix the root cause.
-5. Add regression coverage when practical.
-6. Review and validate honestly.
+Inspect Unity version, packages, relevant asmdefs, assets, and tests.
 
-## 16. Git and repository safety
+Protect serialization:
+- never casually change `.meta` GUIDs or serialized file IDs;
+- move assets with their `.meta`;
+- preserve Inspector data on serialized-field renames;
+- do not hand-author large Scene/Prefab YAML graphs without strong evidence.
 
-Respect `.gitignore`.
+For Browser Playable First:
+- treat Unity WebGL/Web as a release target;
+- avoid native desktop-only DLLs/plugins unless a browser fallback exists;
+- avoid assumptions about unrestricted local filesystem access;
+- avoid platform-only APIs without conditional/fallback behavior;
+- consider browser memory, download size, shader compatibility, audio/input limitations, and performance;
+- do not introduce a package until WebGL/browser compatibility is established from project evidence or authoritative documentation;
+- do not claim WebGL build success unless it actually ran.
 
-Never add:
-- credentials/secrets;
-- local IDE caches;
-- machine-specific paths;
-- engine caches/build intermediates unless the repo intentionally tracks them.
+Follow the project's existing Input System, render pipeline, physics dimension, UI system, and package conventions. Do not migrate them unless explicitly requested.
 
-For Unity specifically, do not commit `Library/`, `Temp/`, `Logs/`, or `obj/`.
+## 8. Other engines
 
-## 17. Handoff quality
+Godot: preserve version, node/resource/signal structure and web-export compatibility when browser delivery is required.
 
-A good handoff states:
-- **Change:** behavior added/fixed
-- **Files:** important files modified
-- **Compatibility:** relevant engine/runtime/dependency assumptions
-- **Validation:** exact checks/tests run
-- **Needs runtime verification:** what still needs browser/engine testing
+Unreal: preserve modules, Blueprint/C++ interfaces and asset references; when browser delivery is a requirement, do not assume Unreal is an appropriate web target without explicitly resolving the delivery strategy.
 
-Do not overstate validation.
+## 9. Assets, security, and repository hygiene
+
+Do not break asset paths or references. Search references before moving/renaming assets.
+
+Preserve licenses/notices. Never commit credentials, API keys, signing secrets, machine-specific paths, IDE caches, or generated engine caches unless intentionally tracked.
+
+For Unity, do not commit `Library/`, `Temp/`, `Logs/`, or `obj/`.
+
+## 10. Validation
+
+Before finishing:
+1. inspect changed files and final diff;
+2. run relevant tests/lint/build checks available in the repo;
+3. run `git diff --check` when possible;
+4. verify no unrelated files changed;
+5. verify deployment/browser entry points still make sense.
+
+Never claim runtime/browser/engine validation unless it actually ran.
+
+Clearly distinguish:
+- static/repository validation performed;
+- browser smoke test still needed;
+- Unity Editor/PlayMode/WebGL build or other engine validation still needed.
+
+## 11. Required workflow
+
+For features:
+1. detect runtime/engine;
+2. identify browser/deployment constraints;
+3. read relevant architecture and analogous implementation;
+4. change the minimum files;
+5. update tests where practical;
+6. check references;
+7. review diff;
+8. run available validation;
+9. report changes, files, validation, and remaining runtime checks.
+
+For bugs:
+1. trace the failing path from repository evidence;
+2. find the smallest plausible root cause;
+3. check timing/state ownership/call sites/references;
+4. fix the root cause;
+5. add regression coverage where practical;
+6. validate honestly.
 
 ## Preferred outcome
 
-A good change preserves the project's current playable architecture, improves the requested behavior with the smallest coherent diff, remains deployable through the existing path, and never forces an engine migration without explicit user intent.
+The best change improves the requested behavior while keeping the game directly playable through its existing browser path. Engine choice is secondary; browser delivery is the protected product constraint unless the user explicitly changes that requirement.
