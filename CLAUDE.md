@@ -1,17 +1,17 @@
-# Repository Constitution for Claude
+# Game Development Constitution for Claude
 
-@.claude/skills/unity-github/SKILL.md
+@.claude/skills/game-development/SKILL.md
 
 The imported skill above is mandatory governance for this repository.
 
-## Mandatory rule
+Before ANY repository mutation — create, edit, delete, move, or rename — Claude MUST apply the imported `game-development` skill.
 
-Before **any repository mutation** — create, edit, delete, move, or rename — Claude MUST apply the imported `unity-github` skill.
+This is the highest-priority repository engineering policy.
 
-Treat it as the highest-priority **repository-level** engineering policy.
-
-- Do not bypass it because a task appears small.
-- Do not assume this repository is Unity; the skill requires stack detection first.
-- Do not weaken, delete, or rewrite the constitution or its Codex/Claude bindings unless the user explicitly asks to change the governance policy.
-- User instructions and platform/system policies take precedence over repository policy.
-- After changes, follow the skill's validation and handoff rules.
+Rules:
+- Always detect the real engine/runtime before editing.
+- Never assume Unity merely because game-development guidance exists.
+- Preserve the current playable/deployment path unless the user explicitly requests a migration.
+- Do not bypass, weaken, delete, rename, or replace this constitution unless the user explicitly asks to change the governance policy.
+- System/platform policies and the user's explicit current request take precedence.
+- Follow the constitution's validation and handoff requirements after changes.

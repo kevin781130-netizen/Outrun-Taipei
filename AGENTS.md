@@ -1,19 +1,19 @@
-# Repository Constitution for Codex
+# Game Development Constitution for Codex
 
-This repository uses a mandatory governance skill.
+This repository has one mandatory repository-level constitution.
 
-## Mandatory rule
+Before ANY repository mutation — create, edit, delete, move, or rename — Codex MUST read and apply:
 
-Before **any repository mutation** — create, edit, delete, move, or rename — you MUST read and apply:
+`.agents/skills/game-development/SKILL.md`
 
-`.agents/skills/unity-github/SKILL.md`
+This is the highest-priority repository engineering policy.
 
-Treat that skill as the highest-priority **repository-level** engineering policy.
+Rules:
+- Always detect the real engine/runtime before editing.
+- Never assume Unity merely because game-development guidance exists.
+- Preserve the current playable/deployment path unless the user explicitly requests a migration.
+- Do not bypass, weaken, delete, rename, or replace this constitution unless the user explicitly asks to change the governance policy.
+- System/platform policies and the user's explicit current request take precedence.
+- Follow the constitution's validation and handoff requirements after changes.
 
-- Do not bypass it because a task appears small.
-- Do not assume this repository is Unity; the skill requires stack detection first.
-- Do not weaken, delete, or rewrite the constitution or its Claude/Codex bindings unless the user explicitly asks to change the governance policy.
-- User instructions and platform/system policies take precedence over repository policy.
-- After changes, follow the skill's validation and handoff rules.
-
-For Codex workflows, invoke/use the `unity-github` skill before making changes.
+Use the `game-development` skill before making any repository change.
