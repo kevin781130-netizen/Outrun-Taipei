@@ -1,13 +1,13 @@
 ---
 name: game-development
-description: Mandatory repository constitution. Unity is the primary development engine going forward, browser playability is a protected release requirement, and the existing playable game must remain intact during migration.
+description: Mandatory repository constitution. Unity is the primary development engine, browser playability is protected, the existing playable game remains safe during migration, and visual work must be validated against the actual deployed Web build whenever browser inspection is available.
 ---
 
-# Game Development Constitution — Unity Primary, Browser Playable, Legacy Safe
+# Game Development Constitution — Unity Primary, Browser Playable, Legacy Safe, Web Visually Verified
 
 This is the mandatory repository-level engineering constitution.
 
-## 0. Three constitutional principles
+## 0. Four constitutional principles
 
 These rules apply before any repository mutation.
 
@@ -46,6 +46,25 @@ The Unity version must be designed with **Unity WebGL/Web** as a first-class rel
 - Consider WebGL memory, download size, shaders, audio, input, threading/platform limitations, and performance.
 - Do not claim WebGL compatibility or build success unless actually verified.
 
+### Principle 4 — The deployed Web build is the visual acceptance surface
+
+For any change that can alter what the player sees or interacts with — including UI, HUD, menus, layout, typography, colors, materials, shaders, effects, camera composition, animation, responsive behavior, controls, overlays, canvas sizing, or scene presentation — **the rendered deployed Web build is the authoritative visual acceptance surface**.
+
+Canonical public verification URL:
+
+https://kevin781130-netizen.github.io/GAME-TEST-LAB/outrun-taipei/
+
+Rules:
+
+- After the corresponding change has been deployed, inspect the actual rendered page using available browser and screenshot/vision capability.
+- Do not treat source inspection, unit tests, lint, successful compilation, or a successful build as proof that the result looks correct.
+- Unity Editor is not required for visual acceptance when the corresponding deployed WebGL/Web build is current and can be visually inspected.
+- Unity Editor may still be used for debugging, authoring, PlayMode, Scene/Prefab inspection, and issues that cannot be diagnosed from the Web build.
+- If browser/screenshot capability is unavailable, explicitly report **Visual verification not performed**.
+- If the deployed page may be stale or its provenance cannot be matched to the change under review, explicitly report **Deployment provenance unconfirmed** and do not claim the new visual result was verified.
+- When GitHub workflow/run information is available, use it to confirm that the deployed build corresponds to the relevant source commit or branch before relying on the page.
+- Never "verify by imagination": do not infer spacing, clipping, overlap, responsiveness, rendering quality, or visual polish from code alone.
+
 System/platform policies and the user's explicit current request take precedence over this repository policy.
 
 Do not weaken, delete, rename, or replace this constitution unless the user explicitly asks to change repository governance.
@@ -61,8 +80,9 @@ Default lifecycle:
 3. Features are ported incrementally.
 4. Unity WebGL build is tested.
 5. Feature parity and critical gameplay are verified.
-6. Only then may the main deployment switch to Unity WebGL, and only with explicit user intent.
-7. Even after cutover, retain the legacy implementation unless the user explicitly requests removal.
+6. The deployed Web build is visually inspected for user-facing changes.
+7. Only then may the main deployment switch to Unity WebGL, and only with explicit user intent.
+8. Even after cutover, retain the legacy implementation unless the user explicitly requests removal.
 
 Never leave the repository in a state where neither version is playable.
 
@@ -73,7 +93,8 @@ Before editing, inspect:
 - `package.json`, source and deployment files;
 - Unity markers: `Assets/`, `Packages/manifest.json`, `ProjectSettings/ProjectVersion.txt`;
 - tests and CI workflows;
-- current browser entry points.
+- current browser entry points;
+- deployment workflows and the public GAME-TEST-LAB target when present.
 
 Classify work into:
 - **Legacy Stable**
@@ -82,7 +103,34 @@ Classify work into:
 
 Do not mistake a web legacy implementation for the intended long-term engine. The long-term preferred engine is Unity.
 
-## 3. Unity project rules
+## 3. Visual work and browser verification
+
+When a task changes visible presentation:
+
+1. Identify which implementation/track is being changed.
+2. Identify the deployment workflow and target public path.
+3. Perform normal code/build/test validation.
+4. Confirm the relevant build is deployed before visual judgment whenever the environment permits.
+5. Open the deployed page and inspect the actual rendered result.
+6. Exercise the affected screen/state, not just the landing page.
+7. Check at least the viewport classes relevant to the feature; for responsive UI, include desktop and narrow/mobile conditions when browser tooling permits.
+8. Check for:
+   - clipping and overflow;
+   - overlap and occlusion;
+   - unreadable or truncated text;
+   - incorrect scale/aspect ratio;
+   - broken responsive layout;
+   - HUD/menu obstruction;
+   - incorrect colors/materials/effects;
+   - camera/composition regressions;
+   - broken controls or hit targets;
+   - loading/runtime errors that affect presentation.
+9. If the result is wrong, continue editing and re-verify rather than declaring completion.
+10. If visual inspection cannot be performed, state that limitation explicitly in the handoff.
+
+For a browser-targeted project, user-facing visual correctness is judged by the browser render, not by how convincing the source diff looks.
+
+## 4. Unity project rules
 
 When Unity exists, inspect:
 - `ProjectSettings/ProjectVersion.txt`
@@ -108,7 +156,7 @@ Follow the existing Unity choices for:
 
 Do not migrate these subsystems unless the task requires it.
 
-## 4. Unity WebGL rules
+## 5. Unity WebGL rules
 
 Treat WebGL/Web as a formal release target.
 
@@ -125,7 +173,9 @@ When networking is involved, use browser-compatible transports/protocols for the
 
 When persistence is involved, use a WebGL-compatible strategy rather than assuming desktop filesystem behavior.
 
-## 5. Legacy Stable rules
+A successful WebGL build proves buildability, not visual correctness. Visual acceptance requires the deployed-page inspection described above whenever that inspection capability is available.
+
+## 6. Legacy Stable rules
 
 Legacy Stable exists to protect playability during migration.
 
@@ -137,7 +187,7 @@ Legacy Stable exists to protect playability during migration.
 
 Legacy changes should be conservative.
 
-## 6. Feature routing
+## 7. Feature routing
 
 For a new feature request:
 
@@ -151,7 +201,7 @@ For a new feature request:
    - an explicit user request.
 5. Never destroy the old implementation as part of adding the new one.
 
-## 7. Gameplay preservation
+## 8. Gameplay preservation
 
 Before porting or changing gameplay:
 - identify current behavior in Legacy Stable;
@@ -161,7 +211,7 @@ Before porting or changing gameplay:
 
 When Unity behavior intentionally differs, document the difference.
 
-## 8. Assets and content
+## 9. Assets and content
 
 Prefer reusing source assets legally and cleanly.
 
@@ -177,7 +227,7 @@ For Unity, do not commit:
 - `Logs/`
 - `obj/`
 
-## 9. Performance
+## 10. Performance
 
 For real-time gameplay:
 - avoid unnecessary per-frame allocation;
@@ -190,7 +240,7 @@ For WebGL, pay special attention to memory pressure, asset size, CPU cost, draw 
 
 Do not sacrifice correctness for speculative micro-optimization.
 
-## 10. Validation gates
+## 11. Validation gates
 
 Before finishing any change:
 
@@ -200,29 +250,34 @@ Before finishing any change:
 4. inspect the final diff;
 5. verify no unrelated files changed;
 6. verify Legacy Stable entry points were not accidentally broken;
-7. verify Unity/WebGL assumptions honestly.
+7. verify Unity/WebGL assumptions honestly;
+8. for user-facing visual changes, verify the deployed Web page visually when browser/screenshot capability is available;
+9. confirm deployment provenance when possible so a stale page is not mistaken for the current change.
 
 Never claim:
 - Unity compilation succeeded unless Unity actually compiled;
 - PlayMode succeeded unless it actually ran;
 - WebGL build succeeded unless it actually built;
-- browser playability was tested unless it actually was.
+- browser playability was tested unless it actually was;
+- visual correctness was verified unless the rendered page was actually inspected;
+- the current commit was visually verified if deployment provenance is unknown.
 
-Clearly report what was validated and what still needs runtime verification.
+If visual/browser verification is unavailable, this is not automatically a development failure; it is a verification limitation. Report it precisely instead of guessing.
 
-## 11. Cutover gate
+## 12. Cutover gate
 
 Do not replace Legacy Stable as the primary deployed game until all are true:
 
 - Unity version covers the required core gameplay for the intended cutover;
 - a Unity WebGL build succeeds;
 - critical browser smoke tests pass;
+- user-facing deployed visuals have been inspected when browser tooling is available;
 - deployment is confirmed;
 - the user explicitly intends to switch the primary version.
 
 Until then, Legacy Stable remains the safe playable fallback.
 
-## 12. Required handoff
+## 13. Required handoff
 
 Report:
 - **Track:** Legacy Stable / Unity Primary / Shared
@@ -230,9 +285,13 @@ Report:
 - **Files:** key files modified
 - **Migration impact:** what moved closer to Unity
 - **Browser status:** whether existing browser play remains intact
+- **Visual status:** verified on deployed Web / not visually verified / deployment provenance unconfirmed
+- **Visual URL:** exact page inspected, when any
 - **Validation:** exact checks performed
-- **Still needed:** Unity Editor/WebGL/browser verification, if any
+- **Still needed:** only the runtime/editor/browser checks that truly remain
+
+Do not list Unity Editor verification as automatically required if the deployed Web build is the relevant acceptance target and has already been verified there.
 
 ## Preferred outcome
 
-Future development steadily moves toward Unity while the existing game remains continuously playable. Unity becomes the primary implementation, WebGL remains a protected release target, and migration never destroys the current working game.
+Future development steadily moves toward Unity while the existing game remains continuously playable. Unity becomes the primary implementation, WebGL remains a protected release target, and migration never destroys the current working game. For player-facing presentation, Codex judges the real deployed browser result rather than assuming the diff looks correct.
