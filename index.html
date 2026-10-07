@@ -2096,9 +2096,10 @@ document.getElementById('gyro-btn').addEventListener('click', () => {
 
 fullscreenBtn.addEventListener('click', () => {
   if(!document.fullscreenElement){
-    document.documentElement.requestFullscreen().catch(()=>{});
+    if(typeof document.documentElement.requestFullscreen!=='function'){say('此瀏覽器不支援全螢幕；可使用橫向畫面遊玩。');return;}
+    Promise.resolve(document.documentElement.requestFullscreen()).catch(()=>{});
   } else {
-    document.exitFullscreen().catch(()=>{});
+    if(typeof document.exitFullscreen==='function')Promise.resolve(document.exitFullscreen()).catch(()=>{});
   }
 });
 
@@ -2132,9 +2133,14 @@ document.getElementById('st-voice').addEventListener('click', () => { playCheckp
 // Gamepad API Polling
 function pollGamepads(){
   if(!gamepadsSupported) return;
+  if(document.hidden){gamepadInput={steer:0,gas:false,brake:false,drift:false,nitro:false};return;}
   const gpList = navigator.getGamepads ? navigator.getGamepads() : [];
-  const gp = gpList && (gpList[0] || gpList[1]);
-  if(!gp){ gamepadInput={steer:0,gas:false,brake:false,drift:false,nitro:false}; return; }
+  const gp = gpList && Array.from(gpList).find(p=>p&&p.connected!==false);
+  if(!gp){
+    gamepadInput={steer:0,gas:false,brake:false,drift:false,nitro:false};
+    for(const k of Object.keys(keys))if(k.startsWith('gp_'))keys[k]=false;
+    return;
+  }
 
   gamepadInput.steer = Math.abs(gp.axes[0]||0)>0.08 ? clamp(gp.axes[0],-1,1) : 0;
 

@@ -17,6 +17,11 @@ function runNetplayTests(){
   check(c.status==='queued','different region remains queued');
   check(hashSeed('same')===hashSeed('same')&&hashSeed('same')!==hashSeed('different'),'room seed hashing deterministic');
   check(mm.leave('C')&&!mm.waiting.length,'queued player can leave cleanly');
+  const numeric=new TwinLinkMatchmaker();numeric.join({playerId:123,region:'tw',skill:1200,pingMs:40});
+  assert.throws(()=>numeric.join({playerId:123,region:'tw',skill:1200,pingMs:40}),/already queued/);checks++;
+  check(numeric.leave(123)&&!numeric.waiting.length,'numeric player IDs leave using their normalized identity');
+  const matched=new TwinLinkMatchmaker();matched.join({playerId:123,region:'tw',pingMs:40});matched.join({playerId:'B',region:'tw',pingMs:40});
+  assert.throws(()=>matched.join({playerId:123,region:'tw',pingMs:40}),/already queued/);checks++;
   return {checks};
 }
 module.exports={runNetplayTests};

@@ -1,0 +1,7 @@
+{
+  "name": "Taipei.Tests",
+  "references": ["Taipei.Runtime"],
+  "includePlatforms": ["Editor"],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "autoReferenced": false
+}
