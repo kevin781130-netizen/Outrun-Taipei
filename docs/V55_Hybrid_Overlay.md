@@ -10,7 +10,7 @@ Serve this branch as static files, e.g. from repository root:
 python3 -m http.server 8000
 ```
 
-Open `http://localhost:8000/index.html?renderer=hybrid`. Without `?renderer=hybrid`, the game retains the exact legacy rendering path and does not load Three.js.
+Open `http://localhost:8000/index.html` to try V55 3D by default. Add `?renderer=2d` to force the old Legacy Stable rendering path and skip Three.js.
 
 The experimental page loads these files only on demand:
 - `assets/vendor/three-r149.min.js` — pinned MIT-licensed Three.js r149, no CDN.
@@ -42,7 +42,7 @@ The bundle builder has no external dependencies. The vendor file is pinned and c
 - The hybrid model is deliberately a generic unbranded coupe regardless of regular 2D vehicle selection (except bike/truck, which fall back). Later work should map each vehicle selection to suitable 3D assets.
 - The 3D car overlays traffic/roadside sprites instead of participating in their depth ordering. Proper 2D/3D occlusion is a future milestone.
 - The position projection is calibrated geometrically, not yet manually visually approved for all 15 routes and viewport sizes. 3D render-rate targets remain unverified.
-- The optional scripts are approximately 600 KiB plus local bundle before transfer compression. They load only in hybrid mode.
+- The optional scripts are approximately 600 KiB plus local bundle before transfer compression. They load by default in V55; `?renderer=2d` bypasses the optional scripts.
 
 ## Handoff
 
