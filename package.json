@@ -4,7 +4,7 @@
   "version": "53.1.0",
   "description": "Taipei arcade racer with curve-bound whole-car sideways drift, restrained physical drift path, clipping regressions, simultaneous drift charge plus nitro, and audited Taipei routes",
   "scripts": {
-    "test": "node tests/clean-room-compliance.cjs && node tests/ui-consistency.cjs && node tests/regression.cjs && node tests/v55-pose-bridge.cjs && node tests/v55-vehicle-3d.cjs",
+    "test": "node tests/clean-room-compliance.cjs && node tests/ui-consistency.cjs && node tests/regression.cjs && node tests/v55-pose-bridge.cjs && node tests/v55-vehicle-3d.cjs && node tools/build-hybrid.cjs --check && node tests/v55-hybrid-overlay.cjs",
     "test:browser": "node tests/browser-smoke.cjs",
     "test:performance": "node tools/performance.cjs",
     "compare:performance": "node tools/compare-performance.cjs",
@@ -17,7 +17,10 @@
     "check:v54": "node tools/v54-acceptance.cjs",
     "test:report-schema": "node tests/v54-report-schema.cjs",
     "test:pose-bridge": "node tests/v55-pose-bridge.cjs",
-    "test:vehicle-3d": "node tests/v55-vehicle-3d.cjs"
+    "test:vehicle-3d": "node tests/v55-vehicle-3d.cjs",
+    "build:hybrid": "node tools/build-hybrid.cjs",
+    "check:hybrid": "node tools/build-hybrid.cjs --check",
+    "test:hybrid-overlay": "node tests/v55-hybrid-overlay.cjs"
   },
   "devDependencies": {
     "@napi-rs/canvas": "0.1.100",
