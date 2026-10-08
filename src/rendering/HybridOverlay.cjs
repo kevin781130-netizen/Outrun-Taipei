@@ -50,18 +50,21 @@ function createHybridOverlay(THREE, canvas, options = {}) {
   let contextLost = false;
   let ready = false;
   const pose = createVehiclePose();
-  const scene = new THREE.Scene();
-  const camera = new THREE.OrthographicCamera(
-    -WIDTH / (2 * PIXELS_PER_METER), WIDTH / (2 * PIXELS_PER_METER),
-    HEIGHT / (2 * PIXELS_PER_METER), -HEIGHT / (2 * PIXELS_PER_METER),
-    0.1, 50
-  );
-  camera.position.set(0, CAMERA_LOOK_AT_Y + CAMERA_ELEVATION, CAMERA_DISTANCE);
-  camera.lookAt(0, CAMERA_LOOK_AT_Y, 0);
-  scene.add(new THREE.HemisphereLight(0xfff2d8, 0x243550, 2));
-  const sun = new THREE.DirectionalLight(0xffffff, 2.1);
-  sun.position.set(-4, 8, 5);
-  scene.add(sun);
+  let scene, camera;
+  withRenderRandom(() => {
+    scene = new THREE.Scene();
+    camera = new THREE.OrthographicCamera(
+      -WIDTH / (2 * PIXELS_PER_METER), WIDTH / (2 * PIXELS_PER_METER),
+      HEIGHT / (2 * PIXELS_PER_METER), -HEIGHT / (2 * PIXELS_PER_METER),
+      0.1, 50
+    );
+    camera.position.set(0, CAMERA_LOOK_AT_Y + CAMERA_ELEVATION, CAMERA_DISTANCE);
+    camera.lookAt(0, CAMERA_LOOK_AT_Y, 0);
+    scene.add(new THREE.HemisphereLight(0xfff2d8, 0x243550, 2));
+    const sun = new THREE.DirectionalLight(0xffffff, 2.1);
+    sun.position.set(-4, 8, 5);
+    scene.add(sun);
+  });
   let lastWidth = 0, lastHeight = 0, lastQuality = '';
   const failure = () => {ready = false; canvas.style.visibility = 'hidden';};
   const lost = event => {
