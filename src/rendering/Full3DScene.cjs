@@ -3,6 +3,7 @@ const {createVehicle3D} = require('./Vehicle3D.cjs');
 const {createVehiclePose, updateVehiclePose} = require('./VehiclePoseBridge.cjs');
 const {makeDriftVisualState, advanceDriftVisual} = require('./DriftVisualRig.cjs');
 const {createCityArtKit} = require('./CityArtKit.cjs');
+const {createDriftSmoke} = require('./DriftSmoke.cjs');
 
 // Full WebGL road/world renderer. This is intentionally NOT a Canvas overlay.
 // World coordinates: +X right, +Y up, -Z forward. Camera is behind the car (+Z).
@@ -107,6 +108,7 @@ function createFull3DScene(THREE,canvas) {
  scene.add(car.root);
  const pose=createVehiclePose();
  const driftRig=makeDriftVisualState();
+ const driftSmoke=createDriftSmoke(THREE,scene,geometry,material);
  let lastCarColor='',renderRandomSeed=0x6f34ac19;
  function with3DOnlyRandom(callback){
   const original=Math.random;
@@ -276,6 +278,7 @@ function createFull3DScene(THREE,canvas) {
   camera.lookAt(visual.cameraTarget+clamp(Number(frame.steer)||0,-1,1)*.14,1.25,-19);
   camera.fov=visual.fov;
   camera.updateProjectionMatrix();
+  driftSmoke.step(visual,dt,car.root.position.x,car.root.position.z,frame.speedKmh);
   scene.background.setHex(frame.night?0x10213b:0x6793ad);
   scene.fog.color.setHex(frame.night?0x233b58:0x809caa);
   renderer.render(scene,camera);
@@ -285,7 +288,7 @@ function createFull3DScene(THREE,canvas) {
   if(!active)return;active=false;ready=false;
   canvas.removeEventListener('webglcontextlost',lostHandler);
   canvas.removeEventListener('webglcontextrestored',restoredHandler);
-  cityArt.dispose();car.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
+  driftSmoke.dispose();cityArt.dispose();car.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
   renderer.dispose();
  }
  return {render,dispose,get ready(){return ready&&!lost&&active},get contextLost(){return lost}};
