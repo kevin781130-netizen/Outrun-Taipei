@@ -42,4 +42,4 @@ for (const [partial, time] of [
   [base, Infinity]
 ]) assert.throws(() => updateVehiclePose(pose, partial, time));
 assert.equal(base.yawDeg, 58, 'source state is never mutated');
-console.log('V55 pose bridge: 21 assertions passed');
+console.log('V55 pose bridge: all assertions passed');
