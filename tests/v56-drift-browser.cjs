@@ -79,17 +79,23 @@ async function main(){
   await page.goto('http://127.0.0.1:'+server.address().port+'/',{waitUntil:'load'});
   await page.waitForFunction(()=>window.v56ThreeStatus?.().loaded,{timeout:20000});
   await page.evaluate(()=>{
-   const original=window.THREE.WebGLRenderer.prototype.render;
-   window.THREE.WebGLRenderer.prototype.render=function(scene,camera){
-    const car=scene.getObjectByName('V55_OriginalArcadeVehicle');
-    if(car){
-     window.__v56GpuProbe={carX:car.position.x,carZ:car.position.z,
-      yawRad:car.children.find(x=>x.isGroup)?.rotation.y,
-      cameraX:camera.position.x,cameraZ:camera.position.z,
-      boostFlame:!!car.getObjectByName('nitro-exhaust')?.visible};
-    }
-    return original.call(this,scene,camera);
+   // Three r149 assigns WebGLRenderer.render per instance, not on its prototype.
+   // Instead, observe the actual Three scene traversal performed by rendering.
+   const original=window.THREE.Object3D.prototype.updateMatrixWorld;
+   window.THREE.Object3D.prototype.updateMatrixWorld=function(force){
+    const result=original.call(this,force);
+    if(this.name==='V55_OriginalArcadeVehicle')window.__v56ObservedCar=this;
+    if(this.isPerspectiveCamera)window.__v56ObservedCamera=this;
+    return result;
    };
+   Object.defineProperty(window,'__v56GpuProbe',{configurable:true,get(){
+    const car=window.__v56ObservedCar,camera=window.__v56ObservedCamera;
+    if(!car||!camera)return null;
+    return {carX:car.position.x,carZ:car.position.z,
+     yawRad:car.children.find(x=>x.isGroup)?.rotation.y,
+     cameraX:camera.position.x,cameraZ:camera.position.z,
+     boostFlame:!!car.getObjectByName('nitro-exhaust')?.visible};
+   }});
   });
   await audit(page,'render(0)');
   assert.equal(await page.evaluate(()=>window.v56ThreeStatus().ready),true);
