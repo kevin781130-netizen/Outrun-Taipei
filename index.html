@@ -723,9 +723,9 @@ const HUD_FONT = 'Impact, "Arial Black", sans-serif';
 // DOM ELEMENTS
 // ============================================================
 const canvas = document.getElementById('gameCanvas');
-// V55 opt-in: index.html?renderer=hybrid. Legacy entry points stay unchanged.
+// V55 public preview: hybrid is the default; ?renderer=2d restores Legacy Stable.
 const v55HybridRequested=typeof window!=='undefined'&&!!window.location&&
-  /[?&]renderer=hybrid(?:&|$)/.test(window.location.search||'');
+  !/[?&]renderer=(?:2d|legacy)(?:&|$)/.test(window.location.search||'');
 let v55Hybrid=null,v55HasFrame=false;
 const v55RenderFrame={
  screenX:0,screenY:0,yawDeg:0,rollDeg:0,pitchDeg:0,steer:0,
