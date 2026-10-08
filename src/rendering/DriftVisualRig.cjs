@@ -32,7 +32,7 @@ function advanceDriftVisual(state, snapshot, dt) {
  state.roll=clamp(finite(snapshot.rollDeg),-6,6)*Math.PI/180;
  state.sliding=active && speed>40 && intensity>.10;
  state.smoke=state.sliding?clamp(intensity*(speed/140),0,1):0;
- state.fov=66+clamp(finite(snapshot.boosting)?speed/125:0,0,2.8);
+ state.fov=66+clamp(snapshot.boosting===true?speed/125:0,0,2.8);
  state.phase=phase;
  return state;
 }
