@@ -34,6 +34,10 @@ function createFull3DScene(THREE,canvas) {
  let active=true, lost=false,ready=false;
  const geometry=g=>(geometries.push(g),g);
  const material=m=>(materials.push(m),m);
+ // Dynamic build tag only after the V56.1A renderer is actually loaded.
+ // The static V56.0 HTML remains a recoverable fallback if the bundle fails.
+ const label=canvas.ownerDocument?.querySelector?.('#build-version strong');
+ if(label)label.textContent='V56.1A';
  const scene=new THREE.Scene();
  scene.background=new THREE.Color(0x10213b);
  scene.fog=new THREE.FogExp2(0x24364d,.0055);
