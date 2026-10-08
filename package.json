@@ -20,7 +20,8 @@
     "test:vehicle-3d": "node tests/v55-vehicle-3d.cjs",
     "build:hybrid": "node tools/build-hybrid.cjs",
     "check:hybrid": "node tools/build-hybrid.cjs --check",
-    "test:hybrid-overlay": "node tests/v55-hybrid-overlay.cjs"
+    "test:hybrid-overlay": "node tests/v55-hybrid-overlay.cjs",
+    "test:hybrid-browser": "node tests/v55-hybrid-browser.cjs"
   },
   "devDependencies": {
     "@napi-rs/canvas": "0.1.100",
