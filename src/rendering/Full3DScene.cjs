@@ -3,6 +3,8 @@ const {createVehicle3D} = require('./Vehicle3D.cjs');
 const {createVehiclePose, updateVehiclePose} = require('./VehiclePoseBridge.cjs');
 const {createDrivingVisualSnapshot,updateDrivingVisualSnapshot} = require('./DrivingVisualSnapshot.cjs');
 const {createDriftVisualRig,updateDriftVisualRig} = require('./DriftVisualRig.cjs');
+const {presentationYawDegrees} = require('./DriftPresentation.cjs');
+const {createCityKit} = require('./CityKit.cjs');
 
 // Full WebGL road/world renderer. This is intentionally NOT a Canvas overlay.
 // World coordinates: +X right, +Y up, -Z forward. Camera is behind the car (+Z).
@@ -38,21 +40,22 @@ function createFull3DScene(THREE,canvas) {
  const camera=new THREE.PerspectiveCamera(66,16/9,.12,490);
  camera.position.set(0,3.6,10.4);
  camera.lookAt(0,1.0,-18);
- scene.add(new THREE.HemisphereLight(0xcce9ff,0x44516a,2.25));
- const sunlight=new THREE.DirectionalLight(0xffe6bf,2.35);
+ scene.add(new THREE.HemisphereLight(0xcce9ff,0x44516a,1.3));
+ const sunlight=new THREE.DirectionalLight(0xffe6bf,1.05);
  sunlight.position.set(-36,80,-65);scene.add(sunlight);
  const renderer=new THREE.WebGLRenderer({canvas,alpha:false,antialias:false,powerPreference:'high-performance'});
  renderer.setPixelRatio(1);
  renderer.setClearColor(0x101b2e,1);
  renderer.outputEncoding=THREE.sRGBEncoding;
  renderer.toneMapping=THREE.ACESFilmicToneMapping;
- renderer.toneMappingExposure=1.35;
+ renderer.toneMappingExposure=1.0;
  let lastW=0,lastH=0,lastDpr=0;
  const roadMaterials=[
-  material(new THREE.MeshStandardMaterial({color:0x303945,roughness:.94,side:THREE.DoubleSide})),
-  material(new THREE.MeshStandardMaterial({color:0x59616b,roughness:1,side:THREE.DoubleSide})),
-  material(new THREE.MeshBasicMaterial({color:0xecefe6,side:THREE.DoubleSide})),
-  material(new THREE.MeshBasicMaterial({color:0x2ad9e7,side:THREE.DoubleSide}))
+  // Dynamic road strips have no normals; BasicMaterial prevents pitch-black roads.
+  material(new THREE.MeshBasicMaterial({color:0x283744,toneMapped:false,side:THREE.DoubleSide})),
+  material(new THREE.MeshBasicMaterial({color:0x3c4a55,toneMapped:false,side:THREE.DoubleSide})),
+  material(new THREE.MeshBasicMaterial({color:0xe2e2d2,toneMapped:false,side:THREE.DoubleSide})),
+  material(new THREE.MeshBasicMaterial({color:0x46b8c1,toneMapped:false,side:THREE.DoubleSide}))
  ];
  const roads=[];
  const maxQuad=COUNT*2*5;
@@ -82,26 +85,27 @@ function createFull3DScene(THREE,canvas) {
  };
  const boxG=geometry(new THREE.BoxGeometry(1,1,1));
  const coneG=geometry(new THREE.ConeGeometry(1,1,7));
- const buildingMat=material(new THREE.MeshStandardMaterial({color:0xffffff,roughness:.82,metalness:.12}));
- const glassMat=material(new THREE.MeshStandardMaterial({color:0x547a93,roughness:.28,metalness:.35,emissive:0x101e32,emissiveIntensity:.28}));
+ // Stable facade colors: per-instance palette must never wash to white under bright lights.
+ const buildingMat=material(new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false}));
+ const glassMat=material(new THREE.MeshBasicMaterial({color:0x314d66,toneMapped:false}));
  const treesMat=material(new THREE.MeshStandardMaterial({color:0x305548,roughness:1}));
  const polesMat=material(new THREE.MeshStandardMaterial({color:0xc1c3bd,metalness:.4,roughness:.55}));
  const buildings=new THREE.InstancedMesh(boxG,buildingMat,120);
- const windows=new THREE.InstancedMesh(boxG,glassMat,120);
+ const cityKit=createCityKit(THREE,scene,geometry,material,boxG,point,hash);
  const trees=new THREE.InstancedMesh(coneG,treesMat,120);
  const lights=new THREE.InstancedMesh(boxG,polesMat,50);
- for(const mesh of [buildings,windows,trees,lights]){
+ for(const mesh of [buildings,trees,lights]){
   mesh.frustumCulled=false;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   scene.add(mesh);
  }
  const dummy=new THREE.Object3D();
- const palette=[0xc5c0af,0x8aa0a6,0x747d8b,0xd6bda7,0x4c687d,0xa99f91,0x9fada1];
+ const palette=[0x566a77,0x6e777c,0x68766e,0x816d63,0x536677,0x796a5b,0x66777b,0x555c66];
  const swatch=new THREE.Color();
  const sky=material(new THREE.MeshBasicMaterial({color:0xe5c2a2,fog:false}));
  const sun= new THREE.Mesh(geometry(new THREE.SphereGeometry(11,12,9)),sky);
  sun.position.set(-128,77,-275);scene.add(sun);
- const ground=new THREE.Mesh(geometry(new THREE.PlaneGeometry(6000,6000)),material(new THREE.MeshStandardMaterial({color:0x32484b,roughness:1})));
+ const ground=new THREE.Mesh(geometry(new THREE.PlaneGeometry(6000,6000)),material(new THREE.MeshBasicMaterial({color:0x283c43,toneMapped:false})));
  ground.rotation.x=-Math.PI/2;ground.position.y=-.22;scene.add(ground);
  let car=createVehicle3D(THREE,{color:0x1a2330});
  scene.add(car.root);
@@ -178,7 +182,7 @@ function createFull3DScene(THREE,canvas) {
   }
   const urban=frame.archetype!=='mountain'&&frame.archetype!=='coastal';
   const routeSeed=frame.seed||1;
-  let ib=0,iw=0,it=0,il=0;
+  let ib=0,it=0,il=0;
   for(let i=5;i<COUNT;i+=3){
    const c=pts[i];
    const absolute=Math.floor(frame.segment||0)+i;
@@ -189,13 +193,10 @@ function createFull3DScene(THREE,canvas) {
     if(urban){
       const height=7+h*23;const width=5+hash(absolute*11+side*33)*6;
       dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
-      dummy.rotation.set(0,c.heading*.35,0);
+      dummy.rotation.set(0,-c.heading,0);
       dummy.scale.set(width,height,width*.8);
       dummy.updateMatrix();if(ib<120){buildings.setMatrixAt(ib,dummy.matrix);
         swatch.setHex(palette[Math.floor(h*palette.length)]);buildings.setColorAt(ib,swatch);ib++;}
-      dummy.scale.set(width*.91,Math.max(1,height*.47),width*.04);
-      dummy.position.set(anchor.x,anchor.y+height*.63,anchor.z+width*.42);
-      dummy.updateMatrix();if(iw<120){windows.setMatrixAt(iw++,dummy.matrix);}
     }else{
       const height=7+h*9;
       dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
@@ -209,7 +210,8 @@ function createFull3DScene(THREE,canvas) {
     }
    }
   }
-  const assignments=[[buildings,ib],[windows,iw],[trees,it],[lights,il]];
+  cityKit.update(frame,pts,HALF_WIDTH);
+  const assignments=[[buildings,ib],[trees,it],[lights,il]];
   for(const [m,count] of assignments){m.count=count;m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;}
  }
  function updateTraffic(frame,pts){
@@ -252,7 +254,7 @@ function createFull3DScene(THREE,canvas) {
   updateDrivingVisualSnapshot(driving,frame.driving||gripFrame);
   updateDriftVisualRig(driftRig,driving,Math.max(0,dt));
   updateVehiclePose(pose,{
-   screenX:480,screenY:475,yawDeg:Number(frame.yawDeg)||0,
+   screenX:480,screenY:475,yawDeg:presentationYawDegrees(driving,frame.curves,frame.speedKmh),
    rollDeg:Number(frame.rollDeg)||0,pitchDeg:Number(frame.pitchDeg)||0,
    steer:Number(frame.steer)||0,speedKmh:Math.max(0,Number(frame.speedKmh)||0),
    scaleX:1,direction:frame.direction===-1?-1:1,
@@ -263,8 +265,15 @@ function createFull3DScene(THREE,canvas) {
   car.root.scale.set(.92,.83,.92);
   // Camera sits behind +Z and looks down -Z: the rear (taillights +Z)
   // ALWAYS faces the camera. Do not rotate the car 180 degrees.
-  camera.position.set(driftRig.cameraX+clamp(Number(frame.steer)||0,-1,1)*.08,3.55,10.35);
-  camera.lookAt(driftRig.cameraX*.4+clamp(Number(frame.steer)||0,-1,1)*.22,1.25,-19);
+  // Look ahead at the actual curved centerline, not in the steering-key direction.
+  const forward=points[13];
+  const aimX=clamp((forward?.x||0)*.085,-.65,.65)+driftRig.cameraX*.36;
+  camera.position.set(driftRig.cameraX+clamp(Number(frame.steer)||0,-1,1)*.035,3.55,10.35);
+  camera.lookAt(aimX,1.25,-19);
+  const targetFov=clamp(64+(Number(frame.speedKmh)||0)*.018+(frame.boosting?1.4:0),64,72);
+  const cameraBlend=1-Math.exp(-clamp(dt,0,.10)*5);
+  camera.fov+=(targetFov-camera.fov)*cameraBlend;
+  camera.updateProjectionMatrix();
   scene.background.setHex(frame.night?0x10213b:0x6793ad);
   scene.fog.color.setHex(frame.night?0x233b58:0x809caa);
   renderer.render(scene,camera);
@@ -274,7 +283,7 @@ function createFull3DScene(THREE,canvas) {
   if(!active)return;active=false;ready=false;
   canvas.removeEventListener('webglcontextlost',lostHandler);
   canvas.removeEventListener('webglcontextrestored',restoredHandler);
-  car.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
+  car.dispose();cityKit.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
   renderer.dispose();
  }
  return {render,dispose,get ready(){return ready&&!lost&&active},get contextLost(){return lost}};
