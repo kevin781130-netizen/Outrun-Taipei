@@ -1,6 +1,8 @@
 'use strict';
 const {createVehicle3D} = require('./Vehicle3D.cjs');
 const {createVehiclePose, updateVehiclePose} = require('./VehiclePoseBridge.cjs');
+const {createDrivingVisualSnapshot,updateDrivingVisualSnapshot} = require('./DrivingVisualSnapshot.cjs');
+const {createDriftVisualRig,updateDriftVisualRig} = require('./DriftVisualRig.cjs');
 
 // Full WebGL road/world renderer. This is intentionally NOT a Canvas overlay.
 // World coordinates: +X right, +Y up, -Z forward. Camera is behind the car (+Z).
@@ -104,6 +106,9 @@ function createFull3DScene(THREE,canvas) {
  let car=createVehicle3D(THREE,{color:0x1a2330});
  scene.add(car.root);
  const pose=createVehiclePose();
+ const driving=createDrivingVisualSnapshot();
+ const driftRig=createDriftVisualRig();
+ const gripFrame=createDrivingVisualSnapshot();
  let lastCarColor='',renderRandomSeed=0x6f34ac19;
  function with3DOnlyRandom(callback){
   const original=Math.random;
@@ -244,6 +249,8 @@ function createFull3DScene(THREE,canvas) {
    const previous=car;car=with3DOnlyRandom(()=>createVehicle3D(THREE,{color:value,quality}));
    scene.add(car.root);previous.dispose();lastCarColor=frame.carColor;
   }
+  updateDrivingVisualSnapshot(driving,frame.driving||gripFrame);
+  updateDriftVisualRig(driftRig,driving,Math.max(0,dt));
   updateVehiclePose(pose,{
    screenX:480,screenY:475,yawDeg:Number(frame.yawDeg)||0,
    rollDeg:Number(frame.rollDeg)||0,pitchDeg:Number(frame.pitchDeg)||0,
@@ -252,12 +259,12 @@ function createFull3DScene(THREE,canvas) {
    braking:!!frame.braking,boosting:!!frame.boosting
   },Math.max(0,dt));
   car.applyPose(pose);
-  car.root.position.set(0,.02,3.15);
+  car.root.position.set(driftRig.offsetX,.02,3.15);
   car.root.scale.set(.92,.83,.92);
   // Camera sits behind +Z and looks down -Z: the rear (taillights +Z)
   // ALWAYS faces the camera. Do not rotate the car 180 degrees.
-  camera.position.set(clamp(Number(frame.steer)||0,-1,1)*.12,3.55,10.35);
-  camera.lookAt(clamp(Number(frame.steer)||0,-1,1)*.3,1.25,-19);
+  camera.position.set(driftRig.cameraX+clamp(Number(frame.steer)||0,-1,1)*.08,3.55,10.35);
+  camera.lookAt(driftRig.cameraX*.4+clamp(Number(frame.steer)||0,-1,1)*.22,1.25,-19);
   scene.background.setHex(frame.night?0x10213b:0x6793ad);
   scene.fog.color.setHex(frame.night?0x233b58:0x809caa);
   renderer.render(scene,camera);
