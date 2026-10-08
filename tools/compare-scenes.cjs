@@ -128,11 +128,40 @@ async function main(){
     const persistence=await run(after,"v54GraphicsInfo().quality==='ULTRA'&&"+
       "document.getElementById('dip-graphics').value==='ULTRA'");
     if(!persistence)throw Error('Quality preference did not survive reload');
+    // Verify service-menu reachability and quality change in phone/landscape
+    // Chromium emulation. This is not a physical-device FPS measurement.
+    const responsive=[];
+    for(const [name,viewport] of [
+      ['phone',{width:390,height:844}],
+      ['landscape',{width:844,height:390}]
+    ]){
+      const context=await browser.newContext({viewport,hasTouch:true,isMobile:true});
+      try{
+        const mobilePage=await context.newPage();
+        mobilePage.on('pageerror',e=>errors.push(name+': '+e.message));
+        await mobilePage.goto('http://127.0.0.1:'+server.address().port+'/after',{waitUntil:'load'});
+        await mobilePage.locator('#service-btn').click();
+        if(!await mobilePage.locator('#dip-graphics').isVisible()){
+          throw Error(name+': graphics selector not visible in service settings');
+        }
+        await mobilePage.locator('#dip-graphics').selectOption('HIGH');
+        const info=await mobilePage.evaluate(()=>({
+          width:document.getElementById('gameCanvas').width,
+          height:document.getElementById('gameCanvas').height,
+          selected:document.getElementById('dip-graphics').value
+        }));
+        if(info.width!==1200||info.height!==675||info.selected!=='HIGH'){
+          throw Error(name+': quality menu not operational '+JSON.stringify(info));
+        }
+        await mobilePage.screenshot({path:path.join(paths.quality,name+'-settings.png')});
+        responsive.push({name,viewport,passed:true,selected:info.selected});
+      }finally{await context.close();}
+    }
     if(errors.length)throw Error('Browser runtime errors: '+errors.join(' | '));
     const report={
       schema:1,sourceSHA256,browser:browser.version(),viewport:VIEWPORT,
       scenes:rows.length,geometryMatchesEveryScene:rows.every(r=>r.geometryMatches),
-      quality,presetPersistencePassed:persistence,rows,runtimeErrors:errors,
+      quality,presetPersistencePassed:persistence,responsive,rows,runtimeErrors:errors,
       reviewRequired:true,
       notes:[
         'Compares 30 deterministic STANDARD 960x540 game-canvas images and projected road/traffic geometry.',
