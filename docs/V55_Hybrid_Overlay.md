@@ -1,4 +1,4 @@
-# V55 P3 — Opt-in Three.js WebGL overlay
+# V55 P3 — Historical Three.js overlay (superseded by V56)
 
 **Track:** experimental browser presentation on `codex/v55-hybrid-render-foundation`. The current Legacy Stable game and its default entry point remain intact.
 
@@ -48,3 +48,7 @@ The bundle builder has no external dependencies. The vendor file is pinned and c
 
 - Core files: `index.html`, `src/rendering/HybridOverlay.cjs`, `assets/hybrid-renderer.js`, `tools/build-hybrid.cjs`, `tests/v55-hybrid-overlay.cjs`, vendored Three.js and license.
 - The future parallel Unity track remains unaffected. No Unity project or WebGL build was created as part of this browser experiment.
+
+## V56 replacement
+
+The original V55 2D/3D compositing is retired from the playable rendering path. V56 uses `Full3DScene.cjs` and only draws the road, cars, buildings, roadside and atmosphere with real Three.js WebGL. The old Canvas game is retained for regression and rollback only. The public V56 page does not use a Canvas fallback. GPU/browser visual QA still requires a real screenshot review.
