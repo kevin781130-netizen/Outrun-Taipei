@@ -1,8 +1,8 @@
 {
   "name": "taipei-sunset-drive",
   "private": true,
-  "version": "53.1.0",
-  "description": "Taipei arcade racer with curve-bound whole-car sideways drift, restrained physical drift path, clipping regressions, simultaneous drift charge plus nitro, and audited Taipei routes",
+  "version": "55.0.0",
+  "description": "Taipei arcade racer V55.0 hybrid Three.js WebGL preview with safe legacy Canvas fallback and unchanged gameplay physics",
   "scripts": {
     "test": "node tests/clean-room-compliance.cjs && node tests/ui-consistency.cjs && node tests/regression.cjs && node tests/v55-pose-bridge.cjs && node tests/v55-vehicle-3d.cjs && node tools/build-hybrid.cjs --check && node tests/v55-hybrid-overlay.cjs && node tests/v55-vendor-rng.cjs",
     "test:browser": "node tests/browser-smoke.cjs",
