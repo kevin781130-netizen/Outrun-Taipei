@@ -1,6 +1,7 @@
 'use strict';
 const {createVehicle3D} = require('./Vehicle3D.cjs');
 const {createVehiclePose, updateVehiclePose} = require('./VehiclePoseBridge.cjs');
+const {makeDriftVisualState, advanceDriftVisual} = require('./DriftVisualRig.cjs');
 
 // Full WebGL road/world renderer. This is intentionally NOT a Canvas overlay.
 // World coordinates: +X right, +Y up, -Z forward. Camera is behind the car (+Z).
@@ -104,6 +105,7 @@ function createFull3DScene(THREE,canvas) {
  let car=createVehicle3D(THREE,{color:0x1a2330});
  scene.add(car.root);
  const pose=createVehiclePose();
+ const driftRig=makeDriftVisualState();
  let lastCarColor='',renderRandomSeed=0x6f34ac19;
  function with3DOnlyRandom(callback){
   const original=Math.random;
@@ -252,12 +254,23 @@ function createFull3DScene(THREE,canvas) {
    braking:!!frame.braking,boosting:!!frame.boosting
   },Math.max(0,dt));
   car.applyPose(pose);
-  car.root.position.set(0,.02,3.15);
+  const visual=advanceDriftVisual(driftRig,{
+   isDrifting:frame.isDrifting,driftState:frame.driftState,
+   driftAngle:frame.driftAngle,slipAngle:frame.slipAngle,
+   driftDirection:frame.driftDirection,lateralVelocity:frame.lateralVelocity,
+   visualYawDeg:frame.yawDeg,rollDeg:frame.rollDeg,
+   speedKmh:frame.speedKmh,boosting:frame.boosting
+  },dt);
+  // PlayerX is already reflected in previewPoints(). This modest sway only
+  // visualizes local tire slip: physics road position is never integrated twice.
+  car.root.position.set(visual.lateral,.02,3.15);
   car.root.scale.set(.92,.83,.92);
   // Camera sits behind +Z and looks down -Z: the rear (taillights +Z)
   // ALWAYS faces the camera. Do not rotate the car 180 degrees.
-  camera.position.set(clamp(Number(frame.steer)||0,-1,1)*.12,3.55,10.35);
-  camera.lookAt(clamp(Number(frame.steer)||0,-1,1)*.3,1.25,-19);
+  camera.position.set(visual.cameraX + clamp(Number(frame.steer)||0,-1,1)*.08,3.55,10.35);
+  camera.lookAt(visual.cameraTarget+clamp(Number(frame.steer)||0,-1,1)*.14,1.25,-19);
+  camera.fov=visual.fov;
+  camera.updateProjectionMatrix();
   scene.background.setHex(frame.night?0x10213b:0x6793ad);
   scene.fog.color.setHex(frame.night?0x233b58:0x809caa);
   renderer.render(scene,camera);
