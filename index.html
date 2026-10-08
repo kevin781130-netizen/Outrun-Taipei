@@ -723,42 +723,54 @@ const HUD_FONT = 'Impact, "Arial Black", sans-serif';
 // DOM ELEMENTS
 // ============================================================
 const canvas = document.getElementById('gameCanvas');
-// V55 public preview: hybrid is the default; ?renderer=2d restores Legacy Stable.
-const v55HybridRequested=typeof window!=='undefined'&&!!window.location&&
-  !/[?&]renderer=(?:2d|legacy)(?:&|$)/.test(window.location.search||'');
-let v55Hybrid=null,v55HasFrame=false;
-const v55RenderFrame={
- screenX:0,screenY:0,yawDeg:0,rollDeg:0,pitchDeg:0,steer:0,
- speedKmh:0,scaleX:1,direction:1,braking:false,boosting:false
-};
-function v55LoadExperimentalOverlay(){
- if(!v55HybridRequested||typeof document.createElement!=='function')return;
- const scripts=['assets/vendor/three-r149.min.js','assets/hybrid-renderer.js'];
- function loadNext(index){
-  if(index===scripts.length){
-   if(!window.THREE||!window.TaipeiHybrid)return;
-   const layer=document.createElement('canvas');
-   layer.id='v55-hybrid-canvas';
-   layer.setAttribute('aria-hidden','true');
-   layer.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;visibility:hidden;';
-   canvas.parentNode.appendChild(layer);
-   try{v55Hybrid=window.TaipeiHybrid.createHybridOverlay(window.THREE,layer,{quality:graphicsQuality});}
-   catch(error){layer.remove();console.warn('V55 WebGL unavailable; keeping legacy 2D car',error);}
+// V56: the arcade road and vehicles are WebGL-only; Canvas2D never paints to
+// the player-visible game view. Existing logic is retained for physics/HUD.
+const v56Full3D=true;
+let v56Scene=null,v56Error=null;
+let v55Hybrid=null,v55HasFrame=false; // dormant legacy reference for older tools
+const v55RenderFrame={screenX:0,screenY:0,yawDeg:0,rollDeg:0,pitchDeg:0,steer:0,speedKmh:0,scaleX:1,direction:1,braking:false,boosting:false};
+let v56StatusElement=null;
+function v56Status(message){
+ if(!v56StatusElement)return;
+ v56StatusElement.textContent=message;
+ v56StatusElement.style.display=message?'block':'none';
+}
+function v56Load3DScene(){
+ canvas.style.visibility='hidden';
+ const status=document.createElement('div');
+ status.id='v56-webgl-status';
+ status.style.cssText='position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:4;max-width:80%;padding:16px 24px;border:1px solid #53ddeb;border-radius:8px;background:rgba(5,18,34,.92);color:#e6f8ff;text-align:center;font:800 15px/1.5 system-ui;pointer-events:none;';
+ canvas.parentNode.appendChild(status);
+ v56StatusElement=status;
+ v56Status('正在載入完整 3D 台北街道…');
+ const assets=['assets/vendor/three-r149.min.js','assets/hybrid-renderer.js'];
+ function load(index){
+  if(index>=assets.length){
+   try {
+    if(!window.THREE||!window.TaipeiHybrid?.createFull3DScene)throw new Error('3D 模組不完整');
+    const layer=document.createElement('canvas');
+    layer.id='v56-full-3d-canvas';
+    layer.setAttribute('aria-label','台北極速傳說 V56.0 完整 3D 賽道');
+    layer.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:2;display:block;pointer-events:none;visibility:hidden;';
+    canvas.parentNode.appendChild(layer);
+    v56Scene=window.TaipeiHybrid.createFull3DScene(window.THREE,layer);
+    v56Status('');
+   } catch(error) {
+    v56Error=error?.message||String(error);
+    v56Status('3D 啟動失敗，請確認瀏覽器已啟用 WebGL：'+v56Error);
+    console.error('V56 WebGL startup failed',error);
+   }
    return;
   }
   const script=document.createElement('script');
-  script.src=scripts[index];
-  script.onload=()=>loadNext(index+1);
-  script.onerror=()=>console.warn('V55 optional 3D asset unavailable: '+scripts[index]);
+  script.src=assets[index];
+  script.onload=()=>load(index+1);
+  script.onerror=()=>{v56Error='無法讀取 '+assets[index];v56Status('3D 資源載入失敗：'+assets[index]);};
   document.head.appendChild(script);
  }
- loadNext(0);
+ load(0);
 }
-window.v55HybridStatus=()=>({
- requested:!!v55HybridRequested,initialized:!!v55Hybrid,
- ready:!!v55Hybrid?.ready,contextLost:!!v55Hybrid?.contextLost,
- disposed:!!v55Hybrid?.disposed
-});
+window.v56ThreeStatus=()=>({engine:'full-webgl-3d',loaded:!!v56Scene,ready:!!v56Scene?.ready,error:v56Error,contextLost:!!v56Scene?.contextLost});
 const displayCtx=canvas.getContext('2d');
 const arcadeBuffer=document.createElement('canvas');arcadeBuffer.width=960;arcadeBuffer.height=540;
 let ctx=arcadeBuffer.getContext('2d');ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
@@ -4282,6 +4294,54 @@ function drawGoalCelebrationScene(){
 }
 
 function render(dt){
+ if(v56Full3D){
+  // Legacy road screen projections are maintained ONLY for physical collision
+  // and near-miss sensor state; none of their Canvas sprites reach the screen.
+  projectRoad();prepareTrafficSprites();
+  if(!v56Scene){
+   if(!v56Error)v56Status('正在載入完整 3D 台北街道…');
+   return;
+  }
+  if(v56Scene.contextLost){
+   v56Status('WebGL 畫面暫停，等待 GPU 恢復…');return;
+  }
+  const first=Math.max(0,Math.floor(playerZ/SEGMENT_LENGTH));
+  const here=segments[Math.min(first,segments.length-1)];
+  const originY=here?.p1.world.y||0;
+  const curves=[],hills=[],corridors=[];
+  for(let i=0;i<=125;i++){
+   const idx=Math.min(first+i,segments.length-1);
+   const seg=segments[idx]||here;
+   curves.push(seg?.curve||0);
+   hills.push((seg?.p1.world.y||0)-originY);
+   corridors.push(roadCorridors(idx));
+  }
+  const traffic3D=traffic.slice(0,15).map(car=>({
+   distance:(car.z-playerZ)/SEGMENT_LENGTH,
+   x:car.x,
+   color:car.color
+  }));
+  try{
+   const ok=v56Scene.render({
+    curves,hills,corridors,
+    segment:first,
+    fraction:(playerZ%SEGMENT_LENGTH)/SEGMENT_LENGTH,
+    playerX,traffic:traffic3D,carColor:currentCar.color,
+    archetype:currentNode.archetype,seed:currentNode.seed,
+    yawDeg:v51DriftVisualYaw(),rollDeg:chassisRoll,pitchDeg:chassisPitch,
+    steer,speedKmh:speed,direction:motionDirection,
+    braking:inputHeld('ArrowDown')||inputHeld('KeyS')||gamepadInput.brake||helperPulse>0,
+    boosting:boosting||exitBoost>0,
+    night:skyMood!=='sunset'
+   },paused?0:dt,canvas.width,canvas.height,graphicsQuality);
+   if(ok)v56Status('');
+  }catch(error){
+   v56Error=error?.message||String(error);
+   v56Status('3D 畫面錯誤：'+v56Error);
+   console.error('V56 WebGL render error',error);
+  }
+  return;
+ }
   if(inRadioScreen){
     if(v55Hybrid)v55Hybrid.hide();
     v55HasFrame=false;
@@ -6554,7 +6614,7 @@ function loop(now){
 
 setGraphicsQuality(v54StoredGraphics(),false);
 applyRuleLabels(); resetGame(); updateHUD(); drawRouteMap(); render(0);
-v55LoadExperimentalOverlay();
+v56Load3DScene();
 requestAnimationFrame(loop);
 
 })();
