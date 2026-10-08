@@ -43,7 +43,7 @@ function createFull3DScene(THREE,canvas) {
  renderer.outputEncoding=THREE.sRGBEncoding;
  renderer.toneMapping=THREE.ACESFilmicToneMapping;
  renderer.toneMappingExposure=1.35;
- let lastW=0,lastH=0;
+ let lastW=0,lastH=0,lastDpr=0;
  const roadMaterials=[
   material(new THREE.MeshStandardMaterial({color:0x303945,roughness:.94,side:THREE.DoubleSide})),
   material(new THREE.MeshStandardMaterial({color:0x59616b,roughness:1,side:THREE.DoubleSide})),
@@ -98,7 +98,7 @@ function createFull3DScene(THREE,canvas) {
  const sun= new THREE.Mesh(geometry(new THREE.SphereGeometry(11,12,9)),sky);
  sun.position.set(-128,77,-275);scene.add(sun);
  const ground=new THREE.Mesh(geometry(new THREE.PlaneGeometry(6000,6000)),material(new THREE.MeshStandardMaterial({color:0x32484b,roughness:1})));
- ground.rotation.x=-Math.PI/2;ground.position.y=-5.8;scene.add(ground);
+ ground.rotation.x=-Math.PI/2;ground.position.y=-.22;scene.add(ground);
  let car=createVehicle3D(THREE,{color:0x1a2330});
  scene.add(car.root);
  const pose=createVehiclePose();
@@ -185,7 +185,7 @@ function createFull3DScene(THREE,canvas) {
       dummy.updateMatrix();if(it<120)trees.setMatrixAt(it++,dummy.matrix);
     }
     if(i%12===5&&il<50){
-      dummy.position.set(point(c,side*HALF_WIDTH*1.3).x,5.2,c.z);
+      dummy.position.set(point(c,side*HALF_WIDTH*1.3).x,c.y+5.2,c.z);
       dummy.rotation.set(0,0,0);dummy.scale.set(.18,10,.18);
       dummy.updateMatrix();lights.setMatrixAt(il++,dummy.matrix);
     }
@@ -221,7 +221,7 @@ function createFull3DScene(THREE,canvas) {
    camera.aspect=width/height;camera.updateProjectionMatrix();
   }
   const dpr=quality==='LOW'?.7:quality==='ULTRA'?1.15:1;
-  renderer.setPixelRatio(dpr);
+  if(lastDpr!==dpr){renderer.setPixelRatio(dpr);lastDpr=dpr;}
   paintWorld(frame,points);
   updateTraffic(frame,points);
   if(frame.carColor!==lastCarColor){
