@@ -16,8 +16,9 @@ function readReport(filename) {
     throw new Error(filename + ': source hash is missing or invalid');
   }
   const sceneKeys = new Set();
+  const expectedRoutes = new Set(['1A','2A','2B','3A','3B','3C','4A','4B','4C','4D','5A','5B','5C','5D','5E']);
   for (const row of report.rows) {
-    if (!/^[1-5][A-E]$/.test(row.id) || !['sunset', 'neon'].includes(row.mood)) {
+    if (!expectedRoutes.has(row.id) || !['sunset', 'neon'].includes(row.mood)) {
       throw new Error(filename + ': invalid scene ID or mood');
     }
     const key = row.id + '/' + row.mood;
@@ -34,7 +35,9 @@ function readReport(filename) {
       }
     }
   }
-  if (sceneKeys.size !== 30) throw new Error(filename + ': incomplete scene matrix');
+  if (sceneKeys.size !== 30 || [...expectedRoutes].some(id=>!sceneKeys.has(id+'/sunset')||!sceneKeys.has(id+'/neon'))) {
+    throw new Error(filename + ': incomplete 15-route scene matrix');
+  }
   return report;
 }
 
