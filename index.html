@@ -736,13 +736,13 @@ function v55LoadExperimentalOverlay(){
  const scripts=['assets/vendor/three-r149.min.js','assets/hybrid-renderer.js'];
  function loadNext(index){
   if(index===scripts.length){
-   if(!window.THREE||!window.OutrunHybrid)return;
+   if(!window.THREE||!window.TaipeiHybrid)return;
    const layer=document.createElement('canvas');
    layer.id='v55-hybrid-canvas';
    layer.setAttribute('aria-hidden','true');
    layer.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;visibility:hidden;';
    canvas.parentNode.appendChild(layer);
-   try{v55Hybrid=window.OutrunHybrid.createHybridOverlay(window.THREE,layer,{quality:graphicsQuality});}
+   try{v55Hybrid=window.TaipeiHybrid.createHybridOverlay(window.THREE,layer,{quality:graphicsQuality});}
    catch(error){layer.remove();console.warn('V55 WebGL unavailable; keeping legacy 2D car',error);}
    return;
   }
