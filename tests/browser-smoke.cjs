@@ -76,7 +76,7 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
    const live=await context.newPage();live.on('pageerror',error=>errors.push(error.message));
    await live.goto(url);
    assert.equal(await live.locator('#build-version').isVisible(),true,`${name} build version visible`);
-   assert.match(await live.locator('#build-version').textContent(),/V55\.0/,`${name} correct V55.0 build label`);
+   assert.match(await live.locator('#build-version').textContent(),/V55\.0/,`${name} correct V56.0 build label`);
    await live.locator('#start-btn').click();
    assert.equal(await live.locator('#radio-actions').isVisible(),true);
    await live.locator('#radio-next').click();
