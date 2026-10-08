@@ -7,7 +7,8 @@
     "test": "node tests/clean-room-compliance.cjs && node tests/ui-consistency.cjs && node tests/regression.cjs",
     "test:browser": "node tests/browser-smoke.cjs",
     "test:performance": "node tools/performance.cjs",
-    "compare:performance": "node tools/compare-performance.cjs"
+    "compare:performance": "node tools/compare-performance.cjs",
+    "test:graphics": "node tests/v54-graphics.cjs"
   },
   "devDependencies": {
     "@napi-rs/canvas": "0.1.100",
