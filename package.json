@@ -5,7 +5,7 @@
   "description": "Taipei arcade racing V56.0 full Three.js WebGL 3D road, traffic, chase camera and original driving physics",
   "scripts": {
     "test": "node tests/clean-room-compliance.cjs && node tests/ui-consistency.cjs && node tests/regression.cjs && node tests/v55-pose-bridge.cjs && node tests/v55-vehicle-3d.cjs && node tools/build-hybrid.cjs --check && node tests/v55-hybrid-overlay.cjs && node tests/v55-vendor-rng.cjs && node tests/v56-full-3d.cjs && node tests/v56-drift-visual.cjs && node tests/v56-drift-replay.cjs",
-    "test:browser": "node tests/browser-smoke.cjs && node tests/v56-browser.cjs",
+    "test:browser": "node tests/browser-smoke.cjs && node tests/v56-browser.cjs && node tests/v56-drift-browser.cjs",
     "test:performance": "node tools/performance.cjs",
     "compare:performance": "node tools/compare-performance.cjs",
     "test:graphics": "node tests/v54-graphics.cjs",
@@ -26,7 +26,8 @@
     "test:full3d": "node tests/v56-full-3d.cjs",
     "test:full3d-browser": "node tests/v56-browser.cjs",
     "test:drift-visual": "node tests/v56-drift-visual.cjs",
-    "test:drift-replay": "node tests/v56-drift-replay.cjs"
+    "test:drift-replay": "node tests/v56-drift-replay.cjs",
+    "test:drift-browser": "node tests/v56-drift-browser.cjs"
   },
   "devDependencies": {
     "@napi-rs/canvas": "0.1.100",
