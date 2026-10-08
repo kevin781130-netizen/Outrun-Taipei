@@ -371,6 +371,16 @@
               <option value="off">OFF (純淨公路視角)</option>
             </select>
           </div>
+          <div>
+            <label for="dip-graphics" style="display:block;color:#87b2c9;margin-bottom:4px;font-weight:900">GRAPHICS / 畫質</label>
+            <select id="dip-graphics" style="width:100%">
+              <option value="LOW">LOW · 720 × 405</option>
+              <option value="STANDARD" selected>STANDARD · 960 × 540</option>
+              <option value="HIGH">HIGH · 1200 × 675</option>
+              <option value="ULTRA">ULTRA · 1440 × 810</option>
+            </select>
+          </div>
+          <p id="v54-graphics-status" aria-live="polite" style="align-self:end;color:#b6d7e6;font-size:10px;line-height:1.5">只變更解析度，物理與成績規則不變。</p>
         </div>
         <div style="border-top:1px solid rgba(255,255,255,.1);padding-top:12px;margin-bottom:12px">
           <div style="color:#ffea78;font-size:11px;font-weight:900;margin-bottom:8px">SOUND TEST / 音效測試</div>
@@ -401,6 +411,8 @@
   #menu-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;font-size:11px;color:#99b7c9;}
   #corner-hud{position:absolute;right:12px;bottom:78px;padding:8px 12px;border-left:3px solid #ffd200;background:#071322d9;z-index:6;pointer-events:none;font-size:10px;color:#c5dceb;max-width:200px;}
   #corner-hud b{display:block;color:#ffd200;font-size:14px;}#drive-state{color:#54edcc;}
+  #service-modal{overflow-y:auto;justify-content:safe center;}
+  #service-modal>div{max-height:100%;overflow-y:auto;}
   #wangan-modal{padding:10px!important;}
   #wangan-modal>div{width:min(720px,100%)!important;max-height:100%;overflow-y:auto;padding:16px!important;}
   #wangan-modal h3{font-size:19px!important;}#wangan-modal input{user-select:auto;-webkit-user-select:auto;}
@@ -765,6 +777,46 @@ const ease = t => (-Math.cos(Math.PI * clamp(t,0,1)) / 2) + .5;
 const smooth = (a,b,t) => lerp(a,b,ease(t));
 const pad = (n, len = 6) => String(Math.floor(n)).padStart(len, '0');
 const rand = (a, b) => a + Math.random() * (b - a);
+
+// V54 raster-only quality. 960x540 logical coordinates are never modified.
+const V54_GRAPHICS=Object.freeze({LOW:.75,STANDARD:1,HIGH:1.25,ULTRA:1.5});
+const V54_GRAPHICS_STORAGE_KEY='taipeiGraphicsV54';
+let graphicsQuality='STANDARD',graphicsScale=1;
+const graphicsSelect=document.getElementById('dip-graphics');
+const graphicsStatus=document.getElementById('v54-graphics-status');
+function v54GraphicsPreset(value){
+  return Object.prototype.hasOwnProperty.call(V54_GRAPHICS,value)?value:'STANDARD';
+}
+function v54StoredGraphics(){
+  try{return v54GraphicsPreset(localStorage.getItem(V54_GRAPHICS_STORAGE_KEY));}
+  catch(e){return 'STANDARD';}
+}
+function v54GraphicsInfo(){
+  return {quality:graphicsQuality,scale:graphicsScale,logicalWidth:W,logicalHeight:H,
+    outputWidth:canvas.width,outputHeight:canvas.height,
+    internalWidth:arcadeBuffer.width,internalHeight:arcadeBuffer.height};
+}
+function setGraphicsQuality(value,persist=true){
+  const preset=v54GraphicsPreset(value),scale=V54_GRAPHICS[preset];
+  // Resizing resets context state. Explicitly restore the logical transform.
+  arcadeBuffer.width=Math.round(W*scale);
+  arcadeBuffer.height=Math.round(H*scale);
+  canvas.width=Math.round(W*scale);
+  canvas.height=Math.round(H*scale);
+  ctx.setTransform(scale,0,0,scale,0,0);
+  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+  displayCtx.setTransform(scale,0,0,scale,0,0);
+  displayCtx.imageSmoothingEnabled=true;displayCtx.imageSmoothingQuality='high';
+  graphicsQuality=preset;graphicsScale=scale;
+  if(graphicsSelect)graphicsSelect.value=preset;
+  if(graphicsStatus)graphicsStatus.textContent=
+    '內部及輸出 '+canvas.width+' × '+canvas.height+' · 邏輯 '+W+' × '+H+' 不變';
+  if(persist){
+    try{localStorage.setItem(V54_GRAPHICS_STORAGE_KEY,preset);}
+    catch(e){/* Storage unavailable; session still works. */}
+  }
+  return v54GraphicsInfo();
+}
 
 // ============================================================
 // AUDIO ENGINE (YM2151 FM + FORMANT SYNTH SPEECH + RIVER BALLAD)
@@ -2084,6 +2136,7 @@ function toggleServiceMenu(){
 
 serviceBtn.addEventListener('click', toggleServiceMenu);
 serviceCloseBtn.addEventListener('click', toggleServiceMenu);
+graphicsSelect.addEventListener('change',()=>{setGraphicsQuality(graphicsSelect.value);render(0);});
 insertCoinBtn.addEventListener('click', insertCoin);
 
 document.getElementById('gyro-btn').addEventListener('click', () => {
@@ -4129,6 +4182,7 @@ function render(dt){
 }
 
 function presentArcade(){
+ displayCtx.setTransform(graphicsScale,0,0,graphicsScale,0,0);
  displayCtx.imageSmoothingEnabled=true;displayCtx.imageSmoothingQuality='high';displayCtx.clearRect(0,0,W,H);
  const active=clamp((boosting?.42:0)+(exitBoost>0?.24:0)+boostKick*.58,0,1);
  const speedRatio=clamp(speed/COMPETITION.topSpeed,0,1),seg=segments[clamp(Math.floor(playerZ/SEGMENT_LENGTH),0,segments.length-1)],curve=seg?.curve||0;
@@ -4139,8 +4193,8 @@ function presentArcade(){
  const zoom=1.008+speedRatio*.008+Math.abs(lean)*1.0+active*.006;
  const lateralLook=clamp((steer*.40+driftAngle/90)*speedRatio*4,-V50_COMFORT.lateralLookMax,V50_COMFORT.lateralLookMax);
  displayCtx.save();displayCtx.translate(W/2-lateralLook,H/2+Math.abs(chassisPitch)*.08);displayCtx.rotate(lean);displayCtx.scale(zoom,zoom);displayCtx.translate(-W/2,-H/2);
- displayCtx.drawImage(arcadeBuffer,crop,crop,W-crop*2,H-crop*2,0,0,W,H);
- if(active>.08){displayCtx.globalAlpha=active*.05;displayCtx.globalCompositeOperation='screen';displayCtx.drawImage(arcadeBuffer,crop+2,crop,W-crop*2,H-crop*2,0,0,W,H);}
+ displayCtx.drawImage(arcadeBuffer,crop*graphicsScale,crop*graphicsScale,(W-crop*2)*graphicsScale,(H-crop*2)*graphicsScale,0,0,W,H);
+ if(active>.08){displayCtx.globalAlpha=active*.05;displayCtx.globalCompositeOperation='screen';displayCtx.drawImage(arcadeBuffer,(crop+2)*graphicsScale,crop*graphicsScale,(W-crop*2)*graphicsScale,(H-crop*2)*graphicsScale,0,0,W,H);}
  displayCtx.restore();
 }
 
@@ -6264,6 +6318,7 @@ function loop(now){
   requestAnimationFrame(loop);
 }
 
+setGraphicsQuality(v54StoredGraphics(),false);
 applyRuleLabels(); resetGame(); updateHUD(); drawRouteMap(); render(0);
 requestAnimationFrame(loop);
 
