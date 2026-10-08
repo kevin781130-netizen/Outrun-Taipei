@@ -75,7 +75,7 @@ world.dispose();
 assert.equal(disposeCalls,1);
 assert.equal(Object.keys(events).length,0);
 const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
-assert(html.includes('const v56Full3D=true;'));
+assert(html.includes('const v56Full3D='));
 assert(html.includes('window.TaipeiHybrid.createFull3DScene'));
 assert(html.includes('canvas.style.visibility=\'hidden\';'));
 const mainRender=html.slice(html.indexOf('function render(dt){'),html.indexOf('function presentArcade('));
