@@ -57,16 +57,19 @@ const p95 = sorted => sorted[Math.ceil(sorted.length * 0.95) - 1];
     }
     const rows = [];
     const setup = (id, mood) =>
+      "(()=>{const start=performance.now();" +
       "v34Mode='cruise';selectedRoute=routeForId('" + id + "');" +
       "skyMood='" + mood + "';resetGame();gameStarted=true;raceActive=true;" +
       "paused=false;gameOver=false;inRadioScreen=false;" +
       "overlay.classList.add('hidden');speed=220;playerX=0;" +
       "playerZ=200*SEGMENT_LENGTH;simulationTime=10;" +
       "traffic.forEach((car,i)=>{car.z=playerZ+(15+i*8)*SEGMENT_LENGTH;" +
-      "car.x=(i%3-1)*.55;car.laneTarget=car.x;});";
+      "car.x=(i%3-1)*.55;car.laneTarget=car.x;});" +
+      "return performance.now()-start;})()";
     for (const id of routes) {
       for (const mood of ['sunset', 'neon']) {
-        await run(setup(id, mood));
+        const sceneSetupMs = await run(setup(id, mood));
+        const coldRenderMs = await run("(()=>{const started=performance.now();render(0);return performance.now()-started;})()");
         const renderStats = await run(`(()=>{
           for(let i=0;i<${warmup};i++)render(0);
           const times=[];
@@ -97,7 +100,7 @@ const p95 = sorted => sorted[Math.ceil(sorted.length * 0.95) - 1];
           }
           window.__benchmarkRAF(frame);
         })`);
-        rows.push({ id, mood, segment: 200, speed: 220, ...renderStats, ...frameStats });
+        rows.push({ id, mood, segment: 200, speed: 220, sceneSetupMs, coldRenderMs, ...renderStats, ...frameStats });
         console.log(id + '/' + mood + ' render=' + renderStats.renderMeanMs.toFixed(2) +
           'ms frameP95=' + frameStats.frameP95Ms.toFixed(2) + 'ms');
       }
@@ -131,6 +134,7 @@ const p95 = sorted => sorted[Math.ceil(sorted.length * 0.95) - 1];
       samples,
       warmup,
       measurement: 'Fixed-state render CPU; RAF cadence without game update; post-GC JS heap',
+      coldStartMeasurement: 'Route setup includes resetGame and landmark build; first render timed before warmup',
       rows,
       memory,
       runtimeErrors: errors
