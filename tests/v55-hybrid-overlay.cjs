@@ -92,7 +92,7 @@ assert.throws(()=>createHybridOverlay(null,canvas),TypeError);
 // Bundle and HTML must remain in sync. Legacy mode does not load extra scripts.
 const bundle=fs.readFileSync(path.join(__dirname,'../assets/hybrid-renderer.js'),'utf8');
 const source=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
-assert(bundle.includes("global.OutrunHybrid = load('./HybridOverlay.cjs')"));
+assert(bundle.includes("global.TaipeiHybrid = load('./HybridOverlay.cjs')"));
 assert(source.includes('v55LoadExperimentalOverlay();'));
 assert(source.includes('renderer=hybrid'));
 assert(source.includes('if(!v55Use3D)drawRigidVehicle(yaw,braking)'));
