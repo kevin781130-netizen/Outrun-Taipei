@@ -560,7 +560,7 @@ function createFull3DScene(THREE,canvas) {
  scene.add(car.root);
  const pose=createVehiclePose();
  let lastCarColor='';
- const trafficMaterial=material(new THREE.MeshStandardMaterial({color:0xffffff,metalness:.34,roughness:.44}));
+
  const tyreMat=material(new THREE.MeshStandardMaterial({color:0x10141a,roughness:.96}));
  const rearMat=material(new THREE.MeshBasicMaterial({color:0xff385d}));
  const trafficMeshes=[];
@@ -569,14 +569,15 @@ function createFull3DScene(THREE,canvas) {
   function part(g,m,s,p){
    const mesh=new THREE.Mesh(g,m);mesh.scale.set(...s);mesh.position.set(...p);group.add(mesh);return mesh;
   }
-  const chassis=part(boxG,trafficMaterial,[1.7,.46,3.6],[0,.57,0]);
+  const individualPaint=material(new THREE.MeshStandardMaterial({color:0xe4bc39,metalness:.38,roughness:.4}));
+  const chassis=part(boxG,individualPaint,[1.7,.46,3.6],[0,.57,0]);
   const roof=part(boxG,glassMat,[1.29,.55,1.8],[0,1.0,-.12]);
   for(const side of [-1,1]){
    part(boxG,tyreMat,[.24,.64,.72],[side*.88,.36,-1.1]);
    part(boxG,tyreMat,[.24,.64,.72],[side*.88,.36,1.1]);
    part(boxG,rearMat,[.4,.12,.09],[side*.55,.65,1.82]);
   }
-  group.visible=false;scene.add(group);trafficMeshes.push({group,chassis,roof});
+  group.visible=false;scene.add(group);trafficMeshes.push({group,chassis,roof,lastColor:null});
  }
  const lostHandler=e=>{e.preventDefault();lost=true;ready=false;canvas.style.visibility='hidden';};
  const restoredHandler=()=>{lost=false;ready=false;};
@@ -664,9 +665,11 @@ function createFull3DScene(THREE,canvas) {
     a.z+(b.z-a.z)*frac
    );
    mesh.group.rotation.y=a.heading;
-   const color=Number.isInteger(item.color)?item.color:0xffc21c;
-   mesh.chassis.material=trafficMaterial;
-   // Shared material: per-object tint on the geometry is deferred, avoid mutation per car.
+   const color=item.color||'#f3c21f';
+   if(color!==mesh.lastColor){
+    mesh.chassis.material.color.set(color);
+    mesh.lastColor=color;
+   }
   }
  }
  function render(frame,dt=0,width=960,height=540,quality='STANDARD'){
