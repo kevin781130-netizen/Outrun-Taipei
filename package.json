@@ -10,7 +10,9 @@
     "compare:performance": "node tools/compare-performance.cjs",
     "test:graphics": "node tests/v54-graphics.cjs",
     "test:roadside": "node tests/v54-roadside.cjs",
-    "test:graphics-cache": "node tests/v54-traffic-landmarks.cjs"
+    "test:graphics-cache": "node tests/v54-traffic-landmarks.cjs",
+    "test:scene-metrics": "node tests/v54-scene-metrics.cjs",
+    "test:scenes": "node tools/compare-scenes.cjs"
   },
   "devDependencies": {
     "@napi-rs/canvas": "0.1.100",
