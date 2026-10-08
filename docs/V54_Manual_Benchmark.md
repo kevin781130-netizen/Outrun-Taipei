@@ -45,3 +45,20 @@ The comparison rejects mismatched browser versions, viewports, samples or scene 
 - Existing 53.1 game and main are not changed.
 - No actual machine benchmark is recorded in this document.
 - No GitHub Actions and no deployed visual acceptance performed.
+
+## V54 P1 — Static roadside raster cache
+
+The V50 near-road layer now reuses cropped-placement **fixed-size offscreen sprites** for its static **urban buildings, trees, bank lamps and sound-barrier props**. The cache key includes family, surface, orientation, sky mood and raster density. An LRU accounting rule caps retained raster entries at **8 MiB** (pixel width × height × 4); the visible road clipping, projection, draw order and physics remain live and unchanged.
+
+The preset selector invalidates all V54 roadside sprites on a quality change. The underlying vectors are used again if an offscreen 2D context is unavailable. Traffic cars and their indicators are **not cached in this step**, since lane changes and blink timing are animated. The landmark sprite cache is likewise out of scope.
+
+Run the focused no-Actions checks locally:
+
+```sh
+npm run test:graphics
+npm run test:roadside
+npm test
+npm run test:browser
+```
+
+The focused roadside test covers cache hits, visual-variant isolation, backing-size selection, eviction, cache clearing, context restoration and allocation failure. The automated unit test cannot establish actual rendered visual equivalence; verify desktop and mobile gameplay screenshots, near-road clipping and frame-time measurements before merging. Retained offscreen pixels are not a measurement of entire browser or GPU memory.
