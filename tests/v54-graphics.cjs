@@ -33,9 +33,9 @@ const localStorage={
   getItem(key){if(brokenStorage)throw new Error('storage disabled');return storage.get(key)||null;},
   setItem(key,value){if(brokenStorage)throw new Error('storage disabled');writes.push([key,value]);storage.set(key,value);}
 };
-const construct=new Function('W','H','canvas','arcadeBuffer','ctx','displayCtx','document','localStorage',
+const construct=new Function('W','H','canvas','arcadeBuffer','ctx','displayCtx','document','localStorage','v54ClearStaticRoadsideCache','v54ClearTrafficCache',
   source+'\nreturn {setGraphicsQuality,v54StoredGraphics,v54GraphicsInfo};');
-const graphics=construct(960,540,canvas,arcadeBuffer,ctx,displayCtx,document,localStorage);
+const graphics=construct(960,540,canvas,arcadeBuffer,ctx,displayCtx,document,localStorage,()=>{},()=>{});
 
 for(const [name,width,height,scale] of expected){
   const info=graphics.setGraphicsQuality(name);
