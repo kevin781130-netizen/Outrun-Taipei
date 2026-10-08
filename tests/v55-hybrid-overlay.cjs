@@ -94,7 +94,7 @@ const bundle=fs.readFileSync(path.join(__dirname,'../assets/hybrid-renderer.js')
 const source=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
 assert(bundle.includes("global.TaipeiHybrid = load('./HybridOverlay.cjs')"));
 assert(source.includes('v55LoadExperimentalOverlay();'));
-assert(source.includes('renderer=hybrid'));
+assert(source.includes('renderer=(?:2d|legacy)'));
 assert(source.includes('if(!v55Use3D)drawRigidVehicle(yaw,braking)'));
 assert(source.includes('webglcontextlost') === false, 'context handling lives exclusively in hybrid module');
 console.log('V55 hybrid overlay: projection, opt-in, fallback, context recovery and cleanup passed');
