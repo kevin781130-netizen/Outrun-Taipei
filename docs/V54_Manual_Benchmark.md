@@ -1,6 +1,6 @@
 # V54 — Manual Performance Baseline (No GitHub Actions)
 
-This task is deliberately **manual-only**. Do not start, depend on, or wait for GitHub Actions. The V53.1 browser game stays unchanged on main and on this branch until a separate reviewed optimization is implemented.
+This task is deliberately **manual-only**. Do not start, depend on, or wait for GitHub Actions. The released V53.1 game stays unchanged on main; the V54 branch contains experimental renderer optimizations.
 
 ## Preconditions
 
@@ -28,7 +28,7 @@ PERF_OUTPUT=test-results/v54-after.json npm run test:performance
 node tools/compare-performance.cjs test-results/v53.1-before.json test-results/v54-after.json > test-results/compare-v53-v54.json
 ```
 
-Until optimized V54 rendering code is committed, **there is no meaningful before/after improvement to claim**: both files may be identical. Verify sourceSHA256 in each report.
+Experimental renderer changes are committed on the V54 branch. **No measured improvement can be claimed until real same-machine Chromium benchmarks are recorded.** Verify sourceSHA256 in each report.
 
 ## Measured
 
@@ -42,7 +42,7 @@ The comparison rejects mismatched browser versions, viewports, samples or scene 
 ## Status
 
 - Baseline tools added to a separate branch.
-- Existing 53.1 game and main are not changed.
+- Main still hosts V53.1; the V54 development branch is modified and unmerged.
 - No actual machine benchmark is recorded in this document.
 - No GitHub Actions and no deployed visual acceptance performed.
 
@@ -84,3 +84,45 @@ node tools/compare-performance.cjs test-results/v53-before.json test-results/v54
 ```
 
 The focused P2 test uses Canvas mocks to check variant isolation, draw-time blinking, near-traffic vector fallback, LRU eviction, failed context fallback, alpha crop bounds and stage-held landmark references. This test does **not** certify actual Chromium rendering, memory stability, visual parity, or any FPS improvement.
+
+## V54 P3 — Manual visual and performance acceptance (no Actions)
+
+This step adds a reproducible **30-scene browser parity test**, covering 15 Taipei routes × sunset/neon, using the same deterministic car state and the original **960×540 STANDARD** pixel backing.
+
+The runner:
+- Writes 30 V53.1 PNGs and 30 V54 PNGs, and JSON metrics for changed pixels (absolute RGB delta threshold 16), mean channel difference and exact projected road/traffic geometry comparison.
+- Interacts with the real graphics preset menu and verifies LOW (720×405), STANDARD (960×540), HIGH (1200×675), ULTRA (1440×810), storage persistence through reload, and unchanged 960×540 physics coordinate dimensions.
+- Checks the graphics settings menu in Chromium emulated 390×844 phone and 844×390 landscape; saves extra quality and menu images.
+- Fails if route IDs, road or traffic projection, backing sizes, runtime page errors or any graphics preset assertion fail. **Pixel differences are reported, not silently interpreted as visual approval.**
+
+From the V54 branch working tree with Node 22+ and Playwright dependencies installed:
+
+\`\`\`sh
+# Baseline should be the unmodified V53.1 main HTML.
+git show main:index.html > /tmp/outrun-v53.1.html
+
+npm run test:scene-metrics
+npm run test:graphics
+npm run test:roadside
+npm run test:graphics-cache
+npm test
+
+# Choose one browser setup:
+npm run test:scenes -- /tmp/outrun-v53.1.html index.html
+# If relying on the host Chromium, instead:
+CHROMIUM_PATH=/usr/bin/chromium npm run test:scenes -- /tmp/outrun-v53.1.html index.html
+\`\`\`
+
+Review \`test-results/v54-scenes/summary.json\`, paired \`before/\` and \`after/\` screenshots, and \`quality/\` screenshots. Focus on high pixel-difference rows, near-road occlusion, floating objects, missing buildings, traffic facing/indicator rendering, nighttime signage and landmarks. This is headless Chromium output, not a screenshot of the deployed build.
+
+For the separate 20% render CPU improvement goal:
+
+\`\`\`sh
+PERF_INDEX=/tmp/outrun-v53.1.html PERF_OUTPUT=test-results/v53-before.json npm run test:performance
+PERF_INDEX=index.html PERF_OUTPUT=test-results/v54-after.json npm run test:performance
+node tools/compare-performance.cjs test-results/v53-before.json test-results/v54-after.json > test-results/v54-speedup.json
+\`\`\`
+
+Run both benchmarks sequentially on the same machine with identical browser and sampling parameters. The resulting JSON indicates aggregate improvement and per-scene regressions; RAF cadence in this test is not a real gameplay FPS number. Desktop/mobile hardware FPS, long-session memory stability, UI visual sign-off, and public deployment provenance are **not automatically accepted**.
+
+**Execution status:** the local browser audit tool is committed, but this chat session has not produced actual V53.1 vs V54 Chromium screenshots or benchmark numbers. Do not claim a speedup or fully accepted V54 until those are available.
