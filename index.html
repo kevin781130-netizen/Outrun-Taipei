@@ -4334,6 +4334,9 @@ function render(dt){
     playerX,traffic:traffic3D,carColor:currentCar.color,
     archetype:currentNode.archetype,seed:currentNode.seed,
     yawDeg:v51DriftVisualYaw(),rollDeg:chassisRoll,pitchDeg:chassisPitch,
+    // V56.1: render-only drift telemetry; physics remains authoritative.
+    isDrifting,driftState,driftAngle,slipAngle,driftDirection,lateralVelocity,
+    cleanDriftTime,exitBoost,momentBoostWindow,roadGrip,
     steer,speedKmh:speed,direction:motionDirection,
     braking:inputHeld('ArrowDown')||inputHeld('KeyS')||gamepadInput.brake||helperPulse>0,
     boosting:boosting||exitBoost>0,
