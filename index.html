@@ -809,6 +809,7 @@ function setGraphicsQuality(value,persist=true){
   displayCtx.imageSmoothingEnabled=true;displayCtx.imageSmoothingQuality='high';
   graphicsQuality=preset;graphicsScale=scale;
   v54ClearStaticRoadsideCache();
+  v54ClearTrafficCache();
   if(graphicsSelect)graphicsSelect.value=preset;
   if(graphicsStatus)graphicsStatus.textContent=
     '內部及輸出 '+canvas.width+' × '+canvas.height+' · 邏輯 '+W+' × '+H+' 不變';
@@ -3751,7 +3752,7 @@ function rivalVolumeProfile(car,x){
   const w=car.spec.w,h=car.spec.h,side=x<W/2?1:-1;
   return {side,depth:Math.max(9,w*(car.spec.bus ? .24 : car.spec.scooter ? .16 : .19)),roofLift:h*(car.spec.bus ? .08 : .13)};
 }
-function drawRivalCar(car,x,y,s){
+function v54DrawRivalCarVector(car,x,y,s,staticOnly=false,inkScale=s){
   ctx.save();ctx.translate(x,y);ctx.scale(s,s);
   const spec=car.spec,w=spec.w,h=spec.h,p=rivalVolumeProfile(car,x),side=p.side,d=p.depth,dx=side*d,dy=-d*.22;
   const body=car.color||'#d8dde3',dark=paintShade(body,.62),light=paintShade(body,1.18),glass='#173849';
@@ -3772,7 +3773,7 @@ function drawRivalCar(car,x,y,s){
   ctx.fillStyle=light;ctx.beginPath();ctx.moveTo(-w*.40,rearTop);ctx.lineTo(w*.40,rearTop);ctx.lineTo(w*.40+dx,rearTop+dy);ctx.lineTo(-w*.40+dx,rearTop+dy);ctx.closePath();ctx.fill();
   // Rear body.
   ctx.fillStyle=body;ctx.beginPath();ctx.moveTo(-w*.48,0);ctx.lineTo(-w*.44,rearTop);ctx.lineTo(-w*.27,roofTop);ctx.lineTo(w*.27,roofTop);ctx.lineTo(w*.44,rearTop);ctx.lineTo(w*.48,0);ctx.closePath();ctx.fill();
-  ctx.strokeStyle='rgba(4,9,15,.55)';ctx.lineWidth=Math.max(1.2,1.5/Math.max(.2,s));ctx.stroke(); // dark rim separates the silhouette from asphalt at distance
+  ctx.strokeStyle='rgba(4,9,15,.55)';ctx.lineWidth=Math.max(1.2,1.5/Math.max(.2,inkScale));ctx.stroke(); // dark rim separates the silhouette from asphalt at distance
   ctx.strokeStyle=skyMood==='sunset'?'rgba(255,236,200,.30)':'rgba(190,220,255,.24)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-w*.27,roofTop);ctx.lineTo(w*.27,roofTop);ctx.stroke(); // roof rim light
   // Cabin extrusion and glass.
   ctx.fillStyle=dark;ctx.beginPath();ctx.moveTo(side*w*.27,roofTop);ctx.lineTo(side*w*.27+dx*.72,roofTop+dy*.72);ctx.lineTo(side*w*.36+dx*.72,rearTop+dy*.72);ctx.lineTo(side*w*.36,rearTop);ctx.closePath();ctx.fill();
@@ -3792,12 +3793,91 @@ function drawRivalCar(car,x,y,s){
   ctx.fillStyle='#768b93';ctx.beginPath();ctx.arc(side*w*.40+dx*.72,dy*.55,4.2,0,Math.PI*2);ctx.fill();
   ctx.fillStyle='#ff344f';ctx.fillRect(-w*.40,-h*.25,w*.20,8);ctx.fillRect(w*.20,-h*.25,w*.20,8);
   ctx.fillStyle='#ffd0d6';ctx.fillRect(-w*.37,-h*.23,w*.12,3);ctx.fillRect(w*.25,-h*.23,w*.12,3);
-  const glow=Math.min(3,.34/Math.max(.05,s)); // far cars get a larger tail-light halo so they read as vehicles at speed
+  const glow=Math.min(3,.34/Math.max(.05,inkScale)); // far cars get a larger tail-light halo so they read as vehicles at speed
   ctx.fillStyle=skyMood==='sunset'?'rgba(255,50,74,.20)':'rgba(255,50,74,.36)';ctx.fillRect(-w*.46,-h*.30,w*.32*glow,8*glow);ctx.fillRect(w*.14*(2-glow*.2),-h*.30,w*.32*glow,8*glow);
   ctx.fillStyle='#f6f3df';ctx.fillRect(-9,-h*.20,18,7);
   const changing=Math.abs((car.laneTarget??car.x)-car.x)>.08,blinkOn=changing&&(Math.floor(simulationTime*7)%2===0);
-  if(blinkOn){ctx.fillStyle='#ffaa00';ctx.shadowColor='#ffaa00';ctx.shadowBlur=10;const bx=(car.laneTarget<car.x?-1:1)*w*.38;ctx.fillRect(bx-4,-h*.34,8,7);ctx.shadowBlur=0;}
+  if(!staticOnly&&blinkOn){ctx.fillStyle='#ffaa00';ctx.shadowColor='#ffaa00';ctx.shadowBlur=10;const bx=(car.laneTarget<car.x?-1:1)*w*.38;ctx.fillRect(bx-4,-h*.34,8,7);ctx.shadowBlur=0;}
   ctx.restore();
+}
+
+// V54 P2: bounded cache for small/medium distant traffic silhouettes.
+// Near traffic keeps the original vector renderer (full detail). Lane-change
+// indicators stay live on cached sprites, matching the original blink cadence.
+const V54_TRAFFIC_CACHE_BUDGET=8*1024*1024;
+const V54_TRAFFIC_SPRITE_WIDTH=304,V54_TRAFFIC_SPRITE_HEIGHT=150;
+const V54_TRAFFIC_ORIGIN_X=152,V54_TRAFFIC_ORIGIN_Y=124;
+const v54TrafficCache=new Map();
+let v54TrafficCacheBytes=0,v54TrafficHits=0,v54TrafficMisses=0;
+function v54ClearTrafficCache(){v54TrafficCache.clear();v54TrafficCacheBytes=0;}
+function v54TrafficCacheStats(){
+  return {entries:v54TrafficCache.size,bytes:v54TrafficCacheBytes,budget:V54_TRAFFIC_CACHE_BUDGET,
+    hits:v54TrafficHits,misses:v54TrafficMisses};
+}
+function v54TrafficSprite(car,x,s){
+  const side=x<W/2?1:-1;
+  const density=graphicsQuality==='LOW'?1:graphicsQuality==='STANDARD'?1.5:2;
+  // Only scale-dependent ink width/taillight glow are bucketed; position,
+  // size, collision box, lane changes and simulation values remain exact.
+  const inkScale=Math.max(.0625,Math.round(s*16)/16);
+  const key=[car.type||car.spec.name,car.spec.w,car.spec.h,car.color||'#d8dde3',side,skyMood,density,inkScale].join('|');
+  const old=v54TrafficCache.get(key);
+  if(old){
+    v54TrafficCache.delete(key);v54TrafficCache.set(key,old);
+    v54TrafficHits++;return old.canvas;
+  }
+  v54TrafficMisses++;
+  const cv=document.createElement('canvas');
+  cv.width=Math.round(V54_TRAFFIC_SPRITE_WIDTH*density);
+  cv.height=Math.round(V54_TRAFFIC_SPRITE_HEIGHT*density);
+  const gc=cv.getContext('2d');
+  if(!gc)return null;
+  const live=ctx,probeX=side>0?W/2-1:W/2+1;
+  try{
+    ctx=gc;ctx.save();
+    try{
+      ctx.setTransform(density,0,0,density,0,0);
+      ctx.translate(V54_TRAFFIC_ORIGIN_X-probeX,V54_TRAFFIC_ORIGIN_Y);
+      v54DrawRivalCarVector(car,probeX,0,1,true,inkScale);
+    }finally{ctx.restore();}
+  }finally{ctx=live;}
+  const bytes=cv.width*cv.height*4;
+  if(bytes<=V54_TRAFFIC_CACHE_BUDGET){
+    while(v54TrafficCacheBytes+bytes>V54_TRAFFIC_CACHE_BUDGET&&v54TrafficCache.size){
+      const oldest=v54TrafficCache.keys().next().value;
+      v54TrafficCacheBytes-=v54TrafficCache.get(oldest).bytes;
+      v54TrafficCache.delete(oldest);
+    }
+    v54TrafficCache.set(key,{canvas:cv,bytes});
+    v54TrafficCacheBytes+=bytes;
+  }
+  return cv;
+}
+function v54DrawTrafficIndicator(car,x,y,s){
+  if(car.spec.scooter)return;
+  const changing=Math.abs((car.laneTarget??car.x)-car.x)>.08;
+  if(!changing||Math.floor(simulationTime*7)%2!==0)return;
+  const w=car.spec.w,h=car.spec.h;
+  const side=car.laneTarget<car.x?-1:1,bx=side*w*.38;
+  ctx.save();ctx.translate(x,y);ctx.scale(s,s);
+  ctx.fillStyle='#ffaa00';ctx.shadowColor='#ffaa00';ctx.shadowBlur=10;
+  ctx.fillRect(bx-4,-h*.34,8,7);
+  ctx.restore();
+}
+function drawRivalCar(car,x,y,s){
+  // Never quantize high-detail near traffic or minuscule distant traffic.
+  if(!Number.isFinite(s)||s<.09||s>.65){
+    v54DrawRivalCarVector(car,x,y,s);return;
+  }
+  const sprite=v54TrafficSprite(car,x,s);
+  if(!sprite){
+    v54DrawRivalCarVector(car,x,y,s);return;
+  }
+  ctx.save();ctx.translate(x,y);ctx.scale(s,s);
+  ctx.drawImage(sprite,-V54_TRAFFIC_ORIGIN_X,-V54_TRAFFIC_ORIGIN_Y,
+    V54_TRAFFIC_SPRITE_WIDTH,V54_TRAFFIC_SPRITE_HEIGHT);
+  ctx.restore();
+  v54DrawTrafficIndicator(car,x,y,s);
 }
 
 // Original low-poly arcade bodies: every point rotates in 3D, never shears a rear sprite.
