@@ -461,5 +461,5 @@ function load(id) {
  if (!cache[id]) { const module = {exports:{}}; cache[id] = module; modules[id](load, module); }
  return cache[id].exports;
 }
-global.OutrunHybrid = load('./HybridOverlay.cjs');
+global.TaipeiHybrid = load('./HybridOverlay.cjs');
 })(window);
