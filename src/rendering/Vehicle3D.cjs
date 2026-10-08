@@ -69,23 +69,23 @@ function createVehicle3D(THREE, options = {}) {
   };
 
   // Body volumes: chassis, hood, trunk, raised roof, spoiler and original trim.
-  box('body-lower', [1.96, 0.35, 3.89], [0, 0.63, 0], paint);
-  box('nose', [1.77, 0.26, 0.43], [0, 0.56, -1.72], paint);
-  box('hood', [1.78, 0.19, 1.20], [0, 0.83, -1.05], paint);
-  box('trunk', [1.74, 0.18, 0.87], [0, 0.81, 1.33], paint);
+  box('body-lower', [1.89, 0.27, 3.83], [0, 0.55, 0], paint);
+  box('nose', [1.77, 0.19, 0.52], [0, 0.51, -1.70], paint);
+  box('hood', [1.77, 0.12, 1.13], [0, 0.72, -1.04], paint);
+  box('trunk', [1.73, 0.13, 0.80], [0, 0.73, 1.32], paint);
   box('front-splitter', [1.85, 0.065, 0.20], [0, 0.41, -1.93], blackTrim);
   box('rear-diffuser', [1.85, 0.13, 0.17], [0, 0.40, 1.93], blackTrim);
-  box('roof', [1.34, 0.13, 1.38], [0, 1.35, 0.06], paint);
-  box('windshield', [1.34, 0.035, 0.79], [0, 1.09, -0.72], glazing, pitch, [-0.55, 0, 0]);
-  box('rear-glass', [1.30, 0.035, 0.64], [0, 1.08, 0.76], glazing, pitch, [0.48, 0, 0]);
+  box('roof', [1.13, 0.09, 1.16], [0, 1.17, 0.04], paint);
+  box('windshield', [1.21, 0.038, 0.76], [0, 0.98, -0.65], glazing, pitch, [-0.52, 0, 0]);
+  box('rear-glass', [1.2, 0.04, 0.68], [0, 0.99, 0.71], glazing, pitch, [0.48, 0, 0]);
   for (const side of [-1, 1]) {
-    box(`side-window-${side}`, [0.03, 0.36, 1.13], [side * 0.73, 1.10, 0.10], glazing);
+    box(`side-window-${side}`, [0.03, 0.28, 1.04], [side * 0.63, 1.00, 0.10], glazing);
     box(`side-skirt-${side}`, [0.08, 0.12, 2.58], [side * 0.99, 0.46, 0], blackTrim);
-    box(`headlight-${side}`, [0.52, 0.11, 0.065], [side * 0.58, 0.70, -1.963], light);
-    box(`taillight-${side}`, [0.53, 0.12, 0.064], [side * 0.58, 0.70, 1.967], tail);
-    box(`wing-support-${side}`, [0.085, 0.24, 0.08], [side * 0.57, 1.01, 1.56], blackTrim);
+    box(`headlight-${side}`, [0.52, 0.11, 0.065], [side * 0.58, 0.63, -1.963], light);
+    box(`taillight-${side}`, [0.53, 0.12, 0.064], [side * 0.58, 0.62, 1.967], tail);
+    box(`wing-support-${side}`, [0.085, 0.18, 0.08], [side * 0.57, 0.91, 1.56], blackTrim);
   }
-  box('rear-wing', [1.87, 0.07, 0.27], [0, 1.16, 1.57], blackTrim);
+  box('rear-wing', [1.87, 0.07, 0.27], [0, 1.03, 1.57], blackTrim);
 
   const steeringPivots = [];
   const wheelSpinners = [];
