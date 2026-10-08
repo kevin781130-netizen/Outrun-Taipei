@@ -64,7 +64,7 @@ const forbiddenPresentation=[
 for(const rx of forbiddenPresentation) if(rx.test(runtime)) failures.push(`forbidden direct-translation or distinctive-presentation marker in runtime: ${rx}`);
 
 if(!/id="build-version"/.test(runtime)||!/CURRENT TEST BUILD/.test(runtime)||!/<strong>V55\.0<\/strong>/.test(runtime)){
-  failures.push('visible V55.0 build label missing from shipping runtime');
+  failures.push('visible V56.0 build label missing from shipping runtime');
 }
 for(const retiredCall of [
   'drawV47ForegroundMass(projected);',
