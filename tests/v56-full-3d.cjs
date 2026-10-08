@@ -62,8 +62,26 @@ assert(tailZ>headZ,'rear lights face chase camera; no 180 degree inversion');
 assert.equal(car.rotation.y,0,'do not rotate body backwards');
 assert(instanced.length>=4,'actual 3D roadside/landscape instances');
 assert(meshTypes.has('Mesh'));
+// V56.1: the actual 3D chassis MUST use the visual sway and the chase camera
+// must follow, not merely compute a drift value that nobody applies.
+const driftFrame={...frame,isDrifting:true,driftState:'drift',driftAngle:30,
+ slipAngle:16,driftDirection:1,lateralVelocity:1.6,yawDeg:34,boosting:true};
+for(let i=0;i<25;i++)assert.equal(world.render(driftFrame,1/60,960,540,'STANDARD'),true);
+assert(car.position.x>.14,'the real vehicle has visible rear sway');
+assert(last.camera.position.x>.03,'the rear camera responds to the actual drift');
+assert(car.children[0].rotation.y>.25,'damped yaw is applied to the 3D model');
+const haze=[];const cityDetails=[];
+last.scene.traverse(n=>{
+ if(n.isInstancedMesh&&n.material?.transparent&&n.material.opacity<.5)haze.push(n);
+ if(n.isInstancedMesh&&n.count>=20)cityDetails.push(n);
+});
+assert(haze.some(n=>n.count>0),'instanced tyre smoke appears while drifting');
+assert(cityDetails.length>=4,'urban scene renders many dressed building instances');
+for(let i=0;i<80;i++)world.render({...frame,driftState:'grip',driftAngle:0,slipAngle:0,
+ lateralVelocity:0,isDrifting:false},1/60,960,540,'STANDARD');
+assert(Math.abs(car.position.x)<.004,'3D vehicle returns to lane center');
 assert.equal(world.render({...frame,playerX:.7,carColor:'#f0f4f8',speedKmh:220},1/60,720,405,'LOW'),true);
-assert.equal(renderCalls,2);
+assert(renderCalls>=107);
 let prevented=false;
 events.webglcontextlost({preventDefault(){prevented=true;}});
 assert(prevented);

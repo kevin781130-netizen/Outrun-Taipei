@@ -454,10 +454,198 @@ function createHybridOverlay(THREE, canvas, options = {}) {
 module.exports = {createHybridOverlay, projectPresentation};
 
   },
+  "./DriftVisualRig.cjs": function(require, module) {
+'use strict';
+
+// Purely presentational drift-to-3D bridge. Physics/collision remains owned by
+// the arcade core. Inputs are physical state snapshots; output is visual only.
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const finite=(v,fall=0)=>Number.isFinite(v)?v:fall;
+function makeDriftVisualState() {
+ return {lateral:0,bodyYaw:0,cameraX:0,cameraTarget:0,roll:0,smoke:0,fov:66,sliding:false,phase:'grip'};
+}
+function advanceDriftVisual(state, snapshot, dt) {
+ if(!state||!snapshot)throw new TypeError('state and drift snapshot are required');
+ const delta=clamp(finite(dt),0,0.05);
+ const speed=clamp(finite(snapshot.speedKmh),0,400);
+ const phase=['entry','drift','recover'].includes(snapshot.driftState)?snapshot.driftState:'grip';
+ const active=!!snapshot.isDrifting||phase==='entry'||phase==='drift'||phase==='recover';
+ const intensity=active?clamp((Math.abs(finite(snapshot.slipAngle))+Math.abs(finite(snapshot.driftAngle))*.28)/30,0,1):0;
+ const signedSlip=clamp(finite(snapshot.lateralVelocity),-5,5);
+ const direction=Math.sign(finite(snapshot.driftDirection))||Math.sign(signedSlip)||0;
+ // Actual lateral physical world coordinate is tracked by playerX and road.
+ // This offset provides a readable rear swing only, without double-integrating
+ // speed / altering collision, score, or lane position.
+ const targetOffset=active?clamp(signedSlip*.11+direction*intensity*.15,-.68,.68):0;
+ const targetYaw=clamp(finite(snapshot.visualYawDeg),-58,58)*Math.PI/180;
+ const targetCamera=clamp(targetOffset*.62+direction*intensity*.18,-.54,.54);
+ const recover=phase==='recover';
+ const blend=1-Math.exp(-delta*(recover?11:active?14:9));
+ const cameraBlend=1-Math.exp(-delta*4.5);
+ state.lateral+=(targetOffset-state.lateral)*blend;
+ state.bodyYaw+=(targetYaw-state.bodyYaw)*blend;
+ state.cameraX+=(targetCamera-state.cameraX)*cameraBlend;
+ state.cameraTarget+=(targetCamera*.45-state.cameraTarget)*cameraBlend;
+ state.roll=clamp(finite(snapshot.rollDeg),-6,6)*Math.PI/180;
+ state.sliding=active && speed>40 && intensity>.10;
+ state.smoke=state.sliding?clamp(intensity*(speed/140),0,1):0;
+ state.fov=66+clamp(snapshot.boosting===true?speed/125:0,0,2.8);
+ state.phase=phase;
+ return state;
+}
+module.exports={makeDriftVisualState,advanceDriftVisual};
+
+  },
+  "./CityArtKit.cjs": function(require, module) {
+'use strict';
+
+// Modular, batched Taipei-inspired façade dressing for anonymous buildings.
+// No borrowed brand marks, third-party textures, network assets or DOM canvas.
+// Instance transforms and colors are deterministic from the supplied route seed.
+const BODY_COLORS=[0x657886,0xb18e77,0x6c7c75,0x566d80,0x8c827a,0x798a9a,0x876e67,0x627c76];
+const SIGN_COLORS=[0x18b5a4,0xcf633d,0x4077c9,0xcead44,0xc34473,0x36a0b4];
+function createCityArtKit(THREE,scene,registerGeometry,registerMaterial,maxBuildings=120){
+ if(!THREE?.InstancedMesh||!scene)throw new TypeError('Three.js scene is required');
+ const box=registerGeometry(new THREE.BoxGeometry(1,1,1));
+ const mat=(color,emissive=0)=>registerMaterial(new THREE.MeshStandardMaterial({
+  color,emissive,emissiveIntensity:emissive?0.85:0,metalness:.08,roughness:.8
+ }));
+ const glass=mat(0x253744,0x06101b);
+ const luminous=mat(0xffd29a,0xf0a45c);
+ const awning=mat(0xffffff);
+ const neon=mat(0xffffff,0x0e1929);
+ const roof=mat(0x424950);
+ const door=mat(0x1c3441);
+ const darkWindows=new THREE.InstancedMesh(box,glass,maxBuildings*6);
+ const litWindows=new THREE.InstancedMesh(box,luminous,maxBuildings*6);
+ const signs=new THREE.InstancedMesh(box,neon,maxBuildings);
+ const awnings=new THREE.InstancedMesh(box,awning,maxBuildings);
+ const doors=new THREE.InstancedMesh(box,door,maxBuildings);
+ const equipment=new THREE.InstancedMesh(box,roof,maxBuildings*2);
+ const meshes=[darkWindows,litWindows,signs,awnings,doors,equipment];
+ meshes.forEach(m=>{m.frustumCulled=false;m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(m);});
+ const dummy=new THREE.Object3D();
+ const swatch=new THREE.Color();
+ const count=[0,0,0,0,0,0];
+ function append(index,item,localX,y,localZ,sx,sy,sz,paletteHex){
+  const m=meshes[index],i=count[index];
+  if(i>=m.instanceMatrix.count)return;
+  const a=item.heading||0;
+  dummy.position.set(item.x+Math.cos(a)*localX+Math.sin(a)*localZ,
+   item.y+y,
+   item.z-Math.sin(a)*localX+Math.cos(a)*localZ);
+  dummy.rotation.set(0,a,0);
+  dummy.scale.set(sx,sy,sz);
+  dummy.updateMatrix();
+  m.setMatrixAt(i,dummy.matrix);
+  if(paletteHex!==undefined){swatch.setHex(paletteHex);m.setColorAt(i,swatch);}
+  count[index]=i+1;
+ }
+ function update(buildings,night=false){
+  count.fill(0);
+  for(const item of buildings){
+   if(!item||!Number.isFinite(item.height)||item.height<=0)continue;
+   const front=item.depth*.45;
+   const w=item.width;
+   const h=item.height;
+   const colorIndex=Math.abs(item.seed|0)%SIGN_COLORS.length;
+   const sign=SIGN_COLORS[colorIndex];
+   const wallZ=front+.055;
+   // Six actual recessed windows in two columns / three floor bands,
+   // rather than a single white panel as tall as the whole building.
+   for(let row=0;row<3;row++){
+    for(const side of [-1,1]){
+     const lit=night&&((item.seed+row*11+side*7)&3)!==0;
+     append(lit?1:0,item,side*w*.24,h*(.40+.17*row),wallZ,
+      w*.24,Math.max(.55,h*.11),.09);
+    }
+   }
+   append(2,item,0,2.65,wallZ+.17,w*.83,.88,.20,sign);
+   append(3,item,0,2.05,wallZ+.48,w*.90,.15,.78,sign);
+   append(4,item,-w*.12,1.06,wallZ+.085,w*.24,2.06,.14);
+   append(5,item,w*.25,h+.24,-item.depth*.13,w*.21,.48,item.depth*.22);
+   append(5,item,-w*.20,h+.34,item.depth*.15,w*.18,.68,item.depth*.18);
+  }
+  for(let i=0;i<meshes.length;i++){
+   const m=meshes[i];
+   m.count=count[i];
+   if(count[i])m.instanceMatrix.needsUpdate=true;
+   if(m.instanceColor&&count[i])m.instanceColor.needsUpdate=true;
+  }
+  luminous.emissiveIntensity=night?1.2:.24;
+  neon.emissiveIntensity=night?1.05:.16;
+  return {buildings:buildings.length,darkWindows:count[0],litWindows:count[1],
+   signboards:count[2],awnings:count[3],doors:count[4],roofDetails:count[5]};
+ }
+ return {update,meshes,palette:BODY_COLORS,signColors:SIGN_COLORS,
+  // Parent renderer owns/disposes shared registered assets; remove on teardown.
+  dispose(){for(const mesh of meshes)scene.remove(mesh);}};
+}
+module.exports={createCityArtKit,BODY_COLORS,SIGN_COLORS};
+
+  },
+  "./DriftSmoke.cjs": function(require, module) {
+'use strict';
+
+// Lightweight GPU-instanced tyre haze. 3D-only, has no physics interactions.
+// Deterministic placement (no Math.random); bounded fixed allocation.
+function createDriftSmoke(THREE,scene,registerGeometry,registerMaterial){
+ const count=52, geom=registerGeometry(new THREE.SphereGeometry(1,6,5));
+ const mat=registerMaterial(new THREE.MeshBasicMaterial({
+  color:0xc4d4d9,transparent:true,opacity:.32,depthWrite:false,
+  blending:THREE.NormalBlending
+ }));
+ const mesh=new THREE.InstancedMesh(geom,mat,count);
+ mesh.frustumCulled=false;mesh.count=0;scene.add(mesh);
+ const particles=Array.from({length:count},()=>({life:0,x:0,y:0,z:0,radius:0}));
+ const marker=new THREE.Object3D();
+ let cursor=0,emit=0,totalEmitted=0,disposed=false;
+ function step(visual,dt,carX,carZ,speed){
+  if(disposed)return;
+  const elapsed=Math.max(0,Math.min(Number.isFinite(dt)?dt:0,.05));
+  const intensity=Math.max(0,Math.min(1,Number.isFinite(visual?.smoke)?visual.smoke:0));
+  emit=Math.min(3,emit+elapsed*intensity*20);
+  // 2 particles per emission, one off each driven rear tyre.
+  while(emit>=1){
+   emit-=1;
+   for(const side of [-1,1]){
+    const p=particles[cursor++%count];
+    p.life=.62;
+    p.x=carX+side*.76;p.y=.28;p.z=carZ+1.35;
+    p.radius=.16;
+    totalEmitted++;
+   }
+  }
+  let used=0;
+  for(const p of particles){
+   if(p.life<=0)continue;
+   p.life=Math.max(0,p.life-elapsed);
+   if(!p.life)continue;
+   p.z+=(Math.min(300,Math.max(0,speed||0))/80)*elapsed;
+   p.y+=elapsed*.29;
+   p.radius+=elapsed*.64;
+   marker.position.set(p.x,p.y,p.z);
+   const scale=p.radius*(.35+.65*(p.life/.62));
+   marker.scale.set(scale,scale*.7,scale);
+   marker.updateMatrix();
+   mesh.setMatrixAt(used++,marker.matrix);
+  }
+  mesh.count=used;
+  if(used)mesh.instanceMatrix.needsUpdate=true;
+ }
+ function dispose(){if(disposed)return;disposed=true;scene.remove(mesh);}
+ return {mesh,step,dispose,get emitted(){return totalEmitted}};
+}
+module.exports={createDriftSmoke};
+
+  },
   "./Full3DScene.cjs": function(require, module) {
 'use strict';
 const {createVehicle3D} = require('./Vehicle3D.cjs');
 const {createVehiclePose, updateVehiclePose} = require('./VehiclePoseBridge.cjs');
+const {makeDriftVisualState, advanceDriftVisual} = require('./DriftVisualRig.cjs');
+const {createCityArtKit} = require('./CityArtKit.cjs');
+const {createDriftSmoke} = require('./DriftSmoke.cjs');
 
 // Full WebGL road/world renderer. This is intentionally NOT a Canvas overlay.
 // World coordinates: +X right, +Y up, -Z forward. Camera is behind the car (+Z).
@@ -542,16 +730,16 @@ function createFull3DScene(THREE,canvas) {
  const treesMat=material(new THREE.MeshStandardMaterial({color:0x305548,roughness:1}));
  const polesMat=material(new THREE.MeshStandardMaterial({color:0xc1c3bd,metalness:.4,roughness:.55}));
  const buildings=new THREE.InstancedMesh(boxG,buildingMat,120);
- const windows=new THREE.InstancedMesh(boxG,glassMat,120);
  const trees=new THREE.InstancedMesh(coneG,treesMat,120);
  const lights=new THREE.InstancedMesh(boxG,polesMat,50);
- for(const mesh of [buildings,windows,trees,lights]){
+ for(const mesh of [buildings,trees,lights]){
   mesh.frustumCulled=false;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   scene.add(mesh);
  }
  const dummy=new THREE.Object3D();
- const palette=[0xc5c0af,0x8aa0a6,0x747d8b,0xd6bda7,0x4c687d,0xa99f91,0x9fada1];
+ const cityArt=createCityArtKit(THREE,scene,geometry,material,120);
+ const palette=cityArt.palette;
  const swatch=new THREE.Color();
  const sky=material(new THREE.MeshBasicMaterial({color:0xe5c2a2,fog:false}));
  const sun= new THREE.Mesh(geometry(new THREE.SphereGeometry(11,12,9)),sky);
@@ -561,6 +749,8 @@ function createFull3DScene(THREE,canvas) {
  let car=createVehicle3D(THREE,{color:0x1a2330});
  scene.add(car.root);
  const pose=createVehiclePose();
+ const driftRig=makeDriftVisualState();
+ const driftSmoke=createDriftSmoke(THREE,scene,geometry,material);
  let lastCarColor='',renderRandomSeed=0x6f34ac19;
  function with3DOnlyRandom(callback){
   const original=Math.random;
@@ -630,7 +820,8 @@ function createFull3DScene(THREE,canvas) {
   }
   const urban=frame.archetype!=='mountain'&&frame.archetype!=='coastal';
   const routeSeed=frame.seed||1;
-  let ib=0,iw=0,it=0,il=0;
+  let ib=0,it=0,il=0;
+  const facades=[];
   for(let i=5;i<COUNT;i+=3){
    const c=pts[i];
    const absolute=Math.floor(frame.segment||0)+i;
@@ -645,9 +836,11 @@ function createFull3DScene(THREE,canvas) {
       dummy.scale.set(width,height,width*.8);
       dummy.updateMatrix();if(ib<120){buildings.setMatrixAt(ib,dummy.matrix);
         swatch.setHex(palette[Math.floor(h*palette.length)]);buildings.setColorAt(ib,swatch);ib++;}
-      dummy.scale.set(width*.91,Math.max(1,height*.47),width*.04);
-      dummy.position.set(anchor.x,anchor.y+height*.63,anchor.z+width*.42);
-      dummy.updateMatrix();if(iw<120){windows.setMatrixAt(iw++,dummy.matrix);}
+      // Modular Taipei facades use separate windows, bright shop signs,
+      // awnings, entrances and rooftop fixtures, all GPU-instanced.
+      if(facades.length<120)facades.push({x:anchor.x,y:anchor.y,z:anchor.z,
+        width,height,depth:width*.8,heading:c.heading*.35,
+        seed:absolute*37+side*99+routeSeed});
     }else{
       const height=7+h*9;
       dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
@@ -661,8 +854,9 @@ function createFull3DScene(THREE,canvas) {
     }
    }
   }
-  const assignments=[[buildings,ib],[windows,iw],[trees,it],[lights,il]];
+  const assignments=[[buildings,ib],[trees,it],[lights,il]];
   for(const [m,count] of assignments){m.count=count;m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;}
+  cityArt.update(facades,!!frame.night);
  }
  function updateTraffic(frame,pts){
   for(let i=0;i<trafficMeshes.length;i++){
@@ -708,13 +902,27 @@ function createFull3DScene(THREE,canvas) {
    scaleX:1,direction:frame.direction===-1?-1:1,
    braking:!!frame.braking,boosting:!!frame.boosting
   },Math.max(0,dt));
+  const visual=advanceDriftVisual(driftRig,{
+   isDrifting:frame.isDrifting,driftState:frame.driftState,
+   driftAngle:frame.driftAngle,slipAngle:frame.slipAngle,
+   driftDirection:frame.driftDirection,lateralVelocity:frame.lateralVelocity,
+   visualYawDeg:frame.yawDeg,rollDeg:frame.rollDeg,
+   speedKmh:frame.speedKmh,boosting:frame.boosting
+  },dt);
+  // Smooth the visual chassis yaw without delaying the authoritative physics.
+  pose.yawRad=visual.bodyYaw;
   car.applyPose(pose);
-  car.root.position.set(0,.02,3.15);
+  // PlayerX is already reflected in previewPoints(). This modest sway only
+  // visualizes local tire slip: physics road position is never integrated twice.
+  car.root.position.set(visual.lateral,.02,3.15);
   car.root.scale.set(.92,.83,.92);
   // Camera sits behind +Z and looks down -Z: the rear (taillights +Z)
   // ALWAYS faces the camera. Do not rotate the car 180 degrees.
-  camera.position.set(clamp(Number(frame.steer)||0,-1,1)*.12,3.55,10.35);
-  camera.lookAt(clamp(Number(frame.steer)||0,-1,1)*.3,1.25,-19);
+  camera.position.set(visual.cameraX + clamp(Number(frame.steer)||0,-1,1)*.08,3.55,10.35);
+  camera.lookAt(visual.cameraTarget+clamp(Number(frame.steer)||0,-1,1)*.14,1.25,-19);
+  camera.fov=visual.fov;
+  camera.updateProjectionMatrix();
+  driftSmoke.step(visual,dt,car.root.position.x,car.root.position.z,frame.speedKmh);
   scene.background.setHex(frame.night?0x10213b:0x6793ad);
   scene.fog.color.setHex(frame.night?0x233b58:0x809caa);
   renderer.render(scene,camera);
@@ -724,7 +932,7 @@ function createFull3DScene(THREE,canvas) {
   if(!active)return;active=false;ready=false;
   canvas.removeEventListener('webglcontextlost',lostHandler);
   canvas.removeEventListener('webglcontextrestored',restoredHandler);
-  car.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
+  driftSmoke.dispose();cityArt.dispose();car.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
   renderer.dispose();
  }
  return {render,dispose,get ready(){return ready&&!lost&&active},get contextLost(){return lost}};

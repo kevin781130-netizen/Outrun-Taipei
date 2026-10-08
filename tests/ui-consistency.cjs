@@ -16,7 +16,7 @@ const visible=[];
 for(const m of html.matchAll(/(?:aria-label|title)="([^"]*)"|>([^<>{}\n]*[^\s<>{}][^<>{}\n]*)</g))visible.push(m[1]||m[2]);
 for(const m of html.matchAll(/(?:eyebrow|title|textContent|innerHTML)\s*[:=]\s*(['"`])((?:(?!\1).)*)\1/g))visible.push(m[2]);
 for(const text of visible)if(/\bV51(?!\.\d*\s*起)\b/.test(text)&&!/V51 起/.test(text))failures.push(`stale V51 text visible to players: ${text.slice(0,80)}`);
-if(!/<title>[^<]*V56\.0/.test(html))failures.push('page title is not V56.0');
+if(!/<title>[^<]*V56\.1/.test(html))failures.push('page title is not V56.1');
 // 4. No checkpoint camera shake.
 const cp=(html.match(/function awardCheckpoint\(\)\{[\s\S]*?\n\}/)||[''])[0];
 if(/screenShake/.test(cp))failures.push('awardCheckpoint must not touch screenShake');

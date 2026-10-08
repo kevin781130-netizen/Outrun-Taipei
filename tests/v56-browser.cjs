@@ -35,7 +35,7 @@ const server=http.createServer((req,res)=>{
    assert.equal(await page.locator('#v56-full-3d-canvas').count(),1);
    assert.equal(await page.locator('#gameCanvas').evaluate(el=>getComputedStyle(el).visibility),'hidden');
    assert.equal(await page.locator('#v56-full-3d-canvas').evaluate(el=>getComputedStyle(el).visibility),'visible');
-   assert.equal(await page.locator('#build-version strong').textContent(),'V56.0');
+   assert.equal(await page.locator('#build-version strong').textContent(),'V56.1');
    await page.locator('#start-btn').click();
    await page.locator('#radio-drive').click();
    await page.waitForTimeout(900);

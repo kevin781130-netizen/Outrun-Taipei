@@ -1,6 +1,9 @@
 'use strict';
 const {createVehicle3D} = require('./Vehicle3D.cjs');
 const {createVehiclePose, updateVehiclePose} = require('./VehiclePoseBridge.cjs');
+const {makeDriftVisualState, advanceDriftVisual} = require('./DriftVisualRig.cjs');
+const {createCityArtKit} = require('./CityArtKit.cjs');
+const {createDriftSmoke} = require('./DriftSmoke.cjs');
 
 // Full WebGL road/world renderer. This is intentionally NOT a Canvas overlay.
 // World coordinates: +X right, +Y up, -Z forward. Camera is behind the car (+Z).
@@ -85,16 +88,16 @@ function createFull3DScene(THREE,canvas) {
  const treesMat=material(new THREE.MeshStandardMaterial({color:0x305548,roughness:1}));
  const polesMat=material(new THREE.MeshStandardMaterial({color:0xc1c3bd,metalness:.4,roughness:.55}));
  const buildings=new THREE.InstancedMesh(boxG,buildingMat,120);
- const windows=new THREE.InstancedMesh(boxG,glassMat,120);
  const trees=new THREE.InstancedMesh(coneG,treesMat,120);
  const lights=new THREE.InstancedMesh(boxG,polesMat,50);
- for(const mesh of [buildings,windows,trees,lights]){
+ for(const mesh of [buildings,trees,lights]){
   mesh.frustumCulled=false;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   scene.add(mesh);
  }
  const dummy=new THREE.Object3D();
- const palette=[0xc5c0af,0x8aa0a6,0x747d8b,0xd6bda7,0x4c687d,0xa99f91,0x9fada1];
+ const cityArt=createCityArtKit(THREE,scene,geometry,material,120);
+ const palette=cityArt.palette;
  const swatch=new THREE.Color();
  const sky=material(new THREE.MeshBasicMaterial({color:0xe5c2a2,fog:false}));
  const sun= new THREE.Mesh(geometry(new THREE.SphereGeometry(11,12,9)),sky);
@@ -104,6 +107,8 @@ function createFull3DScene(THREE,canvas) {
  let car=createVehicle3D(THREE,{color:0x1a2330});
  scene.add(car.root);
  const pose=createVehiclePose();
+ const driftRig=makeDriftVisualState();
+ const driftSmoke=createDriftSmoke(THREE,scene,geometry,material);
  let lastCarColor='',renderRandomSeed=0x6f34ac19;
  function with3DOnlyRandom(callback){
   const original=Math.random;
@@ -173,7 +178,8 @@ function createFull3DScene(THREE,canvas) {
   }
   const urban=frame.archetype!=='mountain'&&frame.archetype!=='coastal';
   const routeSeed=frame.seed||1;
-  let ib=0,iw=0,it=0,il=0;
+  let ib=0,it=0,il=0;
+  const facades=[];
   for(let i=5;i<COUNT;i+=3){
    const c=pts[i];
    const absolute=Math.floor(frame.segment||0)+i;
@@ -188,9 +194,11 @@ function createFull3DScene(THREE,canvas) {
       dummy.scale.set(width,height,width*.8);
       dummy.updateMatrix();if(ib<120){buildings.setMatrixAt(ib,dummy.matrix);
         swatch.setHex(palette[Math.floor(h*palette.length)]);buildings.setColorAt(ib,swatch);ib++;}
-      dummy.scale.set(width*.91,Math.max(1,height*.47),width*.04);
-      dummy.position.set(anchor.x,anchor.y+height*.63,anchor.z+width*.42);
-      dummy.updateMatrix();if(iw<120){windows.setMatrixAt(iw++,dummy.matrix);}
+      // Modular Taipei facades use separate windows, bright shop signs,
+      // awnings, entrances and rooftop fixtures, all GPU-instanced.
+      if(facades.length<120)facades.push({x:anchor.x,y:anchor.y,z:anchor.z,
+        width,height,depth:width*.8,heading:c.heading*.35,
+        seed:absolute*37+side*99+routeSeed});
     }else{
       const height=7+h*9;
       dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
@@ -204,8 +212,9 @@ function createFull3DScene(THREE,canvas) {
     }
    }
   }
-  const assignments=[[buildings,ib],[windows,iw],[trees,it],[lights,il]];
+  const assignments=[[buildings,ib],[trees,it],[lights,il]];
   for(const [m,count] of assignments){m.count=count;m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;}
+  cityArt.update(facades,!!frame.night);
  }
  function updateTraffic(frame,pts){
   for(let i=0;i<trafficMeshes.length;i++){
@@ -251,13 +260,27 @@ function createFull3DScene(THREE,canvas) {
    scaleX:1,direction:frame.direction===-1?-1:1,
    braking:!!frame.braking,boosting:!!frame.boosting
   },Math.max(0,dt));
+  const visual=advanceDriftVisual(driftRig,{
+   isDrifting:frame.isDrifting,driftState:frame.driftState,
+   driftAngle:frame.driftAngle,slipAngle:frame.slipAngle,
+   driftDirection:frame.driftDirection,lateralVelocity:frame.lateralVelocity,
+   visualYawDeg:frame.yawDeg,rollDeg:frame.rollDeg,
+   speedKmh:frame.speedKmh,boosting:frame.boosting
+  },dt);
+  // Smooth the visual chassis yaw without delaying the authoritative physics.
+  pose.yawRad=visual.bodyYaw;
   car.applyPose(pose);
-  car.root.position.set(0,.02,3.15);
+  // PlayerX is already reflected in previewPoints(). This modest sway only
+  // visualizes local tire slip: physics road position is never integrated twice.
+  car.root.position.set(visual.lateral,.02,3.15);
   car.root.scale.set(.92,.83,.92);
   // Camera sits behind +Z and looks down -Z: the rear (taillights +Z)
   // ALWAYS faces the camera. Do not rotate the car 180 degrees.
-  camera.position.set(clamp(Number(frame.steer)||0,-1,1)*.12,3.55,10.35);
-  camera.lookAt(clamp(Number(frame.steer)||0,-1,1)*.3,1.25,-19);
+  camera.position.set(visual.cameraX + clamp(Number(frame.steer)||0,-1,1)*.08,3.55,10.35);
+  camera.lookAt(visual.cameraTarget+clamp(Number(frame.steer)||0,-1,1)*.14,1.25,-19);
+  camera.fov=visual.fov;
+  camera.updateProjectionMatrix();
+  driftSmoke.step(visual,dt,car.root.position.x,car.root.position.z,frame.speedKmh);
   scene.background.setHex(frame.night?0x10213b:0x6793ad);
   scene.fog.color.setHex(frame.night?0x233b58:0x809caa);
   renderer.render(scene,camera);
@@ -267,7 +290,7 @@ function createFull3DScene(THREE,canvas) {
   if(!active)return;active=false;ready=false;
   canvas.removeEventListener('webglcontextlost',lostHandler);
   canvas.removeEventListener('webglcontextrestored',restoredHandler);
-  car.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
+  driftSmoke.dispose();cityArt.dispose();car.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
   renderer.dispose();
  }
  return {render,dispose,get ready(){return ready&&!lost&&active},get contextLost(){return lost}};

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>台北極速傳說｜Taipei Sunset Drive V56.0</title>
+<title>台北極速傳說｜Taipei Sunset Drive V56.1</title>
 <style>
   :root{
     --arcade-red:#e61e2b; --arcade-yellow:#ffd200; --arcade-blue:#0090ea; --arcade-teal:#00e5ff;
@@ -164,7 +164,7 @@
     
     <div id="taipei-landmark-title" style="position:absolute;left:50%;top:118px;transform:translateX(-50%);z-index:9;pointer-events:none;background:rgba(5,15,30,.88);border:1px solid #ffd200;border-radius:20px;padding:5px 18px;font-size:12px;font-weight:900;letter-spacing:.12em;color:#ffd200;box-shadow:0 0 16px rgba(255,210,0,.4);opacity:0;transition:opacity .25s"></div>
 
-    <canvas id="gameCanvas" width="960" height="540" aria-label="台北極速傳說 V56.0 遊戲畫面"></canvas>
+    <canvas id="gameCanvas" width="960" height="540" aria-label="台北極速傳說 V56.1 遊戲畫面"></canvas>
 
     <div id="top-hud">
       <div class="hud-card"><span class="hud-label">TIME</span><span class="hud-value" id="hud-time">92.0</span></div>
@@ -530,8 +530,8 @@ body{background:radial-gradient(ellipse at 50% 20%,#152a41,#050c14 65%);}
 }
 </style>
     <div id="overlay">
-      <div class="eyebrow">SUNSET / POWER SLIDE / LAUGH • 台北融合街機版 V56.0 · FULL WEBGL 3D</div>
-      <h1>台北極速傳說<br><span class="title-sub">TAIPEI SUNSET DRIVE V56.0</span></h1>
+      <div class="eyebrow">SUNSET / POWER SLIDE / LAUGH • 台北融合街機版 V56.1 · FULL WEBGL 3D</div>
+      <h1>台北極速傳說<br><span class="title-sub">TAIPEI SUNSET DRIVE V56.1</span></h1>
       <div class="subtitle">90 年代大型機公路賽車構圖語彙 · 甩尾集氮、儲存加速器。15 個台北街區穿越府城、水岸、高架與山城。</div>
       
       
@@ -598,7 +598,7 @@ body{background:radial-gradient(ellipse at 50% 20%,#152a41,#050c14 65%);}
     </div>
   </div>
   <div id="build-version" role="status" aria-label="目前遊戲版本">
-    <span>CURRENT TEST BUILD</span><strong>V56.0</strong><span>FULL WEBGL 3D · REAR CHASE CAMERA</span>
+    <span>CURRENT TEST BUILD</span><strong>V56.1</strong><span>FULL WEBGL 3D · DRIFT & CITY ART</span>
   </div>
 </div>
 
@@ -751,7 +751,7 @@ function v56Load3DScene(){
     if(!window.THREE||!window.TaipeiHybrid?.createFull3DScene)throw new Error('3D 模組不完整');
     const layer=document.createElement('canvas');
     layer.id='v56-full-3d-canvas';
-    layer.setAttribute('aria-label','台北極速傳說 V56.0 完整 3D 賽道');
+    layer.setAttribute('aria-label','台北極速傳說 V56.1 完整 3D 賽道');
     layer.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:2;display:block;pointer-events:none;visibility:hidden;';
     canvas.parentNode.appendChild(layer);
     // Three.js allocates random UUIDs: shield the gameplay RNG at boot.
@@ -1975,8 +1975,8 @@ leaderboardBackBtn.addEventListener('click', () => {
 });
 
 const DEFAULT_OVERLAY = {
-  eyebrow: 'SUNSET / POWER SLIDE / LAUGH • 台北爆笑街機版 V56.0',
-  title: '台北極速傳說<br><span class="title-sub">TAIPEI SUNSET DRIVE V56.0</span>',
+  eyebrow: 'SUNSET / POWER SLIDE / LAUGH • 台北爆笑街機版 V56.1',
+  title: '台北極速傳說<br><span class="title-sub">TAIPEI SUNSET DRIVE V56.1</span>',
   subtitle: '90 年代大型機公路賽車構圖語彙 · 甩尾集氮、儲存加速器。15 個台北街區穿越府城、水岸、高架與山城。',
   button: 'START / 選台出發 ↗'
 };
@@ -4334,6 +4334,9 @@ function render(dt){
     playerX,traffic:traffic3D,carColor:currentCar.color,
     archetype:currentNode.archetype,seed:currentNode.seed,
     yawDeg:v51DriftVisualYaw(),rollDeg:chassisRoll,pitchDeg:chassisPitch,
+    // V56.1: render-only drift telemetry; physics remains authoritative.
+    isDrifting,driftState,driftAngle,slipAngle,driftDirection,lateralVelocity,
+    cleanDriftTime,exitBoost,momentBoostWindow,roadGrip,
     steer,speedKmh:speed,direction:motionDirection,
     braking:inputHeld('ArrowDown')||inputHeld('KeyS')||gamepadInput.brake||helperPulse>0,
     boosting:boosting||exitBoost>0,
