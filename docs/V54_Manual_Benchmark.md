@@ -97,7 +97,7 @@ The runner:
 
 From the V54 branch working tree with Node 22+ and Playwright dependencies installed:
 
-\`\`\`sh
+```sh
 # Baseline should be the unmodified V53.1 main HTML.
 git show main:index.html > /tmp/outrun-v53.1.html
 
@@ -111,17 +111,17 @@ npm test
 npm run test:scenes -- /tmp/outrun-v53.1.html index.html
 # If relying on the host Chromium, instead:
 CHROMIUM_PATH=/usr/bin/chromium npm run test:scenes -- /tmp/outrun-v53.1.html index.html
-\`\`\`
+```
 
-Review \`test-results/v54-scenes/summary.json\`, paired \`before/\` and \`after/\` screenshots, and \`quality/\` screenshots. Focus on high pixel-difference rows, near-road occlusion, floating objects, missing buildings, traffic facing/indicator rendering, nighttime signage and landmarks. This is headless Chromium output, not a screenshot of the deployed build.
+Review `test-results/v54-scenes/summary.json`, paired `before/` and `after/` screenshots, and `quality/` screenshots. Focus on high pixel-difference rows, near-road occlusion, floating objects, missing buildings, traffic facing/indicator rendering, nighttime signage and landmarks. This is headless Chromium output, not a screenshot of the deployed build.
 
 For the separate 20% render CPU improvement goal:
 
-\`\`\`sh
+```sh
 PERF_INDEX=/tmp/outrun-v53.1.html PERF_OUTPUT=test-results/v53-before.json npm run test:performance
 PERF_INDEX=index.html PERF_OUTPUT=test-results/v54-after.json npm run test:performance
 node tools/compare-performance.cjs test-results/v53-before.json test-results/v54-after.json > test-results/v54-speedup.json
-\`\`\`
+```
 
 Run both benchmarks sequentially on the same machine with identical browser and sampling parameters. The resulting JSON indicates aggregate improvement and per-scene regressions; RAF cadence in this test is not a real gameplay FPS number. Desktop/mobile hardware FPS, long-session memory stability, UI visual sign-off, and public deployment provenance are **not automatically accepted**.
 
