@@ -725,7 +725,7 @@ const HUD_FONT = 'Impact, "Arial Black", sans-serif';
 const canvas = document.getElementById('gameCanvas');
 // V56: the arcade road and vehicles are WebGL-only; Canvas2D never paints to
 // the player-visible game view. Existing logic is retained for physics/HUD.
-const v56Full3D=true;
+const v56Full3D=!!document.head && !/[?&]__legacy_probe=1(?:&|$)/.test(window.location?.search||'');
 let v56Scene=null,v56Error=null;
 let v55Hybrid=null,v55HasFrame=false; // dormant legacy reference for older tools
 const v55RenderFrame={screenX:0,screenY:0,yawDeg:0,rollDeg:0,pitchDeg:0,steer:0,speedKmh:0,scaleX:1,direction:1,braking:false,boosting:false};
@@ -736,6 +736,7 @@ function v56Status(message){
  v56StatusElement.style.display=message?'block':'none';
 }
 function v56Load3DScene(){
+ if(!v56Full3D)return; // automated legacy regression probe only
  canvas.style.visibility='hidden';
  const status=document.createElement('div');
  status.id='v56-webgl-status';
