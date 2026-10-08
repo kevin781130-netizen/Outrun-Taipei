@@ -16,7 +16,7 @@ class Vec {
  set(x,y,z){this.x=x;this.y=y;this.z=z;return this;}
 }
 class Node {
- constructor(){this.rotation=new Vec();this.position=new Vec();this.scale=new Vec(1,1,1);this.children=[];this.parent=null;this.visible=true;}
+ constructor(){Math.random();this.rotation=new Vec();this.position=new Vec();this.scale=new Vec(1,1,1);this.children=[];this.parent=null;this.visible=true;}
  add(node){node.parent=this;this.children.push(node);}
  remove(node){this.children.splice(this.children.indexOf(node),1);node.parent=null;}
  lookAt(){/* camera pose not relevant to structural test */}
@@ -30,7 +30,7 @@ class Renderer {
  setPixelRatio(r){this.pixelRatio=r;}
  setClearColor(color,alpha){this.lastAlpha=alpha;}
  setSize(w,h){this.sizes.push([w,h]);}
- render(){this.frames++;}
+ render(){Math.random();this.frames++;}
  dispose(){this.disposed=true;}
 }
 const THREE={
@@ -45,7 +45,14 @@ const canvas={
  addEventListener(name,fn){listeners[name]=fn;},
  removeEventListener(name,fn){if(listeners[name]===fn)delete listeners[name];}
 };
+// Mock Three.js constructors and render consume random for UUID allocation.
+const originalRandom=Math.random;
+let gameRandomCalls=0;
+Math.random=()=>{gameRandomCalls++;return 0.23;};
 const overlay=createHybridOverlay(THREE,canvas);
+assert.equal(gameRandomCalls,0,'scene/model UUIDs must not advance game RNG');
+assert.equal(Math.random()===0.23,true);
+gameRandomCalls=0;
 assert.equal(overlay.ready,false,'do not suppress 2D player before a successful 3D frame');
 assert.equal(canvas.style.visibility,'hidden');
 const frame={
@@ -54,6 +61,7 @@ const frame={
 };
 assert.equal(overlay.render(frame,0.016,{},960,540,'STANDARD'),true);
 assert.equal(overlay.ready,true);
+assert.equal(gameRandomCalls,0,'first GPU render must not advance game RNG');
 assert.equal(canvas.style.visibility,'visible');
 overlay.hide();
 assert.equal(overlay.ready,false,'radio and mode changes restore 2D car');
@@ -72,6 +80,8 @@ assert.equal(overlay.contextLost,false);
 assert.equal(overlay.render(frame,0,{},1200,675,'HIGH'),true);
 assert.equal(overlay.ready,true);
 overlay.dispose();
+assert.equal(gameRandomCalls,0,'3D lifetime did not advance game RNG');
+Math.random=originalRandom;
 assert.equal(overlay.ready,false);
 assert.equal(overlay.disposed,true);
 assert.equal(canvas.parentNode.wasRemoved,true);
