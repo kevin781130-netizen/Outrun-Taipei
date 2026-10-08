@@ -5,7 +5,7 @@
 ## V55.0 browser preview
 
 - 視覺版本為 **V55.0**；競技規則與排行榜版本保持不變，物理、15 條路線及原有 2D 遊戲安全保留。
-- 正式前端可使用 `index.html?renderer=hybrid` 體驗 Three.js 原創 3D 跑車；不加參數時保持 Legacy Stable。WebGL 不支援或載入失敗會使用 2D 車輛。
+- 正式前端預設啟用 Three.js 3D 跑車；加上 `?renderer=2d` 可手動返回 Legacy Stable 的 2D 車輛。WebGL 不支援或載入失敗會自動回退 2D。
 - 可離線使用本地 `assets/vendor/three-r149.min.js` 和 `assets/hybrid-renderer.js`；此兩個檔案必須跟著 `index.html` 一起部署。
 - 發布版本尚未通過完整的實機畫面、手機效能與三種螢幕驗收，不等於宣告 V55 正式完成。
 
