@@ -808,6 +808,7 @@ function setGraphicsQuality(value,persist=true){
   displayCtx.setTransform(scale,0,0,scale,0,0);
   displayCtx.imageSmoothingEnabled=true;displayCtx.imageSmoothingQuality='high';
   graphicsQuality=preset;graphicsScale=scale;
+  v54ClearStaticRoadsideCache();
   if(graphicsSelect)graphicsSelect.value=preset;
   if(graphicsStatus)graphicsStatus.textContent=
     '內部及輸出 '+canvas.width+' × '+canvas.height+' · 邏輯 '+W+' × '+H+' 不變';
@@ -5535,6 +5536,74 @@ function drawV49AccelerationRush(){
   ctx.restore();return drawn;
 }
 
+// V54 P1: byte-limited static roadside raster cache. Projection and clipping
+// remain live and untouched. Moving traffic and effects are not cached.
+const V54_PROP_CACHE_BUDGET=8*1024*1024;
+const V54_PROP_WIDTH=196,V54_PROP_HEIGHT=156;
+const V54_PROP_ORIGIN_X=98,V54_PROP_ORIGIN_Y=146;
+const v54PropCache=new Map();
+let v54PropCacheBytes=0,v54PropCacheHits=0,v54PropCacheMisses=0;
+function v54ClearStaticRoadsideCache(){v54PropCache.clear();v54PropCacheBytes=0;}
+function v54PropCacheStats(){
+  return {entries:v54PropCache.size,bytes:v54PropCacheBytes,budget:V54_PROP_CACHE_BUDGET,
+    hits:v54PropCacheHits,misses:v54PropCacheMisses};
+}
+function v54DrawStaticRoadsideProp(family,surface,side){
+  if(surface==='water'){ // bank lamp with a short railing, standing on the shore strip
+    ctx.fillStyle='#486864';ctx.fillRect(-3,-72,6,72);ctx.fillRect(-side*1,-74,side*14,3);
+    ctx.fillStyle=skyMood==='sunset'?'#ffe7a2':'#bfe9ff';ctx.beginPath();ctx.arc(side*13,-70,4,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#e1e6d7';ctx.lineWidth=2.4;ctx.beginPath();ctx.moveTo(-12,-24);ctx.lineTo(12,-24);ctx.moveTo(-10,-24);ctx.lineTo(-10,0);ctx.moveTo(10,-24);ctx.lineTo(10,0);ctx.stroke();
+  }else if(family==='expressway'){
+    ctx.fillStyle='#53676d';ctx.fillRect(-8,-126,16,126);
+    ctx.fillStyle='#718388';ctx.fillRect(side<0?-70:0,-112,70,38);
+    ctx.strokeStyle='#a8b5b4';ctx.lineWidth=2;for(let k=12;k<66;k+=18){ctx.beginPath();ctx.moveTo(side<0?-k:k,-108);ctx.lineTo(side<0?-k:k,-78);ctx.stroke();}
+  }else if(family==='urban'){
+    ctx.fillStyle='#2c3e43';ctx.fillRect(side<0?-54:-3,-122,57,122);
+    ctx.fillStyle='#8b978c';ctx.fillRect(side<0?-60:-3,-46,63,8);
+    ctx.fillStyle='#c69c63';ctx.fillRect(side<0?-56:3,-39,53,6);
+    ctx.fillStyle=skyMood==='sunset'?'rgba(237,194,118,.36)':'rgba(108,210,204,.30)';
+    for(let yy=-104;yy<-62;yy+=20)ctx.fillRect(side<0?-43:12,yy,30,10);
+  }else{
+    ctx.fillStyle='#513a25';ctx.fillRect(-5,-62,10,62);
+    ctx.fillStyle='#214931';for(const p of [[-18,-62,28],[18,-82,26],[0,-106,22]]){ctx.beginPath();ctx.arc(p[0],p[1],p[2],0,Math.PI*2);ctx.fill();}
+  }
+}
+function v54StaticRoadsideSprite(family,surface,side){
+  const density=graphicsQuality==='LOW'?1:graphicsQuality==='STANDARD'?1.5:2;
+  const key=family+'|'+surface+'|'+side+'|'+skyMood+'|'+density;
+  const entry=v54PropCache.get(key);
+  if(entry){
+    v54PropCache.delete(key);v54PropCache.set(key,entry);
+    v54PropCacheHits++;return entry.canvas;
+  }
+  v54PropCacheMisses++;
+  const cv=document.createElement('canvas');
+  cv.width=Math.round(V54_PROP_WIDTH*density);
+  cv.height=Math.round(V54_PROP_HEIGHT*density);
+  const gc=cv.getContext('2d');
+  if(!gc)return null;
+  const previous=ctx;
+  try {
+    ctx=gc;ctx.save();
+    try {
+      ctx.setTransform(density,0,0,density,0,0);
+      ctx.translate(V54_PROP_ORIGIN_X,V54_PROP_ORIGIN_Y);
+      v54DrawStaticRoadsideProp(family,surface,side);
+    } finally {ctx.restore();}
+  } finally {ctx=previous;}
+  const bytes=cv.width*cv.height*4;
+  if(bytes<=V54_PROP_CACHE_BUDGET){
+    while(v54PropCacheBytes+bytes>V54_PROP_CACHE_BUDGET&&v54PropCache.size){
+      const oldest=v54PropCache.keys().next().value;
+      v54PropCacheBytes-=v54PropCache.get(oldest).bytes;
+      v54PropCache.delete(oldest);
+    }
+    v54PropCache.set(key,{canvas:cv,bytes});
+    v54PropCacheBytes+=bytes;
+  }
+  return cv;
+}
+
 let v51RoadsideRenderLog=[];
 function drawV50SafeRoadsideDepth(road=projectedRoad){
   const family=v46SceneFamily(),start=Math.floor(playerZ/SEGMENT_LENGTH),stride=V50_ART.safeSetpieceStride;let drawn=0;
@@ -5553,25 +5622,10 @@ function drawV50SafeRoadsideDepth(road=projectedRoad){
       const roadEdge=b.near.x+side*b.near.w*env,clearance=Math.abs(x-roadEdge);
       if(x<-150||x>W+150)continue;
       v51RoadsideRenderLog.push({index:seg.index,side,surface,family,x,y,scale,roadEdge,clearance,requiredClearance:b.near.w*requiredN,building:family==='urban'&&surface==='land'});
+      const sprite=v54StaticRoadsideSprite(family,surface,side);
       ctx.save();clipNearRoad(seg.index);ctx.translate(x,y);ctx.scale(scale,scale);
-      if(surface==='water'){ // bank lamp with a short railing, standing on the shore strip
-        ctx.fillStyle='#486864';ctx.fillRect(-3,-72,6,72);ctx.fillRect(-side*1,-74,side*14,3);
-        ctx.fillStyle=skyMood==='sunset'?'#ffe7a2':'#bfe9ff';ctx.beginPath();ctx.arc(side*13,-70,4,0,Math.PI*2);ctx.fill();
-        ctx.strokeStyle='#e1e6d7';ctx.lineWidth=2.4;ctx.beginPath();ctx.moveTo(-12,-24);ctx.lineTo(12,-24);ctx.moveTo(-10,-24);ctx.lineTo(-10,0);ctx.moveTo(10,-24);ctx.lineTo(10,0);ctx.stroke();
-      }else if(family==='expressway'){
-        ctx.fillStyle='#53676d';ctx.fillRect(-8,-126,16,126);
-        ctx.fillStyle='#718388';ctx.fillRect(side<0?-70:0,-112,70,38);
-        ctx.strokeStyle='#a8b5b4';ctx.lineWidth=2;for(let k=12;k<66;k+=18){ctx.beginPath();ctx.moveTo(side<0?-k:k,-108);ctx.lineTo(side<0?-k:k,-78);ctx.stroke();}
-      }else if(family==='urban'){
-        ctx.fillStyle='#2c3e43';ctx.fillRect(side<0?-54:-3,-122,57,122);
-        ctx.fillStyle='#8b978c';ctx.fillRect(side<0?-60:-3,-46,63,8);
-        ctx.fillStyle='#c69c63';ctx.fillRect(side<0?-56:3,-39,53,6);
-        ctx.fillStyle=skyMood==='sunset'?'rgba(237,194,118,.36)':'rgba(108,210,204,.30)';
-        for(let yy=-104;yy<-62;yy+=20)ctx.fillRect(side<0?-43:12,yy,30,10);
-      }else{
-        ctx.fillStyle='#513a25';ctx.fillRect(-5,-62,10,62);
-        ctx.fillStyle='#214931';for(const p of [[-18,-62,28],[18,-82,26],[0,-106,22]]){ctx.beginPath();ctx.arc(p[0],p[1],p[2],0,Math.PI*2);ctx.fill();}
-      }
+      if(sprite)ctx.drawImage(sprite,-V54_PROP_ORIGIN_X,-V54_PROP_ORIGIN_Y,V54_PROP_WIDTH,V54_PROP_HEIGHT);
+      else v54DrawStaticRoadsideProp(family,surface,side);
       ctx.restore();drawn++;
     }
   }
