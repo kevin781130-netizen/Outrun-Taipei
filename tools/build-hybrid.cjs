@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
-const files = ['VehiclePoseBridge.cjs', 'Vehicle3D.cjs', 'HybridOverlay.cjs'];
+const files = ['VehiclePoseBridge.cjs', 'Vehicle3D.cjs', 'HybridOverlay.cjs', 'Full3DScene.cjs'];
 function bundle() {
   const source = files.map(name => {
     const code = fs.readFileSync(path.join(root, 'src/rendering', name), 'utf8');
@@ -19,7 +19,7 @@ function bundle() {
     ' if (!cache[id]) { const module = {exports:{}}; cache[id] = module; modules[id](load, module); }',
     ' return cache[id].exports;',
     '}',
-    "global.TaipeiHybrid = load('./HybridOverlay.cjs');",
+    "global.TaipeiHybrid = Object.assign({}, load('./HybridOverlay.cjs'), load('./Full3DScene.cjs'));",
     '})(window);',
     ''
   ].join('\n');
