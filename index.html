@@ -754,7 +754,11 @@ function v56Load3DScene(){
     layer.setAttribute('aria-label','台北極速傳說 V56.0 完整 3D 賽道');
     layer.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:2;display:block;pointer-events:none;visibility:hidden;';
     canvas.parentNode.appendChild(layer);
-    v56Scene=window.TaipeiHybrid.createFull3DScene(window.THREE,layer);
+    // Three.js allocates random UUIDs: shield the gameplay RNG at boot.
+    const originalRandom=Math.random;let visualSeed=0x146a92cd;
+    Math.random=()=>{visualSeed^=visualSeed<<13;visualSeed^=visualSeed>>>17;visualSeed^=visualSeed<<5;return (visualSeed>>>0)/4294967296;};
+    try{v56Scene=window.TaipeiHybrid.createFull3DScene(window.THREE,layer);}
+    finally{Math.random=originalRandom;}
     v56Status('');
    } catch(error) {
     v56Error=error?.message||String(error);
