@@ -28,6 +28,11 @@ function readReport(filename) {
         throw new Error(filename + ': invalid ' + field + ' in ' + key);
       }
     }
+    for (const field of ['sceneSetupMs', 'coldRenderMs']) {
+      if (field in row && (!Number.isFinite(row[field]) || row[field] < 0)) {
+        throw new Error(filename + ': invalid ' + field + ' in ' + key);
+      }
+    }
   }
   if (sceneKeys.size !== 30) throw new Error(filename + ': incomplete scene matrix');
   return report;
@@ -40,6 +45,10 @@ function compare(before, after) {
   if (JSON.stringify(before.viewport) !== JSON.stringify(after.viewport)) {
     throw new Error('Incompatible reports: viewport');
   }
+  const hasCold = before.rows.every(row=>Number.isFinite(row.sceneSetupMs)&&Number.isFinite(row.coldRenderMs)) &&
+    after.rows.every(row=>Number.isFinite(row.sceneSetupMs)&&Number.isFinite(row.coldRenderMs));
+  const anyCold = [...before.rows,...after.rows].some(row=>'sceneSetupMs' in row||'coldRenderMs' in row);
+  if(anyCold&&!hasCold)throw new Error('Incompatible reports: cold-start metrics coverage');
   const oldRows = new Map(before.rows.map(row => [row.id + '/' + row.mood, row]));
   const rows = after.rows.map(next => {
     const key = next.id + '/' + next.mood;
@@ -58,7 +67,13 @@ function compare(before, after) {
       beforeFrameP95Ms: old.frameP95Ms,
       afterFrameP95Ms: next.frameP95Ms,
       beforeRafFps: old.rafFps,
-      afterRafFps: next.rafFps
+      afterRafFps: next.rafFps,
+      ...(hasCold?{
+        beforeSceneSetupMs:old.sceneSetupMs,
+        afterSceneSetupMs:next.sceneSetupMs,
+        beforeColdRenderMs:old.coldRenderMs,
+        afterColdRenderMs:next.coldRenderMs
+      }:{})
     };
   });
   const mean = arr => arr.reduce((sum, value) => sum + value, 0) / arr.length;
@@ -72,6 +87,13 @@ function compare(before, after) {
     afterMeanRenderMs: afterMean,
     aggregateRenderImprovementPercent: (1 - afterMean / beforeMean) * 100,
     meetsAggregate20PercentTarget: afterMean <= beforeMean * 0.8,
+    coldStartAvailable:hasCold,
+    coldStart:hasCold?{
+      beforeMeanSceneSetupMs:mean(rows.map(row=>row.beforeSceneSetupMs)),
+      afterMeanSceneSetupMs:mean(rows.map(row=>row.afterSceneSetupMs)),
+      beforeMeanFirstRenderMs:mean(rows.map(row=>row.beforeColdRenderMs)),
+      afterMeanFirstRenderMs:mean(rows.map(row=>row.afterColdRenderMs))
+    }:null,
     regressedScenes: rows.filter(row => row.improvementPercent < 0).map(row => row.scene),
     rows,
     memory: {
