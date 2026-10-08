@@ -561,7 +561,17 @@ function createFull3DScene(THREE,canvas) {
  let car=createVehicle3D(THREE,{color:0x1a2330});
  scene.add(car.root);
  const pose=createVehiclePose();
- let lastCarColor='';
+ let lastCarColor='',renderRandomSeed=0x6f34ac19;
+ function with3DOnlyRandom(callback){
+  const original=Math.random;
+  Math.random=()=>{
+   renderRandomSeed^=renderRandomSeed<<13;
+   renderRandomSeed^=renderRandomSeed>>>17;
+   renderRandomSeed^=renderRandomSeed<<5;
+   return (renderRandomSeed>>>0)/4294967296;
+  };
+  try{return callback();}finally{Math.random=original;}
+ }
 
  const tyreMat=material(new THREE.MeshStandardMaterial({color:0x10141a,roughness:.96}));
  const rearMat=material(new THREE.MeshBasicMaterial({color:0xff385d}));
@@ -688,7 +698,7 @@ function createFull3DScene(THREE,canvas) {
   updateTraffic(frame,points);
   if(frame.carColor!==lastCarColor){
    const value=typeof frame.carColor==='string'?new THREE.Color(frame.carColor).getHex():0x202838;
-   const previous=car;car=createVehicle3D(THREE,{color:value,quality});
+   const previous=car;car=with3DOnlyRandom(()=>createVehicle3D(THREE,{color:value,quality}));
    scene.add(car.root);previous.dispose();lastCarColor=frame.carColor;
   }
   updateVehiclePose(pose,{
