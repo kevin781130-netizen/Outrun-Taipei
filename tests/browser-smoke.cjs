@@ -6,7 +6,7 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
 (async()=>{
  const source=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
  assert(!source.includes('__audit'),'test bridge must never ship in game');
- const injected=source.replace('resetGame(); updateHUD(); drawRouteMap(); render(0);','window.__audit=code=>eval(code);resetGame(); updateHUD(); drawRouteMap(); render(0);');
+ const injected=source.replace('<script>\n(() => {','<script>\nwindow.__legacyRegression=true;\n(() => {').replace('resetGame(); updateHUD(); drawRouteMap(); render(0);','window.__audit=code=>eval(code);resetGame(); updateHUD(); drawRouteMap(); render(0);');
  const server=http.createServer((req,res)=>{
   const pathname=new URL(req.url,'http://127.0.0.1').pathname;
   if(pathname==='/assets/vendor/three-r149.min.js'||pathname==='/assets/hybrid-renderer.js'){
@@ -27,7 +27,7 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
   const page=await browser.newPage({viewport:{width:1280,height:800}});
   page.on('pageerror',error=>errors.push(error.message));
   await page.addInitScript(()=>{window.requestAnimationFrame=()=>0});
-  await page.goto(url+'/audit?__legacy_probe=1');
+  await page.goto(url+'/audit');
   const run=code=>page.evaluate(code=>window.__audit(code),code);
   summary=await scenarios(run);
   // V52: rendered menu numbers must equal the gameplay constants (real DOM).
