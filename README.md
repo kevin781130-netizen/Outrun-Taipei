@@ -1,10 +1,17 @@
-# Taipei Sunset Drive V53.1
+# Taipei Sunset Drive V55.0 (Hybrid 3D Preview)
 
 原創台北街機公路遊戲。採用 1990 年代大型機公路賽車常見的高速景深構圖，以及現代甩尾集氣／加速循環；所有程式、美術與音效均採獨立實作。
 
+## V55.0 browser preview
+
+- 視覺版本為 **V55.0**；競技規則與排行榜版本保持不變，物理、15 條路線及原有 2D 遊戲安全保留。
+- 正式前端可使用 `index.html?renderer=hybrid` 體驗 Three.js 原創 3D 跑車；不加參數時保持 Legacy Stable。WebGL 不支援或載入失敗會使用 2D 車輛。
+- 可離線使用本地 `assets/vendor/three-r149.min.js` 和 `assets/hybrid-renderer.js`；此兩個檔案必須跟著 `index.html` 一起部署。
+- 發布版本尚未通過完整的實機畫面、手機效能與三種螢幕驗收，不等於宣告 V55 正式完成。
+
 ## Play
 
-用現代桌面或手機瀏覽器開啟 **`index.html`**，或將它放在靜態網站。遊戲本身不需要 npm、外部圖片或網路服務。
+用現代桌面或手機瀏覽器開啟 **`index.html`**，或將它放在靜態網站。2D 模式不需要 npm、外部圖片或網路服務；3D 模式需隨頁面部署兩個本地 JavaScript 檔案。
 
 - W / ↑ 油門；S / ↓ 煞車；← → / J L 轉向。
 - 方向 + Shift 起甩，補油維持滑行，反打或放開轉向收尾。
