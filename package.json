@@ -1,10 +1,10 @@
 {
   "name": "taipei-sunset-drive",
   "private": true,
-  "version": "55.0.0",
-  "description": "Taipei arcade racer V55.0 hybrid Three.js WebGL preview with safe legacy Canvas fallback and unchanged gameplay physics",
+  "version": "56.0.0",
+  "description": "Taipei arcade racing V56.0 full Three.js WebGL 3D road, traffic, chase camera and original driving physics",
   "scripts": {
-    "test": "node tests/clean-room-compliance.cjs && node tests/ui-consistency.cjs && node tests/regression.cjs && node tests/v55-pose-bridge.cjs && node tests/v55-vehicle-3d.cjs && node tools/build-hybrid.cjs --check && node tests/v55-hybrid-overlay.cjs && node tests/v55-vendor-rng.cjs",
+    "test": "node tests/clean-room-compliance.cjs && node tests/ui-consistency.cjs && node tests/regression.cjs && node tests/v55-pose-bridge.cjs && node tests/v55-vehicle-3d.cjs && node tools/build-hybrid.cjs --check && node tests/v55-hybrid-overlay.cjs && node tests/v55-vendor-rng.cjs && node tests/v56-full-3d.cjs",
     "test:browser": "node tests/browser-smoke.cjs",
     "test:performance": "node tools/performance.cjs",
     "compare:performance": "node tools/compare-performance.cjs",
@@ -22,7 +22,8 @@
     "check:hybrid": "node tools/build-hybrid.cjs --check",
     "test:hybrid-overlay": "node tests/v55-hybrid-overlay.cjs",
     "test:hybrid-browser": "node tests/v55-hybrid-browser.cjs",
-    "test:vendor-rng": "node tests/v55-vendor-rng.cjs"
+    "test:vendor-rng": "node tests/v55-vendor-rng.cjs",
+    "test:full3d": "node tests/v56-full-3d.cjs"
   },
   "devDependencies": {
     "@napi-rs/canvas": "0.1.100",
