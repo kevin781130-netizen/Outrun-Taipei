@@ -314,6 +314,19 @@ function createHybridOverlay(THREE, canvas, options = {}) {
   if (!THREE || !canvas || !THREE.WebGLRenderer) throw new TypeError('Three.js and canvas required');
   let renderer;
   let model;
+  // Three.js UUID allocations must not advance the simulation's random stream.
+  let renderRandomState = 0x35a749c1;
+  function withRenderRandom(callback) {
+    const original = Math.random;
+    Math.random = () => {
+      renderRandomState ^= renderRandomState << 13;
+      renderRandomState ^= renderRandomState >>> 17;
+      renderRandomState ^= renderRandomState << 5;
+      return (renderRandomState >>> 0) / 4294967296;
+    };
+    try { return callback(); }
+    finally { Math.random = original; }
+  }
   let disposed = false;
   let contextLost = false;
   let ready = false;
@@ -346,16 +359,18 @@ function createHybridOverlay(THREE, canvas, options = {}) {
   canvas.addEventListener('webglcontextlost', lost);
   canvas.addEventListener('webglcontextrestored', restored);
   try {
-    renderer = new THREE.WebGLRenderer({
-      canvas, alpha: true, antialias: false, powerPreference: 'low-power',
-      preserveDrawingBuffer: false, premultipliedAlpha: true
+    withRenderRandom(() => {
+      renderer = new THREE.WebGLRenderer({
+        canvas, alpha: true, antialias: false, powerPreference: 'low-power',
+        preserveDrawingBuffer: false, premultipliedAlpha: true
+      });
+      renderer.setPixelRatio(1);
+      renderer.setClearColor(0x000000, 0);
+      // The r149 UMD bundle uses outputEncoding (not outputColorSpace).
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      model = createVehicle3D(THREE, {quality: options.quality || 'STANDARD'});
+      scene.add(model.root);
     });
-    renderer.setPixelRatio(1);
-    renderer.setClearColor(0x000000, 0);
-    // The r149 UMD bundle uses outputEncoding (not outputColorSpace).
-    renderer.outputEncoding = THREE.sRGBEncoding;
-    model = createVehicle3D(THREE, {quality: options.quality || 'STANDARD'});
-    scene.add(model.root);
   } catch (error) {
     canvas.removeEventListener('webglcontextlost', lost);
     canvas.removeEventListener('webglcontextrestored', restored);
@@ -399,7 +414,7 @@ function createHybridOverlay(THREE, canvas, options = {}) {
         0
       );
       model.root.scale.set(pose.scaleX * location.scale, location.scale, location.scale);
-      renderer.render(scene, camera);
+      withRenderRandom(() => renderer.render(scene, camera));
       canvas.style.visibility = 'visible';
       ready = true;
       return true;
