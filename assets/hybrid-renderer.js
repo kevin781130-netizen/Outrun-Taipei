@@ -902,7 +902,6 @@ function createFull3DScene(THREE,canvas) {
    scaleX:1,direction:frame.direction===-1?-1:1,
    braking:!!frame.braking,boosting:!!frame.boosting
   },Math.max(0,dt));
-  car.applyPose(pose);
   const visual=advanceDriftVisual(driftRig,{
    isDrifting:frame.isDrifting,driftState:frame.driftState,
    driftAngle:frame.driftAngle,slipAngle:frame.slipAngle,
@@ -910,6 +909,9 @@ function createFull3DScene(THREE,canvas) {
    visualYawDeg:frame.yawDeg,rollDeg:frame.rollDeg,
    speedKmh:frame.speedKmh,boosting:frame.boosting
   },dt);
+  // Smooth the visual chassis yaw without delaying the authoritative physics.
+  pose.yawRad=visual.bodyYaw;
+  car.applyPose(pose);
   // PlayerX is already reflected in previewPoints(). This modest sway only
   // visualizes local tire slip: physics road position is never integrated twice.
   car.root.position.set(visual.lateral,.02,3.15);
