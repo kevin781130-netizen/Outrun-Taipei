@@ -48,7 +48,7 @@ The comparison rejects mismatched browser versions, viewports, samples or scene 
 
 ## V54 P1 — Static roadside raster cache
 
-The V50 near-road layer now reuses cropped-placement **fixed-size offscreen sprites** for its static **urban buildings, trees, bank lamps and sound-barrier props**. The cache key includes family, surface, orientation, sky mood and raster density. An LRU accounting rule caps retained raster entries at **8 MiB** (pixel width × height × 4); the visible road clipping, projection, draw order and physics remain live and unchanged.
+The V50 near-road layer now reuses **fixed-size offscreen sprites** for its static **urban buildings, trees, bank lamps and sound-barrier props**. The cache key includes family, surface, orientation, sky mood and raster density. An LRU accounting rule caps retained raster entries at **8 MiB** (pixel width × height × 4); the visible road clipping, projection, draw order and physics remain live and unchanged.
 
 The preset selector invalidates all V54 roadside sprites on a quality change. The underlying vectors are used again if an offscreen 2D context is unavailable. Traffic cars and their indicators are **not cached in this step**, since lane changes and blink timing are animated. The landmark sprite cache is likewise out of scope.
 
@@ -62,3 +62,25 @@ npm run test:browser
 ```
 
 The focused roadside test covers cache hits, visual-variant isolation, backing-size selection, eviction, cache clearing, context restoration and allocation failure. The automated unit test cannot establish actual rendered visual equivalence; verify desktop and mobile gameplay screenshots, near-road clipping and frame-time measurements before merging. Retained offscreen pixels are not a measurement of entire browser or GPU memory.
+
+## V54 P2 — Traffic and landmark cache
+
+Distant traffic uses a capped **8 MiB LRU** cache of static vehicle silhouettes. Variant keys include vehicle class, dimensions, color, left/right apparent face, sky mood, raster density and a coarse scale-dependent ink bucket. Dynamic turn indicators continue to draw live; very small and near-field traffic keeps the V53.1 vector drawing path. Physics, projected screen positions, traffic collision boxes, lane selection and clipping are not changed. Inspect the cutoff boundary and fine outlines in browser screenshots: raster caching can change antialiasing.
+
+Landmark sprites use a separate **16 MiB LRU** cap. Crop alpha bounds are determined with a first/last opaque-pixel row scan (`alpha > 35`), matching the previous rectangle definition. The cap measures *retained LRU sprites*, not the temporary 1200×1800 generation surface or the active-stage plan, which can keep references to evicted entries. `v54CacheStats()` exposes the three LRU caches and extra active-stage landmark bytes.
+
+Manual verification (no Actions):
+
+```sh
+npm run test:graphics
+npm run test:roadside
+npm run test:graphics-cache
+npm test
+npm run test:browser
+# Baseline and optimized runs on the same machine:
+PERF_INDEX=/tmp/outrun-v53.1.html PERF_OUTPUT=test-results/v53-before.json npm run test:performance
+PERF_OUTPUT=test-results/v54-after.json npm run test:performance
+node tools/compare-performance.cjs test-results/v53-before.json test-results/v54-after.json
+```
+
+The focused P2 test uses Canvas mocks to check variant isolation, draw-time blinking, near-traffic vector fallback, LRU eviction, failed context fallback, alpha crop bounds and stage-held landmark references. This test does **not** certify actual Chromium rendering, memory stability, visual parity, or any FPS improvement.
