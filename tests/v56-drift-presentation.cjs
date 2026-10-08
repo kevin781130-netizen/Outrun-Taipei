@@ -1,0 +1,12 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {presentationYawDegrees}=require('../src/rendering/DriftPresentation.cjs');
+const active={isDrifting:true,driftState:'drift',yawDeg:30};
+const straight=Array(126).fill(0),corner=Array(126).fill(2);
+assert.equal(presentationYawDegrees(active,straight,87),11.2);
+assert(presentationYawDegrees(active,corner,220)>23);
+assert.equal(presentationYawDegrees({...active,yawDeg:-30},straight,87),-11.2);
+assert.equal(presentationYawDegrees({...active,isDrifting:false,driftState:'grip'},straight,87),9);
+assert.equal(presentationYawDegrees({...active,yawDeg:0},straight,87),0);
+assert(presentationYawDegrees({...active,driftState:'recover',isDrifting:false,yawDeg:-25},straight,70)<0);
+console.log('V56.1A road-aware optical yaw regression passed');

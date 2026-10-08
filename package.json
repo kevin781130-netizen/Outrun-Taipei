@@ -1,10 +1,10 @@
 {
   "name": "taipei-sunset-drive",
   "private": true,
-  "version": "56.0.0",
-  "description": "Taipei arcade racing V56.0 full Three.js WebGL 3D road, traffic, chase camera and original driving physics",
+  "version": "56.1.1",
+  "description": "Taipei Sunset Drive V56.1A 3D city and drift-angle visual playtest",
   "scripts": {
-    "test": "node tests/clean-room-compliance.cjs && node tests/ui-consistency.cjs && node tests/regression.cjs && node tests/v55-pose-bridge.cjs && node tests/v55-vehicle-3d.cjs && node tools/build-hybrid.cjs --check && node tests/v55-hybrid-overlay.cjs && node tests/v55-vendor-rng.cjs && node tests/v56-full-3d.cjs && node tests/v56-drift-visual.cjs && node tests/v56-drift-replay.cjs",
+    "test": "node tests/clean-room-compliance.cjs && node tests/ui-consistency.cjs && node tests/regression.cjs && node tests/v55-pose-bridge.cjs && node tests/v55-vehicle-3d.cjs && node tools/build-hybrid.cjs --check && node tests/v55-hybrid-overlay.cjs && node tests/v55-vendor-rng.cjs && node tests/v56-full-3d.cjs && node tests/v56-drift-visual.cjs && node tests/v56-drift-replay.cjs && node tests/v56-drift-presentation.cjs",
     "test:browser": "node tests/browser-smoke.cjs && node tests/v56-browser.cjs && node tests/v56-drift-browser.cjs",
     "test:performance": "node tools/performance.cjs",
     "compare:performance": "node tools/compare-performance.cjs",

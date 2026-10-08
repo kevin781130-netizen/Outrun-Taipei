@@ -52,7 +52,8 @@ async function startDrift(page,side,stock){
  assert(state.isDrifting&&state.nitro>0,'actual keyboard drift must charge nitro');
  assert(Math.abs(state.slipAngle)>2&&Math.abs(state.yaw)>5,'actual drift needs slip and yaw');
  assert(gpu&&Number.isFinite(gpu.carX)&&Number.isFinite(gpu.yawRad),'GPU did not render car');
- assert(Math.abs(gpu.yawRad-state.yaw*Math.PI/180)<1e-5,'WebGL yaw must equal actual game visual yaw');
+ assert(Math.abs(gpu.yawRad)<=Math.abs(state.yaw)*Math.PI/180+1e-5,'3D yaw should not exceed physical yaw');
+ assert(Math.abs(gpu.yawRad)<=26.5*Math.PI/180+1e-5,'3D yaw must use road-aware presentation cap');
  assert.equal(Math.sign(gpu.yawRad),side,'drift sign must match left/right keyboard');
  assert.equal(Math.sign(gpu.carX),-side,'3D car must visually sway sideways');
  assert(Math.abs(gpu.carX)<=.401,'3D sway is bounded');

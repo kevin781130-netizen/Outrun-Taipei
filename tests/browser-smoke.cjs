@@ -87,7 +87,7 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
    await live.waitForFunction(()=>window.v56ThreeStatus?.().ready,{timeout:15000});
    assert.equal(await live.locator('#v56-full-3d-canvas').count(),1,`${name} has WebGL 3D canvas`);
    assert.equal(await live.locator('#build-version').isVisible(),true,`${name} build version visible`);
-   assert.match(await live.locator('#build-version').textContent(),/V56\.0/,`${name} correct V56.0 build label`);
+   assert.match(await live.locator('#build-version').textContent(),/V56\.1A/,`${name} correct V56.1A build label`);
    await live.locator('#start-btn').click();
    assert.equal(await live.locator('#radio-actions').isVisible(),true);
    await live.locator('#radio-next').click();
