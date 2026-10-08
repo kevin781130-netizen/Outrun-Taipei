@@ -11,7 +11,9 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const hash=(n)=>{let x=(n|0)^0x6b7f4a21;x=Math.imul(x^(x>>>16),0x45d9f3b);x=Math.imul(x^(x>>>16),0x45d9f3b);return ((x^(x>>>16))>>>0)/4294967296;};
 function previewPoints(input) {
  const {curves=[],hills=[],laneOffsets=[],playerX=0,fraction=0}=input||{};
- let x=-playerX*HALF_WIDTH, z=STEP*fraction, heading=0;
+ // Start a little behind the chase camera so asphalt always extends under
+ // the player's rear wheels; the road must not begin in front of the car.
+ let x=-playerX*HALF_WIDTH, z=14+STEP*fraction, heading=0;
  const points=[];
  for(let i=0;i<=COUNT;i++){
    const curve=clamp(Number(curves[i])||0,-8,8);
