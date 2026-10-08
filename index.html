@@ -5003,17 +5003,54 @@ function drawNitroExhaust(yaw){
 
 function draw101Full(x,y,s){drawCloudTower(x,y,s);}
 let landmarkFrame={horizon:[],world:[]},landmarkDrawLog=[];
+// V54 P2: byte-capped LRU for cached sprites, separate from active stage refs.
+const V54_LANDMARK_CACHE_BUDGET=16*1024*1024;
 const landmarkSpriteCache=new Map();let stageLandmarkPlan=[];
+let v54LandmarkCacheBytes=0,v54LandmarkHits=0,v54LandmarkMisses=0;
 function landmarkTimeline(){return stageLandmarkPlan;}
+function v54LandmarkCacheStats(){
+  const cached=new Set(landmarkSpriteCache.values());
+  const active=new Set(stageLandmarkPlan.map(item=>item.sprite).filter(Boolean));
+  let activeOnlyBytes=0;
+  for(const sprite of active)if(!cached.has(sprite))activeOnlyBytes+=sprite.canvas.width*sprite.canvas.height*4;
+  return {entries:landmarkSpriteCache.size,bytes:v54LandmarkCacheBytes,budget:V54_LANDMARK_CACHE_BUDGET,
+    hits:v54LandmarkHits,misses:v54LandmarkMisses,
+    activeStageEntries:active.size,activeOutsideCacheBytes:activeOnlyBytes};
+}
+function v54CacheStats(){
+  return {roadside:v54PropCacheStats(),traffic:v54TrafficCacheStats(),landmarks:v54LandmarkCacheStats()};
+}
 function getLandmarkSprite(h){
- const key=h.name+':'+skyMood;if(landmarkSpriteCache.has(key))return landmarkSpriteCache.get(key);
+ const key=h.name+':'+skyMood;
+ const cached=landmarkSpriteCache.get(key);
+ if(cached){landmarkSpriteCache.delete(key);landmarkSpriteCache.set(key,cached);v54LandmarkHits++;return cached;}
+ v54LandmarkMisses++;
  const cv=document.createElement('canvas');cv.width=1200;cv.height=1800;const c=cv.getContext('2d'),previous=ctx;
  try{ctx=c;h.draw(600,1720,2);}finally{ctx=previous;}
  const rgba=c.getImageData(0,0,1200,1800).data;let x0=1200,y0=1800,x1=0,y1=0;
- for(let y=0;y<1800;y++)for(let x=0;x<1200;x++)if(rgba[(y*1200+x)*4+3]>35){x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);}
+ // Find the first/last opaque pixel on each row. Same alpha>35 boundary.
+ for(let y=0;y<1800;y++){
+   let left=-1,right=-1;
+   for(let x=0;x<1200;x++)if(rgba[(y*1200+x)*4+3]>35){left=x;break;}
+   if(left<0)continue;
+   for(let x=1199;x>=left;x--)if(rgba[(y*1200+x)*4+3]>35){right=x;break;}
+   x0=Math.min(x0,left);x1=Math.max(x1,right);
+   y0=Math.min(y0,y);y1=y;
+ }
+ if(x1<x0){x0=y0=0;x1=y1=0;}
  const crop=document.createElement('canvas');crop.width=x1-x0+5;crop.height=y1-y0+5;
  crop.getContext('2d').putImageData(c.getImageData(x0-2,y0-2,crop.width,crop.height),0,0);
- const sprite={canvas:crop,left:(x0-602)/2,top:(y0-1722)/2,width:crop.width/2,height:crop.height/2};landmarkSpriteCache.set(key,sprite);return sprite;
+ const sprite={canvas:crop,left:(x0-602)/2,top:(y0-1722)/2,width:crop.width/2,height:crop.height/2};
+ const bytes=crop.width*crop.height*4;
+ if(bytes<=V54_LANDMARK_CACHE_BUDGET){
+   while(v54LandmarkCacheBytes+bytes>V54_LANDMARK_CACHE_BUDGET&&landmarkSpriteCache.size){
+     const oldest=landmarkSpriteCache.keys().next().value,old=landmarkSpriteCache.get(oldest);
+     v54LandmarkCacheBytes-=old.canvas.width*old.canvas.height*4;
+     landmarkSpriteCache.delete(oldest);
+   }
+   landmarkSpriteCache.set(key,sprite);v54LandmarkCacheBytes+=bytes;
+ }
+ return sprite;
 }
 function planLandmarks(){
  const seen=new Set(),items=(STAGE_LANDMARKS[currentNode.id]||[]).filter(h=>{if(seen.has(h.name))return false;seen.add(h.name);return true;});
