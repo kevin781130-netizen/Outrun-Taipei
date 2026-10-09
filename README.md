@@ -2,6 +2,29 @@
 
 原創台北街機公路遊戲。採用 1990 年代大型機公路賽車常見的高速景深構圖，以及現代甩尾集氣／加速循環；所有程式、美術與音效均採獨立實作。
 
+## P15 Quaternius 台北街屋賽道實驗版（MAIN 已收錄）
+
+**[在瀏覽器試玩：Quaternius 街屋＋V56.1A 賽車](https://kevin781130-netizen.github.io/GAME-TEST-LAB/outrun-taipei-quaternius/)**
+
+**[返回原版賽車 V56.1A](https://kevin781130-netizen.github.io/GAME-TEST-LAB/outrun-taipei/)**
+
+本次 `main` 收錄 `playtests/quaternius-race/` 作為**獨立的可玩賽車實驗版**，其內容從 `GAME-TEST-LAB/main` 的 P15 版本同步。使用 `playtests/quaternius-race/index.html`，或以靜態 HTTP 伺服器啟動；其介面可選擇性開啟 6 棟 Quaternius CC0 台北風格街屋、2 棟近景完整 glTF、其餘 LOD 低模與繁體中文招牌。
+
+重要保護條件：
+
+- 專案根目錄 `index.html`、原本 `assets/hybrid-renderer.js`、15 條路線與物理、碰撞、排行榜均保留，不被 P15 覆寫。
+- 預設新建築為**關閉**；點擊「新街屋」才載入。LOW 畫質自動隱藏。可隨時關閉或回到舊版。
+- `Outrun-Taipei/main` 是原始碼分支；公開試玩頁由另外的 `GAME-TEST-LAB/main` 提供，這兩者**不是同一個部署流程**。
+- GitHub 內容與靜態程式檢查已完成，**公開網站真實 WebGL 畫面／FPS 尚未完成實測驗收**；請依實際瀏覽器畫面判斷是否可用。
+
+本地試玩（Node 不是必須，但需一個 HTTP 伺服器）：
+
+```powershell
+python -m http.server 8000
+```
+
+開啟 `http://localhost:8000/playtests/quaternius-race/`，或執行 `node playtests/quaternius-race/qa-check.cjs` 進行靜態配置檢查。
+
 ## V56.0 — 全場景 WebGL 3D
 
 - **整個遊戲場景以 Three.js WebGL 3D 渲染**：道路、標線、建築、樹木、交通車與玩家跑車；不再在畫面上顯示 2D Canvas 道路或車輛。
