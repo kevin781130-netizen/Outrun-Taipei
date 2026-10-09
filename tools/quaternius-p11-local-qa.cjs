@@ -14,7 +14,8 @@ const STEPS=[
  ['p7-streetfront','tests/quaternius-taipei-streetfront.cjs'],
  ['p8-streetblock','tests/quaternius-streetblock.cjs'],
  ['p9-atlas','tests/quaternius-sign-atlas.cjs'],
- ['p11-runner-classifier','tests/quaternius-p11-classifier.cjs']
+ ['p11-runner-classifier','tests/quaternius-p11-classifier.cjs'],
+ ['p12-browser-review-matrix','tests/quaternius-browser-review.cjs']
 ];
 const BROWSER_STEPS=[
  ['p3-chromium-modules','tests/quaternius-render-acceptance.cjs'],
@@ -53,7 +54,10 @@ function probe(){
   'previews/quaternius-downtown/streetblock.html',
   'previews/quaternius-downtown/streetblock.js',
   'tests/quaternius-streetblock-browser.cjs',
-  'previews/quaternius-downtown/sign-atlas-layout.mjs'
+  'previews/quaternius-downtown/sign-atlas-layout.mjs',
+  'previews/quaternius-downtown/browser-review.html',
+  'previews/quaternius-downtown/browser-review.js',
+  'previews/quaternius-downtown/browser-review-matrix.mjs'
  ];
  const missingResources=resources.filter(p=>!stat(path.join(ROOT,p)));
  const branchName=branch.exitCode===0?branch.stdout.trim():null;

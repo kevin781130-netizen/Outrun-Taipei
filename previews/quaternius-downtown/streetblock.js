@@ -252,6 +252,58 @@ function tick(t){
  }
  oldT=t;
 }
+// P12 explicit same-origin QA bridge for this preview only. It cannot write to
+// the game or map. All screenshots are captured in the user's browser session.
+window.__quaterniusArtQA=Object.freeze({
+ ready:()=>instances.length>0&&activePlan!==null,
+ configure({count,lod,night:desiredNight}){
+  if(!instances.length)throw new Error('Quaternius preview models not ready');
+  if(![3,5,7].includes(count)||!['near','far'].includes(lod)||typeof desiredNight!=='boolean')
+   throw new RangeError('Unsupported P12 visual review state');
+  if(activePlan.count!==count){$('count').value=String(count);buildBlock(count);}
+  $('lod-mode').value=lod;
+  if(night!==desiredNight)toggleNight();
+  resetView();lodDirty=true;applyLod();
+ },
+ capture(){
+  if(!instances.length)throw new Error('Preview is not loaded');
+  // WebGL's default preserveDrawingBuffer is false. Read back immediately after
+  // a synchronous draw, before the browser clears the compositing buffer.
+  const width=Math.max(1,canvas.clientWidth),height=Math.max(1,canvas.clientHeight);
+  renderer.setSize(width,height,false);
+  camera.aspect=width/height;camera.updateProjectionMatrix();
+  controls.update();lodDirty=true;applyLod();
+  renderer.render(scene,camera);
+  const png=canvas.toDataURL('image/png');
+  if(!png.startsWith('data:image/png;base64,')||png.length<1024)
+   throw new Error('No valid PNG pixels captured from WebGL canvas');
+  const gl=renderer.getContext();
+  const loadedMaterials=[];
+  for(const key of sourceNames){
+   let meshes=0,textures=0;
+   models[key]?.traverse(child=>{
+    if(!child.isMesh)return;
+    meshes++;
+    for(const material of [].concat(child.material||[])){
+     if(material?.map)textures+=1;
+    }
+   });
+   loadedMaterials.push({name:key,meshes,texturedMaterials:textures});
+  }
+  const read=id=>document.getElementById(id)?.textContent||'';
+  return {png,previewOnly:true,count:instances.length,near:Number(read('lod-near')),
+   far:Number(read('lod-far')),night,selectedMode:$('lod-mode').value,
+   shops:activePlan.buildings.map(b=>b.shop),imageWidth:canvas.width,
+   imageHeight:canvas.height,drawCalls:renderer.info.render.calls,
+   renderedTriangles:renderer.info.render.triangles,
+   estimatedTriangles:Number(read('budget').replaceAll(',','')),
+   webglVersion:gl.getParameter(gl.VERSION),
+   webglVendor:gl.getParameter(gl.VENDOR),
+   maxTextureSize:gl.getParameter(gl.MAX_TEXTURE_SIZE),
+   materials:loadedMaterials,
+   status:read('street-status')};
+ }
+});
 requestAnimationFrame(tick);
 try{
  const gltfs=await Promise.all(sourceNames.map(n=>new Promise((resolve,reject)=>
