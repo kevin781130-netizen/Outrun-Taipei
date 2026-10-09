@@ -38,7 +38,7 @@ jobs:
           set -euo pipefail
           git diff --name-only origin/main...HEAD > /tmp/quaternius-changed-files.txt
           cat /tmp/quaternius-changed-files.txt
-          if grep -Ev '^(assets/third_party/quaternius-downtown/|assets/vendor/three-r149/|assets/vendor/three-r149-esm-shim.js$|previews/quaternius-downtown/|tests/quaternius-|docs/P([1-9]|10)_Quaternius|docs/P7_Taipei_|tools/run-quaternius-qa.ps1$|tools/summarize-quaternius-qa.cjs$|tools/quaternius-|.github/workflows/quaternius-art-qa.yml$)' /tmp/quaternius-changed-files.txt; then
+          if grep -Ev '^(assets/third_party/quaternius-downtown/|assets/vendor/three-r149/|assets/vendor/three-r149-esm-shim.js$|previews/quaternius-downtown/|tests/quaternius-|docs/P[0-9]+_Quaternius|docs/P7_Taipei_|tools/run-quaternius-qa.ps1$|tools/summarize-quaternius-qa.cjs$|tools/quaternius-|.github/workflows/quaternius-art-qa.yml$)' /tmp/quaternius-changed-files.txt; then
             echo "::error::Found unauthorized art-branch changes to non-preview files"
             exit 1
           fi
@@ -59,6 +59,7 @@ jobs:
           node tests/quaternius-taipei-streetfront.cjs
           node tests/quaternius-streetblock.cjs
           node tests/quaternius-sign-atlas.cjs
+          node tests/quaternius-facade-fit.cjs
       - name: Install Chromium and Traditional Chinese test fonts
         shell: bash
         run: |

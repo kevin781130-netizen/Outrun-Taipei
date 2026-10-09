@@ -7,6 +7,7 @@ import {makeStreetblockPlan,SHOP_SAMPLES} from './streetblock-plan.mjs';
 import {createStreetblockSigns} from './streetblock-signs.mjs';
 import {buildTaipeiStreetfrontPlan} from './taipei-streetfront.mjs';
 import {decideFacadeLod,FACADE_LOD_THRESHOLDS} from './lod-policy.mjs';
+import {makeSnappedQuaterniusFacade,verifySeamlessFacade} from './quaternius-facade-fit.mjs';
 
 const $=id=>document.getElementById(id);
 const write=(id,v)=>{const element=$(id),next=String(v);if(element.textContent!==next)element.textContent=next;};
@@ -120,22 +121,19 @@ function buildFacade(building){
  buildingRoot.name='P8_PreviewLocalShop_'+building.id;
  buildingRoot.position.set(...building.position);
  buildingRoot.add(full,proxy);
- const wall=materialFor(building.style,plan.palette,'building');
- // P6 baseline geometry: keep original CC0 models at the same local anchors.
- const first=building.style==='metal'?'metalWindow':'brickWindow';
- const second=building.style==='brick'?'brickWindow':'metalWindow';
+ const snapped=makeSnappedQuaterniusFacade(building.style);
+ const alignment=verifySeamlessFacade(snapped);
+ if(!alignment.passed)throw new Error('Quaternius facade geometry mismatch: '+alignment.issues.join(';'));
+ // P14: module snap data derives from actual CC0 glTF bounds; original
+ // triangles, textures and 3m storey height are never stretched or changed.
  const nearVolume=[
   rect([10.35,6.2,2.1],[0,3.1,-1.46],'building'),
   rect([10.65,.28,2.5],[0,6.32,-1.33],'roof'),
   rect([2,.12,.6],[0,.06,.32],'roof')
  ];
  let nearTris=batchBoxes(full,nearVolume.concat(plan.nearBoxes),building.style,plan.palette);
- nearTris+=moduleClone(full,first,-3,0);
- nearTris+=moduleClone(full,'door',0,0);
- nearTris+=moduleClone(full,second,3,0);
- nearTris+=moduleClone(full,first,-3,3);
- for(let y=3;y<6;y++)nearTris+=moduleClone(full,'brick',0,y);
- nearTris+=moduleClone(full,second,3,3);
+ for(const m of snapped.modules)
+  nearTris+=moduleClone(full,m.kind,m.x,m.y,m.z);
  const farVolume=[
   rect([10.35,6.2,2.1],[0,3.1,-1.46],'building'),
   rect([10.65,.28,2.5],[0,6.32,-1.33],'roof'),
@@ -143,10 +141,19 @@ function buildFacade(building){
  ];
  for(const y of [1.55,4.5])for(const x of [-3,3])
   farVolume.push(rect([2.9,1.7,.07],[x,y,-.35],'glass'));
- let farTris=batchBoxes(proxy,farVolume.concat(plan.farBoxes),building.style,plan.palette);
- // P9: both signs share one atlas texture/material and ONE indexed mesh.
+ // P14: broad colored awning strips preserve Taipei storefront identity even
+ // in the far proxy, but cost just 24 extra triangles per building.
+ const farAwning=[
+  rect([5.0,.045,1.04],[-2.52,2.69,1.05],'awning'),
+  rect([5.0,.045,1.04],[2.52,2.69,1.05],'awningAlt')
+ ];
+ let farTris=batchBoxes(proxy,farVolume.concat(plan.farBoxes,farAwning),building.style,plan.palette);
+ // Retain *legible Chinese shop names* across LOD transitions using the
+ // already shared P9 sign atlas; each level has just one two-quad sign mesh.
  full.add(shopSigns.makeShopSign(building,plan.signs));
+ proxy.add(shopSigns.makeShopSign(building,plan.signs));
  nearTris+=plan.signs.length*2;
+ farTris+=plan.signs.length*2;
  // Rooftop metal water tank and two mounting supports (stylistic, visual only).
  if(building.rooftop==='tank'){
   const support=[
@@ -168,7 +175,7 @@ function cleanOld(){
  activeBlock.traverse(obj=>{
   if(obj.isInstancedMesh&&typeof obj.dispose==='function')obj.dispose();
   // glTF geometries, text sign maps and materials are shared and retained.
-  // Disposable plane geometries are owned by each sign.
+  // Each LOD owns a tiny indexed-quad geometry; atlas texture/material shared.
   if(obj.name==='P9_AtlasMergedChineseSigns')obj.geometry.dispose();
  });
  activeBlock=null;
@@ -191,6 +198,8 @@ function buildBlock(count){
  for(const item of instances)activeBlock.add(item.root);
  scene.add(activeBlock);
  write('building-count',instances.length);
+ write('facade-snap','CC0 寬 10m × 高 6m｜每棟 8 模組無縫拼接');
+ write('far-sign','兩級 LOD 均保留繁體中文招牌');
  write('shop-list',plan.buildings.map(b=>b.shop).join('　｜　'));
  write('block-width',plan.totalWidth.toFixed(2)+' m（僅預覽局部座標）');
  const atlas=shopSigns.atlasMetrics();
@@ -256,6 +265,8 @@ function tick(t){
 // the game or map. All screenshots are captured in the user's browser session.
 window.__quaterniusArtQA=Object.freeze({
  ready:()=>instances.length>0&&activePlan!==null,
+ farSignProtected:()=>instances.length>0&&instances.every(item=>
+  item.proxy.children.some(child=>child.name==='P9_AtlasMergedChineseSigns')),
  configure({count,lod,night:desiredNight}){
   if(!instances.length)throw new Error('Quaternius preview models not ready');
   if(![3,5,7].includes(count)||!['near','far'].includes(lod)||typeof desiredNight!=='boolean')
@@ -301,6 +312,7 @@ window.__quaterniusArtQA=Object.freeze({
    webglVendor:gl.getParameter(gl.VENDOR),
    maxTextureSize:gl.getParameter(gl.MAX_TEXTURE_SIZE),
    materials:loadedMaterials,
+   farSignPreserved:instances.every(item=>item.proxy.children.some(child=>child.name==='P9_AtlasMergedChineseSigns')),
    status:read('street-status')};
  }
 });

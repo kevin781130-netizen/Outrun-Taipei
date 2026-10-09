@@ -16,7 +16,10 @@ const STEPS=[
  ['p9-atlas','tests/quaternius-sign-atlas.cjs'],
  ['p11-runner-classifier','tests/quaternius-p11-classifier.cjs'],
  ['p12-browser-review-matrix','tests/quaternius-browser-review.cjs'],
- ['p13-evidence-zip','tests/quaternius-browser-evidence-zip.cjs']
+ ['p13-evidence-zip','tests/quaternius-browser-evidence-zip.cjs',
+  'previews/quaternius-downtown/quaternius-facade-fit.mjs',
+  'tests/quaternius-facade-fit.cjs'],
+ ['p14-gltf-facade-fit','tests/quaternius-facade-fit.cjs']
 ];
 const BROWSER_STEPS=[
  ['p3-chromium-modules','tests/quaternius-render-acceptance.cjs'],

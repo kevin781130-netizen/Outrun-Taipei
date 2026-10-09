@@ -95,15 +95,16 @@ async function run(){
       budget:Number(get('budget')?.replaceAll(',','')),
       drawCalls:Number(get('calls')),triangles:Number(get('triangles')?.replaceAll(',','')),
       webgl:!!(c.getContext('webgl2')||c.getContext('webgl')),
-      signTextures:get('sign-textures'),signMemory:get('sign-vram')};
+      signTextures:get('sign-textures'),signMemory:get('sign-vram'),
+      farSignProtected:window.__quaterniusArtQA?.farSignProtected?.()};
     });
     const result={viewport:label,lod,lighting,filename,visual,pacing,state};
     report.screenshots.push(result);
-    const expectedBudget=lod==='near'?21124:936;
+    const expectedBudget=lod==='near'?21124:1076;
     if(!state.webgl||!visual.nonBlank||state.buildings!==5||state.near!==expectedNear||
        state.far!==expectedFar||state.budget!==expectedBudget||state.drawCalls<=0||
        state.triangles<=0||pacing.count!==60||!state.signTextures?.startsWith('1 張')||
-       !state.signMemory?.includes('4,096 KiB')){
+       !state.signMemory?.includes('4,096 KiB')||state.farSignProtected!==true){
       report.errors.push('Invalid visual/browser/metric state: '+filename);
     }
    }
