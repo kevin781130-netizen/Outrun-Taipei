@@ -38,6 +38,7 @@ const build=()=>({
  speedKmh:140,direction:1,braking:false,boosting:false
 });
 const frame=build();
+const beforeArtRender=JSON.stringify(frame);
 assert.equal(world.ready,false);
 assert.equal(world.render(frame,1/60,960,540,'STANDARD'),true);
 assert.equal(world.ready,true);
@@ -70,8 +71,6 @@ for(const item of [cc0Tree,cc0Lamp]){
  assert(item.geometry.getAttribute('position').count>100,'use real CC0 OBJ triangles, not proxy primitives');
  assert.equal(item.geometry.getAttribute('color').itemSize,3,'source UV palette must be baked into vertex colors');
 }
-const beforeArtRender=JSON.stringify(frame);
-world.render(frame,1/60,960,540,'STANDARD');
 assert.equal(JSON.stringify(frame),beforeArtRender,'art renderer must not mutate physics or routes');
 assert(meshTypes.has('Mesh'));
 const drifting={driftState:'drift',isDrifting:true,driftAngleDeg:24,slipAngleDeg:13,driftDirection:1,lateralVelocity:.4,roadGrip:.94,cleanDriftTime:.7,exitBoost:0,momentBoostWindow:0,driftCharge:53,nitroActive:false,yawDeg:31};
