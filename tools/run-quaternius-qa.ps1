@@ -1,48 +1,40 @@
-# Isolated Quaternius P3 Chromium acceptance (Windows PowerShell).
-param([switch]$SkipInstall)
+# P11 protected Windows QA wrapper. Never checks out or alters a game branch.
+param([switch]$SkipInstall,[switch]$StaticOnly)
 $ErrorActionPreference='Stop'
 $root=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Push-Location $root
 try {
   $expected='art/quaternius-downtown-buildings-p1'
   $branch=(& git branch --show-current).Trim()
-  if($LASTEXITCODE -ne 0 -or $branch -ne $expected) { throw "Refusing to execute outside $expected. Current: $branch" }
-  $sha=(& git rev-parse HEAD).Trim()
-  if($LASTEXITCODE -ne 0) { throw 'Git commit not available' }
-  Write-Host "Quaternius ART-ONLY QA; branch=$branch; commit=$sha"
-  if(!$SkipInstall){
-    & npm ci --no-audit --no-fund
-    if($LASTEXITCODE -ne 0){ throw 'npm ci failed' }
-    & npx playwright install chromium
-    if($LASTEXITCODE -ne 0){ throw 'Chromium installation failed' }
+  if($LASTEXITCODE -ne 0 -or $branch -ne $expected){
+    throw "Refusing to run outside $expected. Current: $branch"
   }
-  & node tests/quaternius-preview.cjs
-  if($LASTEXITCODE -ne 0){ throw 'Quaternius assets static audit failed' }
-  & node tests/quaternius-assembly.cjs
-  if($LASTEXITCODE -ne 0){ throw 'Facade composition static audit failed' }
-  & node tests/quaternius-lod.cjs
-  if($LASTEXITCODE -ne 0){ throw 'P6 LOD static audit failed' }
-  & node tests/quaternius-taipei-streetfront.cjs
-  if($LASTEXITCODE -ne 0){ throw 'P7 Taipei facade static audit failed' }
-  & node tests/quaternius-streetblock.cjs
-  if($LASTEXITCODE -ne 0){ throw 'P8 deterministic streetblock audit failed' }
-  & node tests/quaternius-sign-atlas.cjs
-  if($LASTEXITCODE -ne 0){ throw 'P9 shared-sign-atlas regression failed' }
-  Remove-Item Env:\CHROMIUM_PATH -ErrorAction SilentlyContinue
-  & node tests/quaternius-render-acceptance.cjs
-  $renderExit=$LASTEXITCODE
-  & node tools/summarize-quaternius-qa.cjs
-  $summaryExit=$LASTEXITCODE
-  & node tests/quaternius-taipei-browser.cjs
-  $taipeiRenderExit=$LASTEXITCODE
-  & node tests/quaternius-streetblock-browser.cjs
-  $streetblockExit=$LASTEXITCODE
-  Write-Host 'Raw evidence: test-results/quaternius-p3/report.json'
-  Write-Host 'Visual review: test-results/quaternius-p3/review-index.md'
-  Write-Host 'Screenshots: test-results/quaternius-p3/*.png'
-  Write-Host 'Taipei facade QA: test-results/quaternius-p7/report.json and 24 PNGs'
-  Write-Host 'P8 multi-building QA: test-results/quaternius-p8/report.json and 8 PNGs'
-  if($renderExit -ne 0 -or $summaryExit -ne 0 -or $taipeiRenderExit -ne 0 -or $streetblockExit -ne 0){throw 'Browser QA failed/incomplete; check P3, P7 and P8 evidence folders.'}
-  Write-Host 'Automated browser checks passed. Human screenshot review and real GPU benchmarks are not complete.'
+  $head=(& git rev-parse HEAD).Trim()
+  if($LASTEXITCODE -ne 0){throw 'Cannot resolve Git commit'}
+  Write-Host "P11 Isolated Quaternius QA | $branch | $head"
+  if(!$StaticOnly -and !$SkipInstall){
+    & npm ci --include=dev --no-audit --no-fund
+    if($LASTEXITCODE -ne 0){throw 'npm ci failed'}
+    & npx playwright install chromium
+    if($LASTEXITCODE -ne 0){throw 'Playwright chromium installation failed'}
+  }
+  # This local runner is self-contained. No GitHub Actions hosted runner required.
+  if($StaticOnly){
+    & node tools/quaternius-p11-local-qa.cjs --static-only
+  }else{
+    Remove-Item Env:\CHROMIUM_PATH -ErrorAction SilentlyContinue
+    & node tools/quaternius-p11-local-qa.cjs --full
+  }
+  $exit=$LASTEXITCODE
+  Write-Host 'P11 combined report: test-results/quaternius-p11/local-qa-report.json'
+  if(!$StaticOnly){
+    Write-Host 'P3 base models: test-results/quaternius-p3/'
+    Write-Host 'P7 facades: test-results/quaternius-p7/'
+    Write-Host 'P8/P9 five-shop block: test-results/quaternius-p8/'
+    Write-Host 'P10 evidence manifest: test-results/quaternius-p10/'
+  }
+  if($exit -ne 0){throw 'P11 QA incomplete/failed; inspect the P11 JSON for exact blocker.'}
+  if($StaticOnly){Write-Host 'Static QA finished. No WebGL screenshot has been validated.'}
+  else{Write-Host 'Automatic checks completed. Inspect all screenshots manually; production game still untested.'}
 }
 finally {Pop-Location}
