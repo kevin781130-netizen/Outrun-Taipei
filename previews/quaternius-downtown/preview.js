@@ -39,6 +39,27 @@ let loadGeneration = 0;
 let frameDistance = 7;
 let frameTarget = new THREE.Vector3(0, 1.5, 0);
 let night = false;
+// Read-only diagnostics for the isolated Chromium acceptance harness.
+Object.defineProperty(window,'__quaterniusPreviewProbe',{configurable:false,value:()=>{
+  if(!current)return {loaded:false,textures:[],meshCount:0};
+  const seen=new Set(),textures=[];
+  let meshCount=0;
+  current.traverse(node=>{
+    if(!node.isMesh)return;
+    meshCount++;
+    for(const mat of (Array.isArray(node.material)?node.material:[node.material])){
+      if(!mat)continue;
+      for(const prop of ['map','metalnessMap','roughnessMap','normalMap']){
+        const texture=mat[prop];
+        if(!texture || seen.has(texture.uuid))continue;
+        seen.add(texture.uuid);
+        const img=texture.image||texture.source?.data;
+        textures.push({width:img?.width||0,height:img?.height||0,ready:!!(img?.width&&img?.height),kind:prop});
+      }
+    }
+  });
+  return {loaded:true,meshCount,textures,model:$('asset').value};
+}});
 function frameModel() {
   camera.position.set(frameTarget.x + frameDistance*.9,frameTarget.y+frameDistance*.58,frameTarget.z+frameDistance*.94);
   controls.target.copy(frameTarget);
