@@ -24,6 +24,8 @@ try {
   if($LASTEXITCODE -ne 0){ throw 'P6 LOD static audit failed' }
   & node tests/quaternius-taipei-streetfront.cjs
   if($LASTEXITCODE -ne 0){ throw 'P7 Taipei facade static audit failed' }
+  & node tests/quaternius-streetblock.cjs
+  if($LASTEXITCODE -ne 0){ throw 'P8 deterministic streetblock audit failed' }
   Remove-Item Env:\CHROMIUM_PATH -ErrorAction SilentlyContinue
   & node tests/quaternius-render-acceptance.cjs
   $renderExit=$LASTEXITCODE
@@ -31,11 +33,14 @@ try {
   $summaryExit=$LASTEXITCODE
   & node tests/quaternius-taipei-browser.cjs
   $taipeiRenderExit=$LASTEXITCODE
+  & node tests/quaternius-streetblock-browser.cjs
+  $streetblockExit=$LASTEXITCODE
   Write-Host 'Raw evidence: test-results/quaternius-p3/report.json'
   Write-Host 'Visual review: test-results/quaternius-p3/review-index.md'
   Write-Host 'Screenshots: test-results/quaternius-p3/*.png'
   Write-Host 'Taipei facade QA: test-results/quaternius-p7/report.json and 24 PNGs'
-  if($renderExit -ne 0 -or $summaryExit -ne 0 -or $taipeiRenderExit -ne 0){throw 'Browser QA failed/incomplete; read both evidence folders.'}
+  Write-Host 'P8 multi-building QA: test-results/quaternius-p8/report.json and 8 PNGs'
+  if($renderExit -ne 0 -or $summaryExit -ne 0 -or $taipeiRenderExit -ne 0 -or $streetblockExit -ne 0){throw 'Browser QA failed/incomplete; check P3, P7 and P8 evidence folders.'}
   Write-Host 'Automated browser checks passed. Human screenshot review and real GPU benchmarks are not complete.'
 }
 finally {Pop-Location}
