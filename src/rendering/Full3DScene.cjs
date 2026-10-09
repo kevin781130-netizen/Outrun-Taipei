@@ -1,5 +1,6 @@
 'use strict';
 const {createVehicle3D} = require('./Vehicle3D.cjs');
+const {createKenneyStreetGeometry}=require('./KenneyStreetAssets.cjs');
 const {createVehiclePose, updateVehiclePose} = require('./VehiclePoseBridge.cjs');
 const {createDrivingVisualSnapshot,updateDrivingVisualSnapshot} = require('./DrivingVisualSnapshot.cjs');
 const {createDriftVisualRig,updateDriftVisualRig} = require('./DriftVisualRig.cjs');
@@ -81,15 +82,18 @@ function createFull3DScene(THREE,canvas) {
   return {x:center.x+lateral*s,y:center.y+height,z:center.z+lateral*c};
  };
  const boxG=geometry(new THREE.BoxGeometry(1,1,1));
- const coneG=geometry(new THREE.ConeGeometry(1,1,7));
+ const treeG=geometry(createKenneyStreetGeometry(THREE,'tree-small'));
+ const lampG=geometry(createKenneyStreetGeometry(THREE,'light-square'));
  const buildingMat=material(new THREE.MeshStandardMaterial({color:0xffffff,roughness:.82,metalness:.12}));
  const glassMat=material(new THREE.MeshStandardMaterial({color:0x547a93,roughness:.28,metalness:.35,emissive:0x101e32,emissiveIntensity:.28}));
- const treesMat=material(new THREE.MeshStandardMaterial({color:0x305548,roughness:1}));
- const polesMat=material(new THREE.MeshStandardMaterial({color:0xc1c3bd,metalness:.4,roughness:.55}));
+ const treesMat=material(new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:.95}));
+ const polesMat=material(new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,metalness:.32,roughness:.6}));
  const buildings=new THREE.InstancedMesh(boxG,buildingMat,120);
  const windows=new THREE.InstancedMesh(boxG,glassMat,120);
- const trees=new THREE.InstancedMesh(coneG,treesMat,120);
- const lights=new THREE.InstancedMesh(boxG,polesMat,50);
+ const trees=new THREE.InstancedMesh(treeG,treesMat,120);
+ trees.name='kenney-cc0-tree-small';
+ const lights=new THREE.InstancedMesh(lampG,polesMat,50);
+ lights.name='kenney-cc0-light-square';
  for(const mesh of [buildings,windows,trees,lights]){
   mesh.frustumCulled=false;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -197,14 +201,25 @@ function createFull3DScene(THREE,canvas) {
       dummy.position.set(anchor.x,anchor.y+height*.63,anchor.z+width*.42);
       dummy.updateMatrix();if(iw<120){windows.setMatrixAt(iw++,dummy.matrix);}
     }else{
-      const height=7+h*9;
-      dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
-      dummy.rotation.set(0,0,0);dummy.scale.set(2.7+h*2,height,2.7+h*2);
+      const height=7+h*9,scale=height/.567;
+      dummy.position.set(anchor.x,anchor.y,anchor.z);
+      dummy.rotation.set(0,0,0);dummy.scale.set(scale,scale,scale);
       dummy.updateMatrix();if(it<120)trees.setMatrixAt(it++,dummy.matrix);
     }
+    // Visual-only Taipei street trees; no collider, no gameplay state changes.
+    if(urban&&i%9===5&&it<120){
+      const treeAnchor=point(c,side*HALF_WIDTH*1.32,-.15);
+      const scale=(5.2+h*.9)/.567;
+      dummy.position.set(treeAnchor.x,treeAnchor.y,treeAnchor.z);
+      dummy.rotation.set(0,c.heading,0);dummy.scale.set(scale,scale,scale);
+      dummy.updateMatrix();trees.setMatrixAt(it++,dummy.matrix);
+    }
     if(i%12===5&&il<50){
-      dummy.position.set(point(c,side*HALF_WIDTH*1.3).x,c.y+5.2,c.z);
-      dummy.rotation.set(0,0,0);dummy.scale.set(.18,10,.18);
+      // CC0 lamp model is 0.6 high and its arm points along local -Z.
+      const lampAnchor=point(c,side*HALF_WIDTH*1.3,-.1);
+      dummy.position.set(lampAnchor.x,lampAnchor.y,lampAnchor.z);
+      dummy.rotation.set(0,c.heading+side*Math.PI/2,0);
+      const scale=10/.6;dummy.scale.set(scale,scale,scale);
       dummy.updateMatrix();lights.setMatrixAt(il++,dummy.matrix);
     }
    }
