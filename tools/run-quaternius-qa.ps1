@@ -26,6 +26,8 @@ try {
   if($LASTEXITCODE -ne 0){ throw 'P7 Taipei facade static audit failed' }
   & node tests/quaternius-streetblock.cjs
   if($LASTEXITCODE -ne 0){ throw 'P8 deterministic streetblock audit failed' }
+  & node tests/quaternius-sign-atlas.cjs
+  if($LASTEXITCODE -ne 0){ throw 'P9 shared-sign-atlas regression failed' }
   Remove-Item Env:\CHROMIUM_PATH -ErrorAction SilentlyContinue
   & node tests/quaternius-render-acceptance.cjs
   $renderExit=$LASTEXITCODE

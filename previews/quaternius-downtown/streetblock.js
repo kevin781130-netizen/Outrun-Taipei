@@ -3,12 +3,13 @@
 import * as THREE from 'three';
 import {GLTFLoader} from '../../assets/vendor/three-r149/jsm/loaders/GLTFLoader.js';
 import {OrbitControls} from '../../assets/vendor/three-r149/jsm/controls/OrbitControls.js';
-import {makeStreetblockPlan} from './streetblock-plan.mjs';
+import {makeStreetblockPlan,SHOP_SAMPLES} from './streetblock-plan.mjs';
+import {createStreetblockSigns} from './streetblock-signs.mjs';
 import {buildTaipeiStreetfrontPlan} from './taipei-streetfront.mjs';
 import {decideFacadeLod,FACADE_LOD_THRESHOLDS} from './lod-policy.mjs';
 
 const $=id=>document.getElementById(id);
-const write=(id,v)=>{$(id).textContent=String(v)};
+const write=(id,v)=>{const element=$(id),next=String(v);if(element.textContent!==next)element.textContent=next;};
 const assetDir='../../assets/third_party/quaternius-downtown/';
 const models=Object.create(null);
 const sourceTriangles=Object.create(null);
@@ -42,8 +43,12 @@ scene.add(ground);
 const sharedBox=new THREE.BoxGeometry(1,1,1);
 const tankGeo=new THREE.CylinderGeometry(.63,.63,.83,12);
 const dummy=new THREE.Object3D();
-const materials=new Map(),signs=new Map();
+const materials=new Map();
+const shopSigns=createStreetblockSigns(THREE,SHOP_SAMPLES,buildTaipeiStreetfrontPlan);
 let activeBlock=null,activePlan=null,instances=[],night=false;
+let lodDirty=true;
+const lodSample=new THREE.Vector3();
+controls.addEventListener('change',()=>{lodDirty=true;});
 const status=message=>write('street-status',message);
 
 function materialFor(style,palette,key){
@@ -90,40 +95,6 @@ function batchBoxes(group,descriptors,style,palette){
 }
 function rect(scale,position,material){
  return {scale,position,material};
-}
-function textSign(shop,palette,vertical){
- const key=shop+'|'+palette.signBg+'|'+vertical;
- if(signs.has(key))return signs.get(key);
- const c=document.createElement('canvas');
- c.width=vertical?192:1024;c.height=vertical?512:192;
- const ctx=c.getContext('2d');
- if(!ctx)throw new Error('Chinese sign needs 2D canvas');
- ctx.clearRect(0,0,c.width,c.height);
- ctx.fillStyle=palette.signText;
- ctx.textAlign='center';ctx.textBaseline='middle';
- const font='700 '+(vertical?64:91)+'px "Microsoft JhengHei","Noto Sans TC","PingFang TC",sans-serif';
- ctx.font=font;
- if(vertical){
-  const letters=[...shop.slice(-2)];
-  letters.forEach((letter,i)=>ctx.fillText(letter,c.width/2,158+i*175,150));
- }else{
-  ctx.fillText(shop,c.width/2,90,c.width-90);
-  ctx.font='500 30px "Microsoft JhengHei","Noto Sans TC","PingFang TC",sans-serif';
-  ctx.fillText('台北風格街屋・示範招牌',c.width/2,159,c.width-85);
- }
- const texture=new THREE.CanvasTexture(c);
- texture.encoding=THREE.sRGBEncoding;
- const mat=new THREE.MeshBasicMaterial({map:texture,transparent:true,side:THREE.DoubleSide,
-  depthWrite:false,toneMapped:false});
- signs.set(key,mat);
- return mat;
-}
-function labelMesh(shop,palette,vertical,model){
- const mesh=new THREE.Mesh(new THREE.PlaneGeometry(1,1),textSign(shop,palette,vertical));
- mesh.scale.set(model.size[0],model.size[1],1);
- mesh.position.set(...model.position);
- mesh.name='P8_OriginalChinese_'+(vertical?'vertical':'horizontal');
- return mesh;
 }
 function geometryCount(sceneRoot){
  let triangles=0;
@@ -173,10 +144,9 @@ function buildFacade(building){
  for(const y of [1.55,4.5])for(const x of [-3,3])
   farVolume.push(rect([2.9,1.7,.07],[x,y,-.35],'glass'));
  let farTris=batchBoxes(proxy,farVolume.concat(plan.farBoxes),building.style,plan.palette);
- for(const sign of plan.signs){
-  full.add(labelMesh(building.shop,plan.palette,sign.id==='vertical',sign));
-  nearTris+=2;
- }
+ // P9: both signs share one atlas texture/material and ONE indexed mesh.
+ full.add(shopSigns.makeShopSign(building,plan.signs));
+ nearTris+=plan.signs.length*2;
  // Rooftop metal water tank and two mounting supports (stylistic, visual only).
  if(building.rooftop==='tank'){
   const support=[
@@ -199,7 +169,7 @@ function cleanOld(){
   if(obj.isInstancedMesh&&typeof obj.dispose==='function')obj.dispose();
   // glTF geometries, text sign maps and materials are shared and retained.
   // Disposable plane geometries are owned by each sign.
-  if(obj.name.startsWith('P8_OriginalChinese_'))obj.geometry.dispose();
+  if(obj.name==='P9_AtlasMergedChineseSigns')obj.geometry.dispose();
  });
  activeBlock=null;
 }
@@ -223,19 +193,22 @@ function buildBlock(count){
  write('building-count',instances.length);
  write('shop-list',plan.buildings.map(b=>b.shop).join('　｜　'));
  write('block-width',plan.totalWidth.toFixed(2)+' m（僅預覽局部座標）');
+ const atlas=shopSigns.atlasMetrics();
+ write('sign-textures',atlas.atlasTextures+' 張（原本 '+(instances.length*2)+' 張）');
+ write('sign-vram',atlas.newTextureRGBA8KiB.toLocaleString()+' KiB（RGBA8 基礎層）');
  resetView();
+ lodDirty=true;
  applyLod();
  status('已建立 '+instances.length+' 棟 Quaternius 台北風格街屋（僅獨立預覽）');
 }
 function applyLod(){
- if(!instances.length)return;
+ if(!instances.length||!lodDirty)return;
  const mode=$('lod-mode').value;
  let near=0,far=0,budget=0;
- const sample=new THREE.Vector3();
  for(const item of instances){
-  sample.set(...item.building.position);
-  sample.y=3;
-  const distance=camera.position.distanceTo(sample);
+  lodSample.set(...item.building.position);
+  lodSample.y=3;
+  const distance=camera.position.distanceTo(lodSample);
   item.lod=decideFacadeLod({mode,distance,previous:item.lod,
     enterFar:FACADE_LOD_THRESHOLDS.enterFar,exitFar:FACADE_LOD_THRESHOLDS.exitFar});
   item.full.visible=item.lod==='near';item.proxy.visible=item.lod==='far';
@@ -243,6 +216,7 @@ function applyLod(){
  }
  write('lod-near',near);write('lod-far',far);
  write('budget',budget.toLocaleString());
+ lodDirty=false;
 }
 function toggleNight(){
  night=!night;
@@ -256,10 +230,10 @@ function toggleNight(){
  $('night').setAttribute('aria-pressed',String(night));
 }
 $('count').addEventListener('change',e=>buildBlock(Number(e.target.value)));
-$('lod-mode').addEventListener('change',applyLod);
+$('lod-mode').addEventListener('change',()=>{lodDirty=true;applyLod();});
 $('night').addEventListener('click',toggleNight);
 $('frame').addEventListener('click',resetView);
-let oldT=0,frames=0,elapsed=0;
+let oldT=0,frames=0,elapsed=0,lastMetrics=-Infinity;
 function tick(t){
  requestAnimationFrame(tick);
  const w=Math.max(1,canvas.clientWidth),h=Math.max(1,canvas.clientHeight);
@@ -267,8 +241,12 @@ function tick(t){
  if(size.x!==w||size.y!==h){renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
  controls.update();applyLod();
  renderer.render(scene,camera);
- write('calls',renderer.info.render.calls);
- write('triangles',renderer.info.render.triangles.toLocaleString());
+ // Throttle DOM stats; rendering still runs at requestAnimationFrame cadence.
+ if(t-lastMetrics>=250){
+  write('calls',renderer.info.render.calls);
+  write('triangles',renderer.info.render.triangles.toLocaleString());
+  lastMetrics=t;
+ }
  if(oldT&&t>oldT&&t-oldT<250){frames++;elapsed+=t-oldT;
   if(frames>=60){write('fps',(1000*frames/elapsed).toFixed(1));frames=0;elapsed=0;}
  }
