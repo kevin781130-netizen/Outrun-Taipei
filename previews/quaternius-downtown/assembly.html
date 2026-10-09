@@ -41,6 +41,12 @@ footer{padding:0 20px 24px;max-width:1460px;margin:auto;color:#adc3d5;font-size:
 <option value="metal">現代商辦立面</option>
 <option value="brick">磚造住宅立面</option>
 </select>
+<label for="lod-mode">建築細節（LOD）</label>
+<select id="lod-mode">
+<option value="auto">自動（28m 降細節，23m 恢復）</option>
+<option value="near">強制完整模型</option>
+<option value="far">強制低面數代理</option>
+</select>
 <button id="reset" type="button">重設鏡頭</button>
 <button id="lighting" type="button" aria-pressed="false">切換夜間照明</button>
 <div class="small">拖曳旋轉、滾輪縮放、右鍵平移。只是 10m × 6m 的立面樣板，並非任何真實台北建築。</div>
@@ -48,12 +54,16 @@ footer{padding:0 20px 24px;max-width:1460px;margin:auto;color:#adc3d5;font-size:
 <section class="panel"><h2>實際 WebGL 指標</h2>
 <dl>
 <dt>建築模組實例</dt><dd id="instances">—</dd>
-<dt>三角面（估計）</dt><dd id="triangles">—</dd>
+<dt>完整立面三角面（估計）</dt><dd id="triangles">—</dd>
+<dt>代理模型三角面（估計）</dt><dd id="far-tris">—</dd>
+<dt>當前 LOD</dt><dd id="lod-state">—</dd>
+<dt>當前立面三角面（估計）</dt><dd id="visible-tris">—</dd>
+<dt>鏡頭距離</dt><dd id="distance">—</dd>
 <dt>Draw Calls（每幀）</dt><dd id="calls">—</dd>
 <dt>RAF FPS（近 90 幀）</dt><dd id="fps">—</dd>
 <dt>畫面尺寸</dt><dd id="resolution">—</dd>
 </dl>
-<p class="small">僅供本機預覽效能觀測，不等於整個遊戲的 FPS 或手機 GPU 表現。</p>
+<p class="small">LOD 代理只改獨立預覽外觀，不替換遊戲車道或建築錨點。此 FPS 不等於整個遊戲或手機 GPU 表現。</p>
 </section>
 <section class="panel"><h2>安全範圍</h2>
 <div class="small">這是單獨的 HTML + JavaScript，沒有修改 <code>index.html</code>、<code>src/rendering/</code>、任何地圖、地標或玩法程式。</div>

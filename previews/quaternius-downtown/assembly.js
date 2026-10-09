@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import {GLTFLoader} from '../../assets/vendor/three-r149/jsm/loaders/GLTFLoader.js';
 import {OrbitControls} from '../../assets/vendor/three-r149/jsm/controls/OrbitControls.js';
+import {decideFacadeLod,FACADE_LOD_THRESHOLDS} from './lod-policy.mjs';
 
 const get = id => document.getElementById(id);
 const set = (id,value) => {get(id).textContent=String(value);};
@@ -57,8 +58,12 @@ const grid=new THREE.GridHelper(45,45,0x5f8192,0x3e586b);
 scene.add(grid);
 
 let facade=null;
+let nearFacade=null;
+let farFacade=null;
+let currentLod='near';
 let instances=0;
 let triangles=0;
+let farTriangles=0;
 let night=false;
 function resetCamera(){
  camera.position.set(12.6,8.4,15.4);
@@ -72,46 +77,74 @@ function cloneMod(id,x,y,z=0){
  if(!template)throw Error('Missing module '+name);
  const piece=template.clone(true);
  piece.position.set(x,y,z);
- facade.add(piece);
+ nearFacade.add(piece);
  instances++;
  triangles+=geometryTriangles[name];
 }
 const mat={
  brick:new THREE.MeshStandardMaterial({color:0x8e8274,metalness:.04,roughness:.91}),
  metal:new THREE.MeshStandardMaterial({color:0x788a96,metalness:.21,roughness:.73}),
- trim:new THREE.MeshStandardMaterial({color:0x5c676c,roughness:.78})
+ trim:new THREE.MeshStandardMaterial({color:0x5c676c,roughness:.78}),
+ windows:new THREE.MeshStandardMaterial({color:0x263e50,metalness:.25,roughness:.24}),
+ entry:new THREE.MeshStandardMaterial({color:0x303740,roughness:.64})
 };
+// One shared box geometry across both LODs and style switches.
+const unitBox=new THREE.BoxGeometry(1,1,1);
+function box(parent,scale,position,material){
+ const mesh=new THREE.Mesh(unitBox,material);
+ mesh.scale.set(...scale);mesh.position.set(...position);
+ parent.add(mesh);return mesh;
+}
+function updateLod(){
+ if(!nearFacade||!farFacade)return;
+ const distance=camera.position.distanceTo(controls.target);
+ currentLod=decideFacadeLod({
+  mode:get('lod-mode').value,distance,previous:currentLod,
+  enterFar:FACADE_LOD_THRESHOLDS.enterFar,exitFar:FACADE_LOD_THRESHOLDS.exitFar
+ });
+ nearFacade.visible=currentLod==='near';
+ farFacade.visible=currentLod==='far';
+ set('lod-state',currentLod==='near'?'完整模組':'低面數代理');
+ set('distance',distance.toFixed(1)+' m');
+ set('visible-tris',(currentLod==='near'?triangles:farTriangles).toLocaleString());
+}
 function rebuild(style){
  if(facade)scene.remove(facade);
  facade=new THREE.Group();
  facade.name='P4_VisualOnlyFacade';
+ nearFacade=new THREE.Group();
+ farFacade=new THREE.Group();
+ facade.add(nearFacade,farFacade);
  scene.add(facade);
- instances=0;
- triangles=0;
+ instances=0;triangles=0;farTriangles=0;
  const isMetal=style==='metal',isBrick=style==='brick';
  const left=isMetal?'metalWindow':'brickWindow';
  const right=isBrick?'brickWindow':'metalWindow';
  const wallMaterial=isMetal?mat.metal:mat.brick;
- const volume=new THREE.Mesh(new THREE.BoxGeometry(10.35,6.2,2.1),wallMaterial);
- volume.position.set(0,3.1,-1.46);
- facade.add(volume);
- const roof=new THREE.Mesh(new THREE.BoxGeometry(10.65,.28,2.5),mat.trim);
- roof.position.set(0,6.32,-1.33);
- facade.add(roof);
- const doorstep=new THREE.Mesh(new THREE.BoxGeometry(2,.12,.6),mat.trim);
- doorstep.position.set(0,.06,.32);
- facade.add(doorstep);
- // Ground: 4m window / 2m entry / 4m window.
+ // Full Quaternius detail: the existing facade layout remains unchanged.
+ box(nearFacade,[10.35,6.2,2.1],[0,3.1,-1.46],wallMaterial);
+ box(nearFacade,[10.65,.28,2.5],[0,6.32,-1.33],mat.trim);
+ box(nearFacade,[2,.12,.6],[0,.06,.32],mat.trim);
+ triangles+=36;
  cloneMod(left,-3,0);
  cloneMod('door',0,0);
  cloneMod(right,3,0);
- // Upper: 4m window / 2m infill (3×1m panels) / 4m window.
  cloneMod(left,-3,3);
  for(let y=3;y<6;y++)cloneMod('brickWall',0,y);
  cloneMod(right,3,3);
+ // Cheap visual-only proxy: same volume and windows but no GLTF draw calls.
+ box(farFacade,[10.35,6.2,2.1],[0,3.1,-1.46],wallMaterial);
+ box(farFacade,[10.65,.28,2.5],[0,6.32,-1.33],mat.trim);
+ box(farFacade,[1.45,2.45,.07],[0,1.25,-.35],mat.entry);
+ for(const y of [1.55,4.5])for(const x of [-3,3])
+  box(farFacade,[2.9,1.7,.07],[x,y,-.35],mat.windows);
+ farTriangles=farFacade.children.length*12; // Seven low-detail cuboids.
+ currentLod='near';
  set('instances',instances);
  set('triangles',triangles.toLocaleString());
- set('status','樣板已組合 · 所有模組只用於獨立預覽');
+ set('far-tris',farTriangles.toLocaleString());
+ set('status','LOD 樣板已組合 · 完整模組／低面數代理皆為獨立預覽');
+ updateLod();
 }
 function toggleLighting(){
  night=!night;
@@ -124,6 +157,7 @@ function toggleLighting(){
 }
 get('style').addEventListener('change',e=>{if(facade)rebuild(e.target.value);});
 get('reset').addEventListener('click',resetCamera);
+get('lod-mode').addEventListener('change',updateLod);
 get('lighting').addEventListener('click',toggleLighting);
 
 const frames=[];
@@ -137,6 +171,7 @@ function tick(t){
   set('resolution',w+'×'+h);
  }
  controls.update();
+ updateLod();
  renderer.render(scene,camera);
  set('calls',renderer.info.render.calls);
  if(frames.length){
