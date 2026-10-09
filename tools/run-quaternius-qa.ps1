@@ -20,15 +20,22 @@ try {
   if($LASTEXITCODE -ne 0){ throw 'Quaternius assets static audit failed' }
   & node tests/quaternius-assembly.cjs
   if($LASTEXITCODE -ne 0){ throw 'Facade composition static audit failed' }
+  & node tests/quaternius-lod.cjs
+  if($LASTEXITCODE -ne 0){ throw 'P6 LOD static audit failed' }
+  & node tests/quaternius-taipei-streetfront.cjs
+  if($LASTEXITCODE -ne 0){ throw 'P7 Taipei facade static audit failed' }
   Remove-Item Env:\CHROMIUM_PATH -ErrorAction SilentlyContinue
   & node tests/quaternius-render-acceptance.cjs
   $renderExit=$LASTEXITCODE
   & node tools/summarize-quaternius-qa.cjs
   $summaryExit=$LASTEXITCODE
+  & node tests/quaternius-taipei-browser.cjs
+  $taipeiRenderExit=$LASTEXITCODE
   Write-Host 'Raw evidence: test-results/quaternius-p3/report.json'
   Write-Host 'Visual review: test-results/quaternius-p3/review-index.md'
   Write-Host 'Screenshots: test-results/quaternius-p3/*.png'
-  if($renderExit -ne 0 -or $summaryExit -ne 0){throw 'Browser QA failed/incomplete; read the evidence.'}
+  Write-Host 'Taipei facade QA: test-results/quaternius-p7/report.json and 24 PNGs'
+  if($renderExit -ne 0 -or $summaryExit -ne 0 -or $taipeiRenderExit -ne 0){throw 'Browser QA failed/incomplete; read both evidence folders.'}
   Write-Host 'Automated browser checks passed. Human screenshot review and real GPU benchmarks are not complete.'
 }
 finally {Pop-Location}

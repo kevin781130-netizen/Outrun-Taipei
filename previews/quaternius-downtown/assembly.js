@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import {GLTFLoader} from '../../assets/vendor/three-r149/jsm/loaders/GLTFLoader.js';
 import {OrbitControls} from '../../assets/vendor/three-r149/jsm/controls/OrbitControls.js';
 import {decideFacadeLod,FACADE_LOD_THRESHOLDS} from './lod-policy.mjs';
+import {createTaipeiStreetfrontArtist} from './taipei-streetfront-renderer.mjs';
 
 const get = id => document.getElementById(id);
 const set = (id,value) => {get(id).textContent=String(value);};
@@ -95,6 +96,7 @@ function box(parent,scale,position,material){
  mesh.scale.set(...scale);mesh.position.set(...position);
  parent.add(mesh);return mesh;
 }
+const taipeiArtist=createTaipeiStreetfrontArtist(THREE,box);
 function updateLod(){
  if(!nearFacade||!farFacade)return;
  const distance=camera.position.distanceTo(controls.target);
@@ -138,7 +140,14 @@ function rebuild(style){
  box(farFacade,[1.45,2.45,.07],[0,1.25,-.35],mat.entry);
  for(const y of [1.55,4.5])for(const x of [-3,3])
   box(farFacade,[2.9,1.7,.07],[x,y,-.35],mat.windows);
- farTriangles=farFacade.children.length*12; // Seven low-detail cuboids.
+ farTriangles=farFacade.children.length*12; // Seven low-detail cuboids (P6 baseline).
+ // P7 original Taipei-inspired frontage is applied only to the isolated preview.
+ const extra=taipeiArtist.attach(style,nearFacade,farFacade);
+ triangles+=extra.nearTriangles;
+ farTriangles+=extra.farTriangles;
+ set('taipei-preset',extra.profileLabel);
+ set('taipei-shop',extra.shopLabel);
+ set('taipei-objects',extra.nearObjects);
  currentLod='near';
  set('instances',instances);
  set('triangles',triangles.toLocaleString());
@@ -152,6 +161,7 @@ function toggleLighting(){
  hemi.intensity=night?0.65:2.1;
  key.intensity=night?.4:2.0;
  fill.intensity=night?1.15:.85;
+ taipeiArtist.setNight(night);
  get('lighting').setAttribute('aria-pressed',String(night));
  get('lighting').textContent=night?'切換日間照明':'切換夜間照明';
 }

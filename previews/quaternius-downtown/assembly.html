@@ -26,7 +26,7 @@ footer{padding:0 20px 24px;max-width:1460px;margin:auto;color:#adc3d5;font-size:
 <body>
 <header>
 <h1>台北街景建築立面｜Quaternius CC0 組合樣板</h1>
-<p>獨立美術實驗。沿用免費 Quaternius 牆面／窗戶／門框，僅模擬建築立面。不讀取或修改遊戲地圖、路線、碰撞或玩法。</p>
+<p>獨立美術實驗：Quaternius CC0 牆面＋台北常見的騎樓、繁體中文招牌、遮雨棚、陽台與冷氣室外機（原創虛構店名）。不讀取或修改遊戲地圖、路線、碰撞或玩法。</p>
 </header>
 <main>
 <div class="viewport" aria-label="獨立 3D 建築樣板">
@@ -37,9 +37,9 @@ footer{padding:0 20px 24px;max-width:1460px;margin:auto;color:#adc3d5;font-size:
 <section class="panel"><h2>立面組合</h2>
 <label for="style">建築樣式</label>
 <select id="style">
-<option value="mixed">混合街區立面</option>
-<option value="metal">現代商辦立面</option>
-<option value="brick">磚造住宅立面</option>
+<option value="mixed">騎樓店住混合｜巷口食堂</option>
+<option value="metal">都會轉角茶舖｜街角茶舖</option>
+<option value="brick">磚造生活街屋｜日常雜貨</option>
 </select>
 <label for="lod-mode">建築細節（LOD）</label>
 <select id="lod-mode">
@@ -49,11 +49,14 @@ footer{padding:0 20px 24px;max-width:1460px;margin:auto;color:#adc3d5;font-size:
 </select>
 <button id="reset" type="button">重設鏡頭</button>
 <button id="lighting" type="button" aria-pressed="false">切換夜間照明</button>
-<div class="small">拖曳旋轉、滾輪縮放、右鍵平移。只是 10m × 6m 的立面樣板，並非任何真實台北建築。</div>
+<div class="small">拖曳旋轉、滾輪縮放、右鍵平移。示範立面約 10m × 6m，並非真實地標；店名皆為虛構。繁體中文招牌由瀏覽器字型繪製。</div>
 </section>
 <section class="panel"><h2>實際 WebGL 指標</h2>
 <dl>
 <dt>建築模組實例</dt><dd id="instances">—</dd>
+<dt>台北立面原型</dt><dd id="taipei-preset">—</dd>
+<dt>原創示範招牌</dt><dd id="taipei-shop">—</dd>
+<dt>近景裝飾物件</dt><dd id="taipei-objects">—</dd>
 <dt>完整立面三角面（估計）</dt><dd id="triangles">—</dd>
 <dt>代理模型三角面（估計）</dt><dd id="far-tris">—</dd>
 <dt>當前 LOD</dt><dd id="lod-state">—</dd>
@@ -63,7 +66,7 @@ footer{padding:0 20px 24px;max-width:1460px;margin:auto;color:#adc3d5;font-size:
 <dt>RAF FPS（近 90 幀）</dt><dd id="fps">—</dd>
 <dt>畫面尺寸</dt><dd id="resolution">—</dd>
 </dl>
-<p class="small">LOD 代理只改獨立預覽外觀，不替換遊戲車道或建築錨點。此 FPS 不等於整個遊戲或手機 GPU 表現。</p>
+<p class="small">建築騎樓與招牌只出現在獨立預覽，不代表可通行的遊戲碰撞區。此 FPS 不等於整個遊戲或手機 GPU 表現；視覺及效能尚未實際驗收。</p>
 </section>
 <section class="panel"><h2>安全範圍</h2>
 <div class="small">這是單獨的 HTML + JavaScript，沒有修改 <code>index.html</code>、<code>src/rendering/</code>、任何地圖、地標或玩法程式。</div>
