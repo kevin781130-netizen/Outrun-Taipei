@@ -1,0 +1,98 @@
+name: Quaternius Art Branch Visual QA (isolated)
+on:
+  push:
+    branches:
+      - art/quaternius-downtown-buildings-p1
+    paths:
+      - '.github/workflows/quaternius-art-qa.yml'
+      - 'previews/quaternius-downtown/**'
+      - 'assets/third_party/quaternius-downtown/**'
+      - 'assets/vendor/three-r149/**'
+      - 'assets/vendor/three-r149-esm-shim.js'
+      - 'tests/quaternius-*'
+      - 'tools/quaternius-*'
+      - 'tools/run-quaternius-qa.ps1'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: quaternius-isolated-art-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  art-browser-qa:
+    if: github.ref == 'refs/heads/art/quaternius-downtown-buildings-p1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      NODE_ENV: test
+    steps:
+      - name: Fetch independent art branch without altering main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate branch-only file boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only origin/main...HEAD > /tmp/quaternius-changed-files.txt
+          cat /tmp/quaternius-changed-files.txt
+          if grep -Ev '^(assets/third_party/quaternius-downtown/|assets/vendor/three-r149/|assets/vendor/three-r149-esm-shim.js$|previews/quaternius-downtown/|tests/quaternius-|docs/P([1-9]|10)_Quaternius|docs/P7_Taipei_|tools/run-quaternius-qa.ps1$|tools/summarize-quaternius-qa.cjs$|tools/quaternius-|.github/workflows/quaternius-art-qa.yml$)' /tmp/quaternius-changed-files.txt; then
+            echo "::error::Found unauthorized art-branch changes to non-preview files"
+            exit 1
+          fi
+      - name: Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked development tools
+        run: npm ci --no-audit --no-fund
+      - name: Run static art, geometry and Chinese atlas tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/quaternius-preview.cjs
+          node tests/quaternius-assembly.cjs
+          node tests/quaternius-lod.cjs
+          node tests/quaternius-taipei-streetfront.cjs
+          node tests/quaternius-streetblock.cjs
+          node tests/quaternius-sign-atlas.cjs
+      - name: Install Chromium and Traditional Chinese test fonts
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright install --with-deps chromium
+          sudo apt-get update -qq
+          sudo apt-get install -y fonts-noto-cjk
+          fc-match 'Noto Sans CJK TC' || true
+      - name: P3 base modules - real headless Chromium screenshots
+        run: node tests/quaternius-render-acceptance.cjs
+      - name: P3 evidence validation and manual-review index
+        if: always()
+        run: |
+          if [ -f test-results/quaternius-p3/report.json ]; then
+            node tools/summarize-quaternius-qa.cjs
+          fi
+      - name: P7 independent Taipei facade - real headless Chromium screenshots
+        if: success()
+        run: node tests/quaternius-taipei-browser.cjs
+      - name: P8/P9 five-shop streetblock and shared-sign atlas - real headless Chromium screenshots
+        if: success()
+        run: node tests/quaternius-streetblock-browser.cjs
+      - name: P10 derive near/far comparison and evidence manifest
+        if: always()
+        run: node tools/quaternius-p10-report.cjs
+      - name: Preserve branch-only screenshots and reports for visual review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quaternius-art-visual-qa-${{ github.sha }}
+          path: |
+            test-results/quaternius-p3/
+            test-results/quaternius-p7/
+            test-results/quaternius-p8/
+            test-results/quaternius-p10/
+          if-no-files-found: warn
+          retention-days: 14
