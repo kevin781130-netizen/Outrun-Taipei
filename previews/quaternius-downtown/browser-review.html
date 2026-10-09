@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>P12｜Quaternius 台北街屋瀏覽器畫面驗收台</title>
+<title>P13｜Quaternius 台北街屋瀏覽器畫面驗收台</title>
 <style>
 :root{color-scheme:dark;font-family:system-ui,-apple-system,"Noto Sans TC","Microsoft JhengHei",sans-serif;color:#e7f0fa;background:#0c1521}
 *{box-sizing:border-box}body{margin:0}
@@ -33,13 +33,14 @@ code{color:#a8dcff}a{color:#95e0dc}
 </head>
 <body>
 <header>
-<h1>P12｜台北街屋 3D 瀏覽器畫面驗收台</h1>
-<p>Quaternius CC0 獨立美術預覽。直接用你的瀏覽器擷取 24 組真實 WebGL 畫面，無需 GitHub Actions、Playwright 或 npm。<strong>不載入正式遊戲，不修改 main、路線或玩法。</strong></p>
+<h1>P13｜台北街屋 3D 瀏覽器畫面驗收台</h1>
+<p>Quaternius CC0 獨立美術預覽。直接用你的瀏覽器擷取 24 組真實 WebGL 畫面，完整尺寸保存在 ZIP，無需 GitHub Actions、Playwright 或 npm。<strong>不載入正式遊戲，不修改 main、路線或玩法。</strong></p>
 </header>
 <main>
 <article>
 <section class="panel">
 <h2>24 張畫面聯絡表（需實際擷取）</h2>
+<p class="small">第十三刀可匯出 28 個檔案：24 張單獨 PNG、聯絡表 PNG、報告 JSON、SHA-256 檢查碼及操作說明，全部放入 ZIP。</p>
 <p class="small">矩陣：3／5／7 棟 × 桌機／手機尺寸 × 完整／遠景 LOD × 白天／夜間。下方的圖像僅在按「開始擷取」後由這台電腦的真實瀏覽器產生。</p>
 <canvas id="contact-sheet" width="1440" height="1536" aria-label="真實 3D 預覽畫面對照表"></canvas>
 <p class="small warn">每張畫面的像素是否正確、招牌繁體中文字形、模型碰撞感及光影品質仍須人工目視。這不代表正式遊戲部署驗收。</p>
@@ -54,6 +55,7 @@ code{color:#a8dcff}a{color:#95e0dc}
 <div class="actions">
 <button id="start-review" class="primary" type="button">開始擷取 24 組畫面</button>
 <button id="save-image" type="button" disabled>下載畫面聯絡表 PNG</button>
+<button id="save-bundle" type="button" disabled>一鍵下載 24 張原始 PNG＋報告 ZIP</button>
 <button id="save-report" type="button" disabled>下載檢查紀錄 JSON</button>
 </div>
 <div id="progress" role="status" aria-live="polite">尚未開始。</div>
@@ -68,7 +70,7 @@ code{color:#a8dcff}a{color:#95e0dc}
 <p class="small">在完整 GitHub 專案根目錄、且已切換至 <code>art/quaternius-downtown-buildings-p1</code> 後執行：</p>
 <pre><code>python -m http.server 8000</code></pre>
 <p class="small">開啟：<a href="./browser-review.html">此驗收頁（同源）</a>。如果直接雙擊 HTML 或缺少 Quaternius glTF／BIN／貼圖，瀏覽器可能因檔案安全政策而無法載入。</p>
-<p class="small">擷取完成後，將 PNG 與 JSON 提供給我，才能根據實際畫面判斷台北風格、招牌與 LOD 問題。</p>
+<p class="small">擷取完成後，將 ZIP 提供給我（內含完整尺寸 PNG 與 JSON），才能根據實際畫面判斷台北風格、招牌與 LOD 問題。</p>
 </section>
 </aside>
 </main>
