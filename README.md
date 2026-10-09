@@ -179,3 +179,5 @@ npm run test:browser
 ```
 
 V48 已擴充至 855 項遊戲狀態／幾何／流程檢查，另保留 8 項 Twin Link 配對核心檢查；瀏覽器測試持續覆蓋桌機、手機直向與手機橫向並收集 JavaScript runtime error。
+
+P16 雲端實際 Chromium 監督結果：Quaternius P15 實驗版完成桌機／行動尺寸 6 張 WebGL 截圖與新建築開關、回退檢查，GitHub Actions [第二輪成功](https://github.com/kevin781130-netizen/GAME-TEST-LAB/actions/runs/37982824315)；原版入口未修改。資料由公開部署的獨立實驗版取得，機器測試不等於真實手機 GPU FPS。
