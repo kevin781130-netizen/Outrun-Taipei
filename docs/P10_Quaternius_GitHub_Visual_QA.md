@@ -16,6 +16,19 @@ It executes `npm ci`, all existing isolated P2–P9 art static checks, Playwrigh
 
 The reports and PNGs are retained by the **`quaternius-art-visual-qa-<commit>`** GitHub Actions artifact for 14 days. `tools/quaternius-p10-report.cjs` can also be run locally; its reports are only based on **existing run results**, and explicitly say INCOMPLETE when missing.
 
+## First GitHub-hosted execution — definitive observed result
+
+- **Attempt:** [GitHub Actions run #37959555331](https://github.com/kevin781130-netizen/Outrun-Taipei/actions/runs/37959555331)
+- **Trigger:** `push`, branch `art/quaternius-downtown-buildings-p1`.
+- **Commit checked:** `b1874c43e6bea9e687541b6ba2694d80791e07ea`.
+- **Execution status:** `completed / failure`; recorded at 2026-10-09 16:30 UTC.
+- **Job:** `art-browser-qa`, id `113918611735`.
+- **Infrastructure observation:** `runner_id: 0`, no named runner, **zero step summaries**; job lifetime about four seconds.
+- **Artifacts:** **0**.
+- **Conclusion:** failed **before** any npm, node, Playwright or WebGL step could run. This is **not evidence of failing renderer code**, nor a successful or failed visual acceptance. Actual screenshot/FPS outcome remains **NOT TESTED**.
+- **Next prerequisite:** inspect the run banner and repository/organization Actions, runner and billing/usage configuration to find why no runner was assigned. The precise root cause is **not established** by the available metadata. Do not infer that it was necessarily billing.
+- **Fallback:** use `tools/run-quaternius-qa.ps1` on an appropriately configured Windows checkout and manually inspect the screenshot artifacts.
+
 ## Strict verification language
 
 - **GitHub Actions job queued**: NOT a test pass.
