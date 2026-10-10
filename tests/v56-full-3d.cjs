@@ -38,6 +38,7 @@ const build=()=>({
  speedKmh:140,direction:1,braking:false,boosting:false
 });
 const frame=build();
+const beforeArtRender=JSON.stringify(frame);
 assert.equal(world.ready,false);
 assert.equal(world.render(frame,1/60,960,540,'STANDARD'),true);
 assert.equal(world.ready,true);
@@ -61,6 +62,16 @@ car.traverse(o=>{
 assert(tailZ>headZ,'rear lights face chase camera; no 180 degree inversion');
 assert.equal(car.rotation.y,0,'do not rotate body backwards');
 assert(instanced.length>=4,'actual 3D roadside/landscape instances');
+const cc0Tree=instanced.find(n=>n.name==='kenney-cc0-tree-small');
+const cc0Lamp=instanced.find(n=>n.name==='kenney-cc0-light-square');
+assert(cc0Tree&&cc0Lamp,'actual Kenney CC0 roadside meshes must be rendered');
+assert(cc0Tree.count>0,'urban route must show street trees');
+assert(cc0Lamp.count>0,'street light fixtures must be populated');
+for(const item of [cc0Tree,cc0Lamp]){
+ assert(item.geometry.getAttribute('position').count>100,'use real CC0 OBJ triangles, not proxy primitives');
+ assert.equal(item.geometry.getAttribute('color').itemSize,3,'source UV palette must be baked into vertex colors');
+}
+assert.equal(JSON.stringify(frame),beforeArtRender,'art renderer must not mutate physics or routes');
 assert(meshTypes.has('Mesh'));
 const drifting={driftState:'drift',isDrifting:true,driftAngleDeg:24,slipAngleDeg:13,driftDirection:1,lateralVelocity:.4,roadGrip:.94,cleanDriftTime:.7,exitBoost:0,momentBoostWindow:0,driftCharge:53,nitroActive:false,yawDeg:31};
 assert.equal(world.render({...frame,playerX:.7,carColor:'#f0f4f8',speedKmh:220,yawDeg:31,driving:drifting},1/60,720,405,'LOW'),true);

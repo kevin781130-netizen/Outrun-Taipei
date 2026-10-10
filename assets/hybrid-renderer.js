@@ -504,9 +504,404 @@ function updateDriftVisualRig(rig,drive,dtSeconds){
 module.exports={createDriftVisualRig,updateDriftVisualRig,resetDriftVisualRig};
 
   },
+  "./KenneyStreetAssets.cjs": function(require, module) {
+'use strict';
+// Kenney's original CC0 OBJ geometry (City Kit Roads and City Kit Suburban).
+// The vertex/UV/face source records below are embedded for the offline browser build.
+// License and provenance: docs/V56_CC0_Street_Art.md.
+const SOURCES=Object.freeze({
+ 'light-square':String.raw`# Created by Kenney (www.kenney.nl)
+
+mtllib light-square.mtl
+
+g light-square
+
+v 0.0125 0.6 -0.0125 1 1 1
+v 0.0125 0.59375 0.00625 1 1 1
+v -0.0125 0.6 -0.0125 1 1 1
+v -0.0125 0.59375 0.00625 1 1 1
+v -0.0125 0.15 -0.0125 1 1 1
+v 0.0125 0.15 -0.0125 1 1 1
+v -0.0125 0.575 -0.0125 1 1 1
+v 0.0125 0.575 -0.0125 1 1 1
+v 0.0125 0.575 0.0125 1 1 1
+v -0.0125 0.575 0.0125 1 1 1
+v 0.0125 0.6 -0.1125 1 1 1
+v 0.0125 0.575 -0.1125 1 1 1
+v 0.0125 0.15 0.0125 1 1 1
+v 0.025 0.6 -0.2125 1 1 1
+v 0.025 0.575 -0.2125 1 1 1
+v 0.025 0.6 -0.1625 1 1 1
+v 0.025 0.575 -0.1625 1 1 1
+v -0.025 0.575 -0.2125 1 1 1
+v -0.025 0.6 -0.2125 1 1 1
+v -0.025 0.575 -0.1625 1 1 1
+v -0.025 0.6 -0.1625 1 1 1
+v -0.0125 0.15 0.0125 1 1 1
+v -0.0125 0.6 -0.1125 1 1 1
+v -0.0125 0.575 -0.1125 1 1 1
+v 0.025 0 0.025 1 1 1
+v 0.025 0 -0.025 1 1 1
+v -0.025 0 0.025 1 1 1
+v -0.025 0 -0.025 1 1 1
+v -0.025 0.1 -0.025 1 1 1
+v -0.025 0.1 0.025 1 1 1
+v 0.025 0.1 -0.025 1 1 1
+v 0.025 0.1 0.025 1 1 1
+
+vn 0 0.9870875 0.1601822
+vn 0 0.7071068 0.7071068
+vn 0 0 -1
+vn 0 0.1601822 0.9870875
+vn 0.9925076 0 0.1221833
+vn 1 0 0
+vn -1 0 0
+vn -0.9925076 0 0.1221833
+vn 0 0 1
+vn 0 1 0
+vn 0 -1 0
+vn -0.9936895 0.1121652 0
+vn -0.9701425 0.2425356 0
+vn 0 0.1121652 -0.9936895
+vn 0 0.2425356 -0.9701425
+vn 0.9936895 0.1121652 0
+vn 0.9701425 0.2425356 0
+vn 0 0.1121652 0.9936895
+vn 0 0.2425356 0.9701425
+
+vt 0.96875 0.225
+vt 0.96875 0.2229166
+vt 0.96875 0.075
+vt 0.96875 0.2166666
+vt 0.96875 0.1416667
+vt 0.96875 0.175
+vt 0.03125 0.375
+
+usemtl colormap
+
+f 3/1/1 2/2/2 1/1/1
+f 2/2/2 3/1/1 4/2/2
+f 7/4/3 6/3/3 5/3/3
+f 6/3/3 7/4/3 8/4/3
+f 2/2/2 10/4/4 9/4/4
+f 10/4/4 2/2/2 4/2/2
+f 1/1/6 12/4/5 11/1/5
+f 12/4/5 1/1/6 8/4/6
+f 8/4/6 1/1/6 2/2/6
+f 8/4/6 2/2/6 6/3/6
+f 6/3/6 2/2/6 13/3/6
+f 13/3/6 2/2/6 9/4/6
+f 16/1/5 15/4/6 14/1/6
+f 15/4/6 16/1/5 17/4/5
+f 20/4/8 19/1/7 18/4/7
+f 19/1/7 20/4/8 21/1/8
+f 19/1/3 15/4/3 18/4/3
+f 15/4/3 19/1/3 14/1/3
+f 9/4/4 22/3/9 13/3/9
+f 22/3/9 9/4/4 10/4/4
+f 19/1/10 16/1/10 14/1/10
+f 16/1/10 19/1/10 11/1/10
+f 11/1/10 19/1/10 1/1/1
+f 1/1/1 19/1/10 23/1/10
+f 23/1/10 19/1/10 21/1/10
+f 3/1/1 1/1/1 23/1/10
+f 22/3/7 7/4/7 5/3/7
+f 7/4/7 22/3/7 3/1/7
+f 3/1/7 22/3/7 4/2/7
+f 4/2/7 22/3/7 10/4/7
+f 23/1/8 7/4/7 3/1/7
+f 7/4/7 23/1/8 24/4/8
+f 11/1/5 17/4/5 16/1/5
+f 17/4/5 11/1/5 12/4/5
+f 24/4/8 21/1/8 20/4/8
+f 21/1/8 24/4/8 23/1/8
+f 7/4/11 12/4/11 8/4/11
+f 12/4/11 7/4/11 24/4/11
+f 27/3/11 26/3/11 25/3/11
+f 26/3/11 27/3/11 28/3/11
+f 30/5/12 5/6/13 29/5/12
+f 5/6/13 30/5/12 22/6/13
+f 5/6/15 31/5/14 29/5/14
+f 31/5/14 5/6/15 6/6/15
+f 32/5/16 26/3/6 31/5/16
+f 26/3/6 32/5/16 25/3/6
+f 29/5/14 26/3/3 28/3/3
+f 26/3/3 29/5/14 31/5/14
+f 6/6/17 32/5/16 31/5/16
+f 32/5/16 6/6/17 13/6/17
+f 27/3/7 29/5/12 28/3/7
+f 29/5/12 27/3/7 30/5/12
+f 13/6/19 30/5/18 32/5/18
+f 30/5/18 13/6/19 22/6/19
+f 32/5/18 27/3/9 25/3/9
+f 27/3/9 32/5/18 30/5/18
+f 12/7/11 15/7/11 17/7/11
+f 15/7/11 12/7/11 18/7/11
+f 18/7/11 12/7/11 24/7/11
+f 18/7/11 24/7/11 20/7/11
+
+g light-square
+
+
+
+
+usemtl colormap
+
+f 3/1/1 2/2/2 1/1/1
+f 2/2/2 3/1/1 4/2/2
+f 7/4/3 6/3/3 5/3/3
+f 6/3/3 7/4/3 8/4/3
+f 2/2/2 10/4/4 9/4/4
+f 10/4/4 2/2/2 4/2/2
+f 1/1/6 12/4/5 11/1/5
+f 12/4/5 1/1/6 8/4/6
+f 8/4/6 1/1/6 2/2/6
+f 8/4/6 2/2/6 6/3/6
+f 6/3/6 2/2/6 13/3/6
+f 13/3/6 2/2/6 9/4/6
+f 16/1/5 15/4/6 14/1/6
+f 15/4/6 16/1/5 17/4/5
+f 20/4/8 19/1/7 18/4/7
+f 19/1/7 20/4/8 21/1/8
+f 19/1/3 15/4/3 18/4/3
+f 15/4/3 19/1/3 14/1/3
+f 9/4/4 22/3/9 13/3/9
+f 22/3/9 9/4/4 10/4/4
+f 19/1/10 16/1/10 14/1/10
+f 16/1/10 19/1/10 11/1/10
+f 11/1/10 19/1/10 1/1/1
+f 1/1/1 19/1/10 23/1/10
+f 23/1/10 19/1/10 21/1/10
+f 3/1/1 1/1/1 23/1/10
+f 22/3/7 7/4/7 5/3/7
+f 7/4/7 22/3/7 3/1/7
+f 3/1/7 22/3/7 4/2/7
+f 4/2/7 22/3/7 10/4/7
+f 23/1/8 7/4/7 3/1/7
+f 7/4/7 23/1/8 24/4/8
+f 11/1/5 17/4/5 16/1/5
+f 17/4/5 11/1/5 12/4/5
+f 24/4/8 21/1/8 20/4/8
+f 21/1/8 24/4/8 23/1/8
+f 7/4/11 12/4/11 8/4/11
+f 12/4/11 7/4/11 24/4/11
+f 27/3/11 26/3/11 25/3/11
+f 26/3/11 27/3/11 28/3/11
+f 30/5/12 5/6/13 29/5/12
+f 5/6/13 30/5/12 22/6/13
+f 5/6/15 31/5/14 29/5/14
+f 31/5/14 5/6/15 6/6/15
+f 32/5/16 26/3/6 31/5/16
+f 26/3/6 32/5/16 25/3/6
+f 29/5/14 26/3/3 28/3/3
+f 26/3/3 29/5/14 31/5/14
+f 6/6/17 32/5/16 31/5/16
+f 32/5/16 6/6/17 13/6/17
+f 27/3/7 29/5/12 28/3/7
+f 29/5/12 27/3/7 30/5/12
+f 13/6/19 30/5/18 32/5/18
+f 30/5/18 13/6/19 22/6/19
+f 32/5/18 27/3/9 25/3/9
+f 27/3/9 32/5/18 30/5/18
+f 12/7/11 15/7/11 17/7/11
+f 15/7/11 12/7/11 18/7/11
+f 18/7/11 12/7/11 24/7/11
+f 18/7/11 24/7/11 20/7/11
+`,
+ 'tree-small':String.raw`# Created by Kenney (www.kenney.nl)
+
+mtllib tree-small.mtl
+
+g tree-small
+
+v 0.07014806 0.1261008 0.0405 1 1 1
+v 0 0.1261008 0.081 1 1 1
+v 0.1052221 0.2268 0.06075 1 1 1
+v 0 0.2268 0.1215 1 1 1
+v 0 0.1261008 -0.081 1 1 1
+v 0.07014806 0.1261008 -0.0405 1 1 1
+v 0 0.2268 -0.1215 1 1 1
+v 0.1052221 0.2268 -0.06075 1 1 1
+v -0.07014806 0.1261008 0.0405 1 1 1
+v -0.07014806 0.1261008 -0.0405 1 1 1
+v -0.1052221 0.2268 0.06075 1 1 1
+v 0 0.567 0.0405 1 1 1
+v -0.03507403 0.567 0.02025 1 1 1
+v -0.1052221 0.2268 -0.06075 1 1 1
+v 0.03507403 0.567 0.02025 1 1 1
+v -0.03507403 0.567 -0.02025 1 1 1
+v 0 0.567 -0.0405 1 1 1
+v 0.03507403 0.567 -0.02025 1 1 1
+v 0.0261225 0 -0.0261225 1 1 1
+v 0.0261225 0 0.0261225 1 1 1
+v 0.01701 0.1261008 -0.01701 1 1 1
+v 0.01701 0.1261008 0.01701 1 1 1
+v -0.0261225 0 -0.0261225 1 1 1
+v -0.01701 0.1261008 -0.01701 1 1 1
+v -0.0261225 0 0.0261225 1 1 1
+v -0.01701 0.1261008 0.01701 1 1 1
+
+vn 0.8034768 -0.3731399 0.4638875
+vn 0 -0.3731399 0.927775
+vn 0.8640216 -0.06798673 0.4988431
+vn 0 -0.06798673 0.9976863
+vn 0 -0.3731399 -0.927775
+vn 0.8034768 -0.3731399 -0.4638875
+vn 0 -0.06798673 -0.9976863
+vn 0.8640216 -0.06798673 -0.4988431
+vn 0 -1 0
+vn -0.8640216 -0.06798673 0.4988431
+vn 0 0.6962605 0.7177892
+vn -0.6216236 0.6962605 0.3588946
+vn -0.8640216 -0.06798673 -0.4988431
+vn -0.8034768 -0.3731399 -0.4638875
+vn -0.8034768 -0.3731399 0.4638875
+vn 0.6216236 0.6962605 0.3588946
+vn -0.6216236 0.6962605 -0.3588946
+vn 0 0.6962605 -0.7177892
+vn 0.6216236 0.6962605 -0.3588946
+vn 0.9973992 0.07207569 0
+vn 0 0.07207569 -0.9973992
+vn -0.9973992 0.07207569 0
+vn 0 0.07207569 0.9973992
+
+vt 0.21875 0.025
+vt 0.21875 0.07067901
+vt 0.21875 0.225
+vt 0.59375 0.475
+vt 0.59375 0.275
+
+usemtl colormap
+
+f 3/2/3 2/1/2 1/1/1
+f 2/1/2 3/2/3 4/2/4
+f 7/2/7 6/1/6 5/1/5
+f 6/1/6 7/2/7 8/2/8
+f 2/1/9 6/1/9 1/1/9
+f 6/1/9 2/1/9 5/1/9
+f 5/1/9 2/1/9 9/1/9
+f 5/1/9 9/1/9 10/1/9
+f 12/3/11 11/2/10 4/2/4
+f 11/2/10 12/3/11 13/3/12
+f 10/1/14 11/2/10 14/2/13
+f 11/2/10 10/1/14 9/1/15
+f 4/2/4 9/1/15 2/1/2
+f 9/1/15 4/2/4 11/2/10
+f 15/3/16 4/2/4 3/2/3
+f 4/2/4 15/3/16 12/3/11
+f 16/3/17 7/2/7 14/2/13
+f 7/2/7 16/3/17 17/3/18
+f 3/2/3 6/1/6 8/2/8
+f 6/1/6 3/2/3 1/1/1
+f 17/3/18 15/3/16 18/3/19
+f 15/3/16 17/3/18 12/3/11
+f 12/3/11 17/3/18 16/3/17
+f 12/3/11 16/3/17 13/3/12
+f 17/3/18 8/2/8 7/2/7
+f 8/2/8 17/3/18 18/3/19
+f 14/2/13 5/1/5 10/1/14
+f 5/1/5 14/2/13 7/2/7
+f 11/2/10 16/3/17 14/2/13
+f 16/3/17 11/2/10 13/3/12
+f 18/3/19 3/2/3 8/2/8
+f 3/2/3 18/3/19 15/3/16
+f 21/5/20 20/4/20 19/4/20
+f 20/4/20 21/5/20 22/5/20
+f 24/5/21 19/4/21 23/4/21
+f 19/4/21 24/5/21 21/5/21
+f 25/4/22 24/5/22 23/4/22
+f 24/5/22 25/4/22 26/5/22
+f 22/5/23 25/4/23 20/4/23
+f 25/4/23 22/5/23 26/5/23
+f 25/4/9 19/4/9 20/4/9
+f 19/4/9 25/4/9 23/4/9
+
+g tree-small
+
+
+
+
+usemtl colormap
+
+f 3/2/3 2/1/2 1/1/1
+f 2/1/2 3/2/3 4/2/4
+f 7/2/7 6/1/6 5/1/5
+f 6/1/6 7/2/7 8/2/8
+f 2/1/9 6/1/9 1/1/9
+f 6/1/9 2/1/9 5/1/9
+f 5/1/9 2/1/9 9/1/9
+f 5/1/9 9/1/9 10/1/9
+f 12/3/11 11/2/10 4/2/4
+f 11/2/10 12/3/11 13/3/12
+f 10/1/14 11/2/10 14/2/13
+f 11/2/10 10/1/14 9/1/15
+f 4/2/4 9/1/15 2/1/2
+f 9/1/15 4/2/4 11/2/10
+f 15/3/16 4/2/4 3/2/3
+f 4/2/4 15/3/16 12/3/11
+f 16/3/17 7/2/7 14/2/13
+f 7/2/7 16/3/17 17/3/18
+f 3/2/3 6/1/6 8/2/8
+f 6/1/6 3/2/3 1/1/1
+f 17/3/18 15/3/16 18/3/19
+f 15/3/16 17/3/18 12/3/11
+f 12/3/11 17/3/18 16/3/17
+f 12/3/11 16/3/17 13/3/12
+f 17/3/18 8/2/8 7/2/7
+f 8/2/8 17/3/18 18/3/19
+f 14/2/13 5/1/5 10/1/14
+f 5/1/5 14/2/13 7/2/7
+f 11/2/10 16/3/17 14/2/13
+f 16/3/17 11/2/10 13/3/12
+f 18/3/19 3/2/3 8/2/8
+f 3/2/3 18/3/19 15/3/16
+f 21/5/20 20/4/20 19/4/20
+f 20/4/20 21/5/20 22/5/20
+f 24/5/21 19/4/21 23/4/21
+f 19/4/21 24/5/21 21/5/21
+f 25/4/22 24/5/22 23/4/22
+f 24/5/22 25/4/22 26/5/22
+f 22/5/23 25/4/23 20/4/23
+f 25/4/23 22/5/23 26/5/23
+f 25/4/9 19/4/9 20/4/9
+f 19/4/9 25/4/9 23/4/9
+`
+});
+function createKenneyStreetGeometry(THREE,name){
+ const obj=SOURCES[name];if(!obj)throw new RangeError('Unknown CC0 street mesh: '+name);
+ const vertices=[null],textureUV=[null],positions=[],colors=[];
+ for(const line of obj.split(/\r?\n/)){
+  if(line.startsWith('v '))vertices.push(line.trim().split(/\s+/).slice(1,4).map(Number));
+  else if(line.startsWith('vt '))textureUV.push(line.trim().split(/\s+/).slice(1,3).map(Number));
+  else if(line.startsWith('f ')){
+   const tokens=line.trim().split(/\s+/).slice(1);
+   for(let i=1;i<tokens.length-1;i++){
+    for(const token of [tokens[0],tokens[i],tokens[i+1]]){
+     const [v,t]=token.split('/').map(Number);
+     const position=vertices[v],uv=textureUV[t];
+     if(!position||!uv)throw new Error('Invalid Kenney OBJ: '+name);
+     positions.push(...position);
+     const rgb=name==='tree-small'
+      ? (uv[0]>.4?[.22,.45,.29]:[.35,.25,.17])
+      : (uv[0]<.1?[.96,.84,.61]:[.62,.69,.72]);
+     colors.push(...rgb);
+    }
+   }
+  }
+ }
+ const geometry=new THREE.BufferGeometry();
+ geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+ geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+ geometry.computeVertexNormals();geometry.computeBoundingSphere();
+ return geometry;
+}
+module.exports={createKenneyStreetGeometry};
+
+  },
   "./Full3DScene.cjs": function(require, module) {
 'use strict';
 const {createVehicle3D} = require('./Vehicle3D.cjs');
+const {createKenneyStreetGeometry}=require('./KenneyStreetAssets.cjs');
 const {createVehiclePose, updateVehiclePose} = require('./VehiclePoseBridge.cjs');
 const {createDrivingVisualSnapshot,updateDrivingVisualSnapshot} = require('./DrivingVisualSnapshot.cjs');
 const {createDriftVisualRig,updateDriftVisualRig} = require('./DriftVisualRig.cjs');
@@ -588,15 +983,18 @@ function createFull3DScene(THREE,canvas) {
   return {x:center.x+lateral*s,y:center.y+height,z:center.z+lateral*c};
  };
  const boxG=geometry(new THREE.BoxGeometry(1,1,1));
- const coneG=geometry(new THREE.ConeGeometry(1,1,7));
+ const treeG=geometry(createKenneyStreetGeometry(THREE,'tree-small'));
+ const lampG=geometry(createKenneyStreetGeometry(THREE,'light-square'));
  const buildingMat=material(new THREE.MeshStandardMaterial({color:0xffffff,roughness:.82,metalness:.12}));
  const glassMat=material(new THREE.MeshStandardMaterial({color:0x547a93,roughness:.28,metalness:.35,emissive:0x101e32,emissiveIntensity:.28}));
- const treesMat=material(new THREE.MeshStandardMaterial({color:0x305548,roughness:1}));
- const polesMat=material(new THREE.MeshStandardMaterial({color:0xc1c3bd,metalness:.4,roughness:.55}));
+ const treesMat=material(new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:.95}));
+ const polesMat=material(new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,metalness:.32,roughness:.6}));
  const buildings=new THREE.InstancedMesh(boxG,buildingMat,120);
  const windows=new THREE.InstancedMesh(boxG,glassMat,120);
- const trees=new THREE.InstancedMesh(coneG,treesMat,120);
- const lights=new THREE.InstancedMesh(boxG,polesMat,50);
+ const trees=new THREE.InstancedMesh(treeG,treesMat,120);
+ trees.name='kenney-cc0-tree-small';
+ const lights=new THREE.InstancedMesh(lampG,polesMat,50);
+ lights.name='kenney-cc0-light-square';
  for(const mesh of [buildings,windows,trees,lights]){
   mesh.frustumCulled=false;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -704,14 +1102,25 @@ function createFull3DScene(THREE,canvas) {
       dummy.position.set(anchor.x,anchor.y+height*.63,anchor.z+width*.42);
       dummy.updateMatrix();if(iw<120){windows.setMatrixAt(iw++,dummy.matrix);}
     }else{
-      const height=7+h*9;
-      dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
-      dummy.rotation.set(0,0,0);dummy.scale.set(2.7+h*2,height,2.7+h*2);
+      const height=7+h*9,scale=height/.567;
+      dummy.position.set(anchor.x,anchor.y,anchor.z);
+      dummy.rotation.set(0,0,0);dummy.scale.set(scale,scale,scale);
       dummy.updateMatrix();if(it<120)trees.setMatrixAt(it++,dummy.matrix);
     }
+    // Visual-only Taipei street trees; no collider, no gameplay state changes.
+    if(urban&&i%9===5&&it<120){
+      const treeAnchor=point(c,side*HALF_WIDTH*1.32,-.15);
+      const scale=(5.2+h*.9)/.567;
+      dummy.position.set(treeAnchor.x,treeAnchor.y,treeAnchor.z);
+      dummy.rotation.set(0,c.heading,0);dummy.scale.set(scale,scale,scale);
+      dummy.updateMatrix();trees.setMatrixAt(it++,dummy.matrix);
+    }
     if(i%12===5&&il<50){
-      dummy.position.set(point(c,side*HALF_WIDTH*1.3).x,c.y+5.2,c.z);
-      dummy.rotation.set(0,0,0);dummy.scale.set(.18,10,.18);
+      // CC0 lamp model is 0.6 high and its arm points along local -Z.
+      const lampAnchor=point(c,side*HALF_WIDTH*1.3,-.1);
+      dummy.position.set(lampAnchor.x,lampAnchor.y,lampAnchor.z);
+      dummy.rotation.set(0,c.heading+side*Math.PI/2,0);
+      const scale=10/.6;dummy.scale.set(scale,scale,scale);
       dummy.updateMatrix();lights.setMatrixAt(il++,dummy.matrix);
     }
    }
