@@ -18,7 +18,7 @@ THREE.WebGLRenderer=class {
  render(scene,camera){last={scene,camera};renderCalls++;}
  dispose(){disposeCalls++;}
 };
-const {createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,createChaseRig,updateChaseRig}=require('../src/rendering/Full3DScene.cjs');
+const {createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,createChaseRig,updateChaseRig,streetOffset,TAIPEI_SIGNS}=require('../src/rendering/Full3DScene.cjs');
 const pts=previewPoints({curves:Array(126).fill(0),hills:Array(126).fill(0),playerX:0});
 assert.equal(pts.length,126);
 assert.equal(pts[0].x,0);
@@ -57,8 +57,15 @@ const fpsStates=[30,60,120].map(fps=>{
  return rig;
 });
 for(const key of ['x','y','lookX','lookY','fov'])assert(Math.abs(fpsStates[0][key]-fpsStates[2][key])<1e-10,'camera damping independent of FPS');
+const fork=[{center:-1.8,half:.8},{center:1.8,half:.8}];
+for(const side of [-1,1]){
+ const offset=streetOffset(fork,side,11);
+ assert(side*offset-5.5>=2.6*8+2,'building footprint clears the whole fork');
+}
+assert.equal(TAIPEI_SIGNS.length,6);
 const events={};
-const canvas={style:{},addEventListener:(n,fn)=>events[n]=fn,removeEventListener:n=>delete events[n]};
+const {createCanvas}=require('@napi-rs/canvas');
+const canvas={ownerDocument:{createElement(tag){assert.equal(tag,'canvas');return createCanvas(128,512);}},style:{},addEventListener:(n,fn)=>events[n]=fn,removeEventListener:n=>delete events[n]};
 const world=createFull3DScene(THREE,canvas);
 const build=()=>({
  curves:Array(126).fill(0.12),
@@ -93,6 +100,18 @@ car.traverse(o=>{
 assert(tailZ>headZ,'rear lights face chase camera; no 180 degree inversion');
 assert.equal(car.rotation.y,0,'do not rotate body backwards');
 assert(instanced.length>=4,'actual 3D roadside/landscape instances');
+const signMeshes=instanced.filter(m=>m.name.startsWith('V57_StreetSign_'));
+assert.equal(signMeshes.length,6,'six reusable traditional Chinese sign batches');
+assert(signMeshes.some(m=>m.count>0),'urban route places signs');
+for(const m of signMeshes){assert(m.material.map?.isCanvasTexture);assert(m.userData.text.length>0);}
+const sun=last.scene.getObjectByName('V57_SunsetSun');assert(sun.visible);
+const resources=last.scene.children.length;
+world.render({...frame,night:true,archetype:'mountain'},1/60);
+assert.equal(sun.visible,false,'sunset sun hidden at night');
+assert(signMeshes.every(m=>m.count===0),'mountain route does not spawn urban shop signs');
+assert.equal(last.scene.children.length,resources,'no per-frame scenery creation');
+world.render(frame,1/60);
+
 assert(meshTypes.has('Mesh'));
 const drifting={driftState:'drift',isDrifting:true,driftAngleDeg:24,slipAngleDeg:13,driftDirection:1,lateralVelocity:.4,roadGrip:.94,cleanDriftTime:.7,exitBoost:0,momentBoostWindow:0,driftCharge:53,nitroActive:false,yawDeg:31};
 assert.equal(world.render({...frame,playerX:.7,carColor:'#f0f4f8',speedKmh:220,yawDeg:31,driving:drifting},1/60,720,405,'LOW'),true);
@@ -100,7 +119,8 @@ const swaying=[];last.scene.traverse(n=>{if(n.name==='V55_OriginalArcadeVehicle'
 assert.equal(swaying.length,1);
 assert(swaying[0].position.x<0,'3D car must respond to signed drift');
 assert(last.camera.position.z>swaying[0].position.z,'camera remains behind car');
-assert.equal(renderCalls,2);
+assert.equal(renderCalls,4);
+assert(signMeshes.every(m=>m.count===0),'LOW quality hides shop signs');
 let prevented=false;
 events.webglcontextlost({preventDefault(){prevented=true;}});
 assert(prevented);

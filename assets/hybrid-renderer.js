@@ -564,9 +564,39 @@ function updateChaseRig(rig,points,frame,sway,dt){
  for(const key of Object.keys(target))rig[key]+=(target[key]-rig[key])*alpha;
  rig.initialized=true;return rig;
 }
+const TAIPEI_SIGNS=['老街牛肉麵','台北茶行','萬華當舖','光華電器','豆花冰品','機車修理'];
+const SIGN_COLORS=[0xaf2839,0x175b59,0x4d285c,0x225b89,0xcf852d,0x243747];
+function streetOffset(corridors,side,width,margin=2){
+ const lanes=corridors?.length?corridors:[{center:0,half:1}];
+ const edge=Math.max(...lanes.map(q=>side*q.center+q.half));
+ return side*(edge*HALF_WIDTH+width/2+margin);
+}
+function createFacadeTexture(THREE){
+ const size=64,data=new Uint8Array(size*size*4);
+ for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+  const mortar=y%8===0||(x+(Math.floor(y/8)%2)*8)%16===0;
+  const window=x%32>=7&&x%32<25&&y>=15&&y<49;
+  const value=window?90:mortar?155:235;
+  const k=(y*size+x)*4;data[k]=value;data[k+1]=window?120:value;data[k+2]=window?145:value;data[k+3]=255;
+ }
+ const texture=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);
+ texture.encoding=THREE.sRGBEncoding;texture.needsUpdate=true;return texture;
+}
+function createSignTexture(THREE,text,color,doc){
+ if(!doc?.createElement)return null;
+ const c=doc.createElement('canvas');c.width=128;c.height=512;
+ const g=c.getContext('2d');if(!g)return null;
+ g.fillStyle='#'+color.toString(16).padStart(6,'0');g.fillRect(0,0,128,512);
+ g.strokeStyle='#ffd17a';g.lineWidth=6;g.strokeRect(5,5,118,502);
+ g.fillStyle='#fff6d7';g.textAlign='center';g.textBaseline='middle';
+ g.font='bold 76px "Microsoft JhengHei", "PingFang TC", sans-serif';
+ const chars=Array.from(text),step=440/chars.length;
+ chars.forEach((ch,i)=>g.fillText(ch,64,36+step*(i+.5),104));
+ const texture=new THREE.CanvasTexture(c);texture.encoding=THREE.sRGBEncoding;return texture;
+}
 function createFull3DScene(THREE,canvas) {
  if(!THREE?.WebGLRenderer || !canvas)throw new TypeError('WebGL canvas and Three.js required');
- const geometries=[],materials=[];
+ const geometries=[],materials=[],textures=[];
  let active=true, lost=false,ready=false;
  const geometry=g=>(geometries.push(g),g);
  const material=m=>(materials.push(m),m);
@@ -620,7 +650,8 @@ function createFull3DScene(THREE,canvas) {
  };
  const boxG=geometry(new THREE.BoxGeometry(1,1,1));
  const coneG=geometry(new THREE.ConeGeometry(1,1,7));
- const buildingMat=material(new THREE.MeshStandardMaterial({color:0xffffff,roughness:.82,metalness:.12}));
+ const facadeTexture=createFacadeTexture(THREE);textures.push(facadeTexture);
+ const buildingMat=material(new THREE.MeshStandardMaterial({color:0xffffff,map:facadeTexture,roughness:.92,metalness:.04}));
  const glassMat=material(new THREE.MeshStandardMaterial({color:0x547a93,roughness:.28,metalness:.35,emissive:0x101e32,emissiveIntensity:.28}));
  const treesMat=material(new THREE.MeshStandardMaterial({color:0x305548,roughness:1}));
  const polesMat=material(new THREE.MeshStandardMaterial({color:0xc1c3bd,metalness:.4,roughness:.55}));
@@ -634,11 +665,25 @@ function createFull3DScene(THREE,canvas) {
   scene.add(mesh);
  }
  const dummy=new THREE.Object3D();
- const palette=[0xc5c0af,0x8aa0a6,0x747d8b,0xd6bda7,0x4c687d,0xa99f91,0x9fada1];
+ const palette=[0xaf6250,0xcead86,0x9daeb2,0xbd8772,0x83999d,0xd4c1a1,0xa6b6a5];
  const swatch=new THREE.Color();
- const sky=material(new THREE.MeshBasicMaterial({color:0xe5c2a2,fog:false}));
- const sun= new THREE.Mesh(geometry(new THREE.SphereGeometry(11,12,9)),sky);
- sun.position.set(-128,77,-275);scene.add(sun);
+ const skyMaterial=material(new THREE.ShaderMaterial({
+  side:THREE.BackSide,depthWrite:false,fog:false,
+  uniforms:{top:{value:new THREE.Color(0x53416f)},horizon:{value:new THREE.Color(0xf4ae78)}},
+  vertexShader:'varying vec3 vSky; void main(){vSky=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+  fragmentShader:'uniform vec3 top; uniform vec3 horizon; varying vec3 vSky; void main(){float h=normalize(vSky).y; gl_FragColor=vec4(mix(horizon,top,smoothstep(-0.06,0.65,h)),1.0);}'
+ }));
+ const skyDome=new THREE.Mesh(geometry(new THREE.SphereGeometry(450,24,16)),skyMaterial);skyDome.renderOrder=-10;scene.add(skyDome);
+ const sunMaterial=material(new THREE.MeshBasicMaterial({color:0xffd17c,fog:false,toneMapped:false}));
+ const sun=new THREE.Mesh(geometry(new THREE.SphereGeometry(18,16,12)),sunMaterial);sun.name='V57_SunsetSun';scene.add(sun);
+ const doc=canvas.ownerDocument||(typeof document!=='undefined'?document:null);
+ const signs=TAIPEI_SIGNS.map((text,i)=>{
+  const texture=createSignTexture(THREE,text,SIGN_COLORS[i],doc);if(texture)textures.push(texture);
+  const mat=material(new THREE.MeshBasicMaterial({map:texture,color:texture?0xffffff:SIGN_COLORS[i],side:THREE.DoubleSide,toneMapped:false}));
+  const mesh=new THREE.InstancedMesh(geometry(new THREE.PlaneGeometry(1,1)),mat,40);
+  mesh.name='V57_StreetSign_'+i;mesh.userData.text=text;mesh.frustumCulled=false;
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(mesh);return mesh;
+ });
  const ground=new THREE.Mesh(geometry(new THREE.PlaneGeometry(6000,6000)),material(new THREE.MeshStandardMaterial({color:0x32484b,roughness:1})));
  ground.rotation.x=-Math.PI/2;ground.position.y=-.22;scene.add(ground);
  let car=createVehicle3D(THREE,{color:0x1a2330});
@@ -683,7 +728,7 @@ function createFull3DScene(THREE,canvas) {
  canvas.addEventListener('webglcontextlost',lostHandler);
  canvas.addEventListener('webglcontextrestored',restoredHandler);
 
- function paintWorld(frame,pts){
+ function paintWorld(frame,pts,quality){
   for(const r of roads)r.used=0;
   const corridors=frame.corridors||[];
   for(let i=-5;i<COUNT;i++){
@@ -720,37 +765,53 @@ function createFull3DScene(THREE,canvas) {
   const urban=frame.archetype!=='mountain'&&frame.archetype!=='coastal';
   const routeSeed=frame.seed||1;
   let ib=0,iw=0,it=0,il=0;
-  for(let i=5;i<COUNT;i+=3){
+  const signCounts=Array(signs.length).fill(0);
+  for(let i=5;i<COUNT;i++){
    const c=pts[i];
    const absolute=Math.floor(frame.segment||0)+i;
+   if(absolute%3!==0)continue;
    for(const side of [-1,1]){
     const h=hash(absolute*37+side*99+routeSeed);
-    const lateral=(1.75+h*2.3)*HALF_WIDTH*side;
+    const width=5+hash(absolute*11+side*33)*6;
+    // Scan the building footprint so widened forks keep their clear shoulder.
+    const neighborhood=corridors.slice(Math.max(0,i-3),i+4).flat();
+    const lateral=streetOffset(neighborhood,side,width,2+h*7);
     const anchor=point(c,lateral,-.15);
     if(urban){
-      const height=7+h*23;const width=5+hash(absolute*11+side*33)*6;
+      const height=7+h*23;
       dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
-      dummy.rotation.set(0,c.heading*.35,0);
+      dummy.rotation.set(0,-c.heading,0);
       dummy.scale.set(width,height,width*.8);
       dummy.updateMatrix();if(ib<120){buildings.setMatrixAt(ib,dummy.matrix);
         swatch.setHex(palette[Math.floor(h*palette.length)]);buildings.setColorAt(ib,swatch);ib++;}
       dummy.scale.set(width*.91,Math.max(1,height*.47),width*.04);
-      dummy.position.set(anchor.x,anchor.y+height*.63,anchor.z+width*.42);
+      const facade=point(c,lateral, height*.63-.15);
+      dummy.position.set(facade.x+Math.sin(c.heading)*width*.42,facade.y,facade.z+Math.cos(c.heading)*width*.42);
       dummy.updateMatrix();if(iw<120){windows.setMatrixAt(iw++,dummy.matrix);}
+      if(quality!=='LOW'&&absolute%6===0){
+       const signIndex=Math.floor(hash(absolute*13+side*41+routeSeed)*signs.length),n=signCounts[signIndex];
+       if(n<40){
+        const sign=point(c,lateral-side*(width/2+.15),6.5);
+        dummy.position.set(sign.x,sign.y,sign.z);
+        dummy.rotation.set(0,side>0?-Math.PI/2-c.heading:Math.PI/2-c.heading,0);
+        dummy.scale.set(1.3,5.2,1);dummy.updateMatrix();signs[signIndex].setMatrixAt(n,dummy.matrix);signCounts[signIndex]++;
+       }
+      }
     }else{
       const height=7+h*9;
       dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
       dummy.rotation.set(0,0,0);dummy.scale.set(2.7+h*2,height,2.7+h*2);
       dummy.updateMatrix();if(it<120)trees.setMatrixAt(it++,dummy.matrix);
     }
-    if(i%12===5&&il<50){
-      dummy.position.set(point(c,side*HALF_WIDTH*1.3).x,c.y+5.2,c.z);
+    if(absolute%12===0&&il<50){
+      const lamp=point(c,streetOffset(neighborhood,side,.18,.7),5.2);
+      dummy.position.set(lamp.x,lamp.y,lamp.z);
       dummy.rotation.set(0,0,0);dummy.scale.set(.18,10,.18);
       dummy.updateMatrix();lights.setMatrixAt(il++,dummy.matrix);
     }
    }
   }
-  const assignments=[[buildings,ib],[windows,iw],[trees,it],[lights,il]];
+  const assignments=[[buildings,ib],[windows,iw],[trees,it],[lights,il],...signs.map((m,i)=>[m,signCounts[i]])];
   for(const [m,count] of assignments){m.count=count;m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;}
  }
  function updateTraffic(frame,pts){
@@ -778,7 +839,7 @@ function createFull3DScene(THREE,canvas) {
   }
   const dpr=quality==='LOW'?.7:quality==='ULTRA'?1.15:1;
   if(lastDpr!==dpr){renderer.setPixelRatio(dpr);lastDpr=dpr;}
-  paintWorld(frame,points);
+  paintWorld(frame,points,quality);
   updateTraffic(frame,points);
   if(frame.carColor!==lastCarColor){
    const value=typeof frame.carColor==='string'?new THREE.Color(frame.carColor).getHex():0x202838;
@@ -805,8 +866,16 @@ function createFull3DScene(THREE,canvas) {
   camera.position.set(chaseRig.x,chaseRig.y,chaseRig.z);
   camera.lookAt(chaseRig.lookX,chaseRig.lookY,chaseRig.lookZ);
   if(camera.fov!==chaseRig.fov){camera.fov=chaseRig.fov;camera.updateProjectionMatrix();}
-  scene.background.setHex(frame.night?0x10213b:0x6793ad);
-  scene.fog.color.setHex(frame.night?0x233b58:0x809caa);
+  skyDome.position.copy(camera.position);
+  skyMaterial.uniforms.top.value.setHex(frame.night?0x08152f:0x53416f);
+  skyMaterial.uniforms.horizon.value.setHex(frame.night?0x344861:0xf4ae78);
+  sun.visible=!frame.night;sun.position.set(camera.position.x-110,camera.position.y+40,camera.position.z-290);
+  sunlight.color.setHex(frame.night?0x9dbbff:0xffc58e);
+  glassMat.emissiveIntensity=frame.night?.7:.12;
+  scene.background.setHex(frame.night?0x10213b:0xf4ae78);
+  scene.fog.color.setHex(frame.night?0x233b58:0xd69b82);
+  // A flat ground plane must never cover a descending road.
+  ground.position.y=Math.min(-.22,...points.map(p=>p.y-.22));
   renderer.render(scene,camera);
   canvas.style.visibility='visible';ready=true;return true;
  }
@@ -814,12 +883,12 @@ function createFull3DScene(THREE,canvas) {
   if(!active)return;active=false;ready=false;
   canvas.removeEventListener('webglcontextlost',lostHandler);
   canvas.removeEventListener('webglcontextrestored',restoredHandler);
-  car.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
+  car.dispose();for(const t of textures)t.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
   renderer.dispose();
  }
  return {render,dispose,get ready(){return ready&&!lost&&active},get contextLost(){return lost}};
 }
-module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,createChaseRig,updateChaseRig};
+module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,createChaseRig,updateChaseRig,streetOffset,TAIPEI_SIGNS};
 
   }
 };
