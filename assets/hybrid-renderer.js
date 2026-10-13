@@ -893,17 +893,56 @@ function createFull3DScene(THREE,canvas) {
  function updateTraffic(frame,pts){
   for(let i=0;i<trafficMeshes.length;i++){
    const mesh=trafficMeshes[i],item=frame.traffic?.[i];
-   if(!item || !(item.distance>0&&item.distance<COUNT-2)){mesh.group.visible=false;continue;}
+   if(!item || item.eligible===false || !(item.distance>-2&&item.distance<COUNT-2)){mesh.group.visible=false;continue;}
    const road=sampleRoadPoint(pts,item.distance+(Number(frame.fraction)||0),(Number(item.x)||0)*HALF_WIDTH);
    mesh.group.visible=true;
    mesh.group.position.set(road.x,road.y+.05,road.z);
    mesh.group.rotation.y=-road.heading;
+   mesh.group.scale.x=Number.isFinite(item.halfWidth)?Math.max(.1,item.halfWidth*16/1.7):1;
    const color=item.color||'#f3c21f';
    if(color!==mesh.lastColor){
     mesh.chassis.material.color.set(color);
     mesh.lastColor=color;
    }
   }
+ }
+ const trafficBounds=new THREE.Box3(),corner=new THREE.Vector3();
+ function trafficVisibility(frame,pts,width,height){
+  scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);
+  const boxes=[];
+  for(let i=0;i<trafficMeshes.length;i++){
+   const mesh=trafficMeshes[i].group,item=frame.traffic?.[i];if(!mesh.visible||!item)continue;
+   trafficBounds.setFromObject(mesh);
+   // Hills can hide the entire vehicle; test the sightline to its highest point.
+   const top=trafficBounds.max.y,tx=mesh.position.x,tz=mesh.position.z;
+   const blocked=pts.some((p,j)=>{
+    const t=(p.z-camera.position.z)/(tz-camera.position.z);
+    if(!(t>0&&t<1))return false;
+    const x=camera.position.x+(tx-camera.position.x)*t;
+    const y=camera.position.y+(top-camera.position.y)*t;
+    if(p.y+.028<=y)return false;
+    const lateral=(x-p.x)*Math.cos(p.heading)/HALF_WIDTH;
+    return (frame.corridors?.[j]||[{center:0,half:1}]).some(q=>Math.abs(lateral-q.center)<=q.half);
+   });
+   if(blocked){mesh.visible=false;continue;}
+   let l=Infinity,r=-Infinity,t=Infinity,b=-Infinity,front=false;
+   for(const x of [trafficBounds.min.x,trafficBounds.max.x])for(const y of [trafficBounds.min.y,trafficBounds.max.y])for(const z of [trafficBounds.min.z,trafficBounds.max.z]){
+    corner.set(x,y,z).applyMatrix4(camera.matrixWorldInverse);
+    if(corner.z>=-camera.near)continue;
+    front=true;corner.applyMatrix4(camera.projectionMatrix);
+    const sx=(corner.x+1)*width/2,sy=(1-corner.y)*height/2;
+    l=Math.min(l,sx);r=Math.max(r,sx);t=Math.min(t,sy);b=Math.max(b,sy);
+   }
+   if(!front||r<=0||l>=width||b<=0||t>=height){mesh.visible=false;continue;}
+   l=clamp(l,0,width);r=clamp(r,0,width);t=clamp(t,0,height);b=clamp(b,0,height);
+   if(r>l&&b>t)boxes.push({sourceIndex:item.sourceIndex??i,l,r,t,b,cx:(l+r)/2,cy:(t+b)/2});
+  }
+  return boxes;
+ }
+ function prepareTrafficVisibility(frame,width=960,height=540){
+  if(!active||lost||!ready)return [];
+  const points=previewPoints(frame);updateTraffic(frame,points);
+  return trafficVisibility(frame,points,width,height);
  }
  function render(frame,dt=0,width=960,height=540,quality='STANDARD'){
   if(!active||lost)return false;
@@ -952,6 +991,7 @@ function createFull3DScene(THREE,canvas) {
   scene.fog.color.setHex(frame.night?0x233b58:0xd69b82);
   // A flat ground plane must never cover a descending road.
   ground.position.y=Math.min(-.22,...points.map(p=>p.y-.22));
+  trafficVisibility(frame,points,width,height);
   effects.update(frame,Math.max(0,dt),quality,camera,car);
   renderer.render(scene,camera);
   canvas.style.visibility='visible';ready=true;return true;
@@ -963,7 +1003,7 @@ function createFull3DScene(THREE,canvas) {
   effects.dispose();car.dispose();for(const t of textures)t.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
   renderer.dispose();
  }
- return {render,dispose,get ready(){return ready&&!lost&&active},get contextLost(){return lost}};
+ return {render,dispose,prepareTrafficVisibility,get ready(){return ready&&!lost&&active},get contextLost(){return lost}};
 }
 module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,createChaseRig,updateChaseRig,streetOffset,TAIPEI_SIGNS};
 
