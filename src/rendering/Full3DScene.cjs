@@ -3,6 +3,7 @@ const {createVehicle3D} = require('./Vehicle3D.cjs');
 const {createVehiclePose, updateVehiclePose} = require('./VehiclePoseBridge.cjs');
 const {createDrivingVisualSnapshot,updateDrivingVisualSnapshot} = require('./DrivingVisualSnapshot.cjs');
 const {createDriftVisualRig,updateDriftVisualRig} = require('./DriftVisualRig.cjs');
+const {createDrivingEffects}=require('./DrivingEffects.cjs');
 
 // Full WebGL road/world renderer. This is intentionally NOT a Canvas overlay.
 // World coordinates: +X right, +Y up, -Z forward. Camera is behind the car (+Z).
@@ -185,6 +186,7 @@ function createFull3DScene(THREE,canvas) {
  const driving=createDrivingVisualSnapshot();
  const driftRig=createDriftVisualRig();
  const chaseRig=createChaseRig();
+ const effects=createDrivingEffects(THREE);scene.add(camera);
  const gripFrame=createDrivingVisualSnapshot();
  let lastCarColor='',renderRandomSeed=0x6f34ac19;
  function with3DOnlyRandom(callback){
@@ -369,6 +371,7 @@ function createFull3DScene(THREE,canvas) {
   scene.fog.color.setHex(frame.night?0x233b58:0xd69b82);
   // A flat ground plane must never cover a descending road.
   ground.position.y=Math.min(-.22,...points.map(p=>p.y-.22));
+  effects.update(frame,Math.max(0,dt),quality,camera,car);
   renderer.render(scene,camera);
   canvas.style.visibility='visible';ready=true;return true;
  }
@@ -376,7 +379,7 @@ function createFull3DScene(THREE,canvas) {
   if(!active)return;active=false;ready=false;
   canvas.removeEventListener('webglcontextlost',lostHandler);
   canvas.removeEventListener('webglcontextrestored',restoredHandler);
-  car.dispose();for(const t of textures)t.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
+  effects.dispose();car.dispose();for(const t of textures)t.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
   renderer.dispose();
  }
  return {render,dispose,get ready(){return ready&&!lost&&active},get contextLost(){return lost}};
