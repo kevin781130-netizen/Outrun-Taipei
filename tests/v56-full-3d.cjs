@@ -18,13 +18,25 @@ THREE.WebGLRenderer=class {
  render(scene,camera){last={scene,camera};renderCalls++;}
  dispose(){disposeCalls++;}
 };
-const {createFull3DScene,previewPoints}=require('../src/rendering/Full3DScene.cjs');
+const {createFull3DScene,previewPoints,sampleRoadPoint}=require('../src/rendering/Full3DScene.cjs');
 const pts=previewPoints({curves:Array(126).fill(0),hills:Array(126).fill(0),playerX:0});
 assert.equal(pts.length,126);
 assert.equal(pts[0].x,0);
 assert(pts[125].z<pts[0].z,'forward road is -Z');
 const curved=previewPoints({curves:Array(126).fill(2),playerX:.3});
 assert(Math.abs(curved[60].x-curved[1].x)>10,'curve affects actual 3D centerline');
+// Player and traffic share the exact tangent/normal road transform.
+for(const side of [-1,1])for(const fraction of [0,.25,.9]){
+ const frame={curves:Array(126).fill(side*2),hills:Array.from({length:126},(_,i)=>i*30),playerX:side*.7,fraction};
+ const before=JSON.stringify(frame),road=previewPoints(frame);
+ const player=sampleRoadPoint(road,fraction,frame.playerX*8);
+ assert(Math.abs(player.x)<1e-10&&Math.abs(player.y)<1e-10&&Math.abs(player.z-3.15)<1e-10,'fractional collision position must anchor to the player');
+ const center=sampleRoadPoint(road,20+fraction),traffic=sampleRoadPoint(road,20+fraction,3);
+ assert(Math.abs(Math.hypot(traffic.x-center.x,traffic.z-center.z)-3)<1e-10,'traffic lateral offset follows road normal');
+ assert(traffic.z<player.z,'ahead traffic must render ahead');
+ assert.equal(JSON.stringify(frame),before,'renderer cannot mutate gameplay inputs');
+ assert(sampleRoadPoint(road,-5).z>player.z,'asphalt extends behind the player');
+}
 const events={};
 const canvas={style:{},addEventListener:(n,fn)=>events[n]=fn,removeEventListener:n=>delete events[n]};
 const world=createFull3DScene(THREE,canvas);

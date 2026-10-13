@@ -11,19 +11,28 @@ const COUNT=125, STEP=2.7, HALF_WIDTH=8, MAX_CARS=15;
 const DEG=Math.PI/180;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const hash=(n)=>{let x=(n|0)^0x6b7f4a21;x=Math.imul(x^(x>>>16),0x45d9f3b);x=Math.imul(x^(x>>>16),0x45d9f3b);return ((x^(x>>>16))>>>0)/4294967296;};
+// Attachment-style tangent/normal coordinates, driven by the original route.
+const PLAYER_Z=3.15;
+function sampleRoadPoint(points,index,lateral=0){
+ const j=clamp(Math.floor(index),0,points.length-2),t=index-j;
+ const a=points[j],b=points[j+1];
+ const heading=a.heading+(b.heading-a.heading)*t;
+ return {x:a.x+(b.x-a.x)*t+Math.cos(heading)*lateral,
+  y:a.y+(b.y-a.y)*t,z:a.z+(b.z-a.z)*t+Math.sin(heading)*lateral,heading};
+}
 function previewPoints(input) {
- const {curves=[],hills=[],laneOffsets=[],playerX=0,fraction=0}=input||{};
- // Start a little behind the chase camera so asphalt always extends under
- // the player's rear wheels; the road must not begin in front of the car.
- let x=-playerX*HALF_WIDTH, z=14+STEP*fraction, heading=0;
+ const {curves=[],hills=[],playerX=0,fraction=0}=input||{};
+ let x=0,z=0,heading=0;
  const points=[];
  for(let i=0;i<=COUNT;i++){
-   const curve=clamp(Number(curves[i])||0,-8,8);
-   heading=clamp(heading+curve*.0058,-1.2,1.2);
-   points.push({x,z,y:clamp((Number(hills[i])||0)/260,-5,5),heading});
+   points.push({x,z,y:(Number(hills[i])||0)/260,heading});
+   heading=clamp(heading+clamp(Number(curves[i])||0,-8,8)*.0058,-1.2,1.2);
    x+=Math.sin(heading)*STEP;
    z-=Math.cos(heading)*STEP;
  }
+ // Anchor the actual collision position, including its subsegment fraction.
+ const origin=sampleRoadPoint(points,clamp(fraction,0,1),playerX*HALF_WIDTH);
+ for(const p of points){p.x-=origin.x;p.y-=origin.y;p.z+=PLAYER_Z-origin.z;}
  return points;
 }
 function createFull3DScene(THREE,canvas) {
@@ -147,9 +156,11 @@ function createFull3DScene(THREE,canvas) {
  function paintWorld(frame,pts){
   for(const r of roads)r.used=0;
   const corridors=frame.corridors||[];
-  for(let i=0;i<COUNT;i++){
-   const here=pts[i],there=pts[i+1];if(!there)break;
-   const lanes=corridors[i]||[{center:0,half:1}];
+  for(let i=-5;i<COUNT;i++){
+   // Extend asphalt behind the player without shifting traffic/collision data.
+   const here=i<0?sampleRoadPoint(pts,i):pts[i];
+   const there=i<0?sampleRoadPoint(pts,i+1):pts[i+1];if(!there)break;
+   const lanes=corridors[Math.max(0,i)]||[{center:0,half:1}];
    const next=corridors[i+1]||lanes;
    for(let k=0;k<Math.min(2,lanes.length);k++){
     const q=lanes[k],n=next[Math.min(k,next.length-1)];
@@ -216,15 +227,10 @@ function createFull3DScene(THREE,canvas) {
   for(let i=0;i<trafficMeshes.length;i++){
    const mesh=trafficMeshes[i],item=frame.traffic?.[i];
    if(!item || !(item.distance>0&&item.distance<COUNT-2)){mesh.group.visible=false;continue;}
-   const j=clamp(Math.floor(item.distance),0,COUNT-2);
-   const frac=item.distance-j,a=pts[j],b=pts[j+1];
+   const road=sampleRoadPoint(pts,item.distance+(Number(frame.fraction)||0),(Number(item.x)||0)*HALF_WIDTH);
    mesh.group.visible=true;
-   mesh.group.position.set(
-    a.x+(b.x-a.x)*frac + (Number(item.x)||0)*HALF_WIDTH,
-    a.y+(b.y-a.y)*frac+.05,
-    a.z+(b.z-a.z)*frac
-   );
-   mesh.group.rotation.y=a.heading;
+   mesh.group.position.set(road.x,road.y+.05,road.z);
+   mesh.group.rotation.y=-road.heading;
    const color=item.color||'#f3c21f';
    if(color!==mesh.lastColor){
     mesh.chassis.material.color.set(color);
@@ -259,7 +265,7 @@ function createFull3DScene(THREE,canvas) {
    braking:!!frame.braking,boosting:!!frame.boosting
   },Math.max(0,dt));
   car.applyPose(pose);
-  car.root.position.set(driftRig.offsetX,.02,3.15);
+  car.root.position.set(driftRig.offsetX,.02,PLAYER_Z);
   car.root.scale.set(.92,.83,.92);
   // Camera sits behind +Z and looks down -Z: the rear (taillights +Z)
   // ALWAYS faces the camera. Do not rotate the car 180 degrees.
@@ -279,4 +285,4 @@ function createFull3DScene(THREE,canvas) {
  }
  return {render,dispose,get ready(){return ready&&!lost&&active},get contextLost(){return lost}};
 }
-module.exports={createFull3DScene,previewPoints};
+module.exports={createFull3DScene,previewPoints,sampleRoadPoint};

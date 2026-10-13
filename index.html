@@ -4312,7 +4312,8 @@ function render(dt){
   if(v56Scene.contextLost){
    v56Status('WebGL 畫面暫停，等待 GPU 恢復…');return;
   }
-  const first=Math.max(0,Math.floor(playerZ/SEGMENT_LENGTH));
+  const visualPlayerZ=playerZ+PLAYER_DEPTH;
+  const first=Math.max(0,Math.floor(visualPlayerZ/SEGMENT_LENGTH));
   const here=segments[Math.min(first,segments.length-1)];
   const originY=here?.p1.world.y||0;
   const curves=[],hills=[],corridors=[];
@@ -4324,7 +4325,7 @@ function render(dt){
    corridors.push(roadCorridors(idx));
   }
   const traffic3D=traffic.slice(0,15).map(car=>({
-   distance:(car.z-playerZ)/SEGMENT_LENGTH,
+   distance:(car.z-visualPlayerZ)/SEGMENT_LENGTH,
    x:car.x,
    color:car.color
   }));
@@ -4345,7 +4346,7 @@ function render(dt){
    const ok=v56Scene.render({
     curves,hills,corridors,
     segment:first,
-    fraction:(playerZ%SEGMENT_LENGTH)/SEGMENT_LENGTH,
+    fraction:(visualPlayerZ%SEGMENT_LENGTH)/SEGMENT_LENGTH,
     playerX,traffic:traffic3D,carColor:currentCar.color,
     driving:v56DrivingFrame,
     archetype:currentNode.archetype,seed:currentNode.seed,
