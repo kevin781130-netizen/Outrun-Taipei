@@ -1,5 +1,6 @@
 const fs=require('node:fs');
 const path=require('node:path');
+const crypto=require('node:crypto');
 
 const ROOT=path.resolve(__dirname,'..');
 const SKIP=new Set(['.git','node_modules','test-results']);
@@ -8,6 +9,27 @@ const FORBIDDEN_EXT=new Set([
   '.z01','.z02','.z03','.z04','.z05','.vgm','.vgz','.pcm','.raw','.chr','.tile','.pal'
 ]);
 const failures=[];
+// Only these pre-existing, documented CC0 glTF buffers can use the .bin suffix.
+// Exact hashes prevent this exception from admitting arbitrary binary payloads.
+const GEOMETRY_HASHES={
+ 'Brick_Plain_1':'99b927a3175d6a9612803298f61d9e9ce9f463430cad9b0ae1c4af1ee3404729',
+ 'Brick_RedWhite_DoubleWindow':'3494ee7f685037f1cc6a78e6e7dafecba5b1068ac83ecb3c2556012765f67b58',
+ 'DoorFrame_Trim':'6226b14e10451f341840e03e890c71074c655a69b73fafcc776c71f4a3d8d6c5',
+ 'Metal_Window':'a3214c95ecccbb9604e2eb0ed417148753965c0e4eb4ad1cf93d51326c61158f'
+};
+function approvedGeometry(root,r){
+ const match=r.match(/^(?:playtests\/quaternius-race\/)?assets\/third_party\/quaternius-downtown\/(Brick_Plain_1|Brick_RedWhite_DoubleWindow|DoorFrame_Trim|Metal_Window)\.bin$/);
+ if(!match)return false;
+ try{
+  const dir=path.dirname(path.join(root,r)),buf=fs.readFileSync(path.join(root,r));
+  const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
+  if(hash(buf)!==GEOMETRY_HASHES[match[1]])return false;
+  if(hash(fs.readFileSync(path.join(dir,'QUATERNIUS_LICENSE.txt')))!=='40e0a81bfbb91f1305fd1c052ce590956a9dbac07572612d8552ef75bd970435')return false;
+  const gltf=JSON.parse(fs.readFileSync(path.join(dir,match[1]+'.gltf'),'utf8'));
+  return gltf.asset?.version==='2.0'&&gltf.meshes?.length>0&&gltf.buffers?.some(b=>b.uri===match[1]+'.bin'&&b.byteLength===buf.length);
+ }catch{return false;}
+}
+module.exports={approvedGeometry};
 
 function walk(dir){
   for(const ent of fs.readdirSync(dir,{withFileTypes:true})){
@@ -20,7 +42,7 @@ function walk(dir){
 function rel(full){return path.relative(ROOT,full).replaceAll(path.sep,'/');}
 function inspect(full){
   const r=rel(full),ext=path.extname(full).toLowerCase();
-  if(FORBIDDEN_EXT.has(ext)||/\.z\d\d$/i.test(ext)) failures.push(`forbidden packaged binary/archive extension: ${r}`);
+  if((FORBIDDEN_EXT.has(ext)||/\.z\d\d$/i.test(ext))&&!approvedGeometry(ROOT,r)) failures.push(`forbidden packaged binary/archive extension: ${r}`);
   const buf=fs.readFileSync(full);
   if(ext==='.md' && buf.includes(0)) failures.push(`binary payload disguised as markdown: ${r}`);
   if(buf.length>0x110 && buf.subarray(0x100,0x110).toString('ascii').toUpperCase().includes('SEGA')){
@@ -28,6 +50,7 @@ function inspect(full){
   }
 }
 
+if(require.main===module){
 walk(ROOT);
 
 const runtimePath=path.join(ROOT,'index.html');
@@ -82,3 +105,5 @@ if(failures.length){
   process.exit(1);
 }
 console.log({cleanRoomCompliance:'passed',filesScanned:true,romBinaryAssets:0,runtimeExternalMarks:0});
+
+}

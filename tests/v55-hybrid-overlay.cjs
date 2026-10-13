@@ -92,7 +92,9 @@ assert.throws(()=>createHybridOverlay(null,canvas),TypeError);
 // Bundle and HTML must remain in sync. Legacy mode does not load extra scripts.
 const bundle=fs.readFileSync(path.join(__dirname,'../assets/hybrid-renderer.js'),'utf8');
 const source=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
-assert(bundle.includes("global.TaipeiHybrid = load('./HybridOverlay.cjs')"));
+const shipped={window:{}};
+require('node:vm').runInNewContext(bundle,shipped);
+for(const api of ['createHybridOverlay','createFull3DScene'])assert.equal(typeof shipped.window.TaipeiHybrid[api],'function',api+' exported by shipping bundle');
 assert(source.includes('v56Load3DScene();'));
 assert(source.includes('window.TaipeiHybrid.createFull3DScene'));
 assert(source.includes('if(v56Full3D)'));
