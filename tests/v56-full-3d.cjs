@@ -18,7 +18,7 @@ THREE.WebGLRenderer=class {
  render(scene,camera){last={scene,camera};renderCalls++;}
  dispose(){disposeCalls++;}
 };
-const {createFull3DScene,previewPoints,sampleRoadPoint}=require('../src/rendering/Full3DScene.cjs');
+const {createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,createChaseRig,updateChaseRig}=require('../src/rendering/Full3DScene.cjs');
 const pts=previewPoints({curves:Array(126).fill(0),hills:Array(126).fill(0),playerX:0});
 assert.equal(pts.length,126);
 assert.equal(pts[0].x,0);
@@ -37,6 +37,26 @@ for(const side of [-1,1])for(const fraction of [0,.25,.9]){
  assert.equal(JSON.stringify(frame),before,'renderer cannot mutate gameplay inputs');
  assert(sampleRoadPoint(road,-5).z>player.z,'asphalt extends behind the player');
 }
+// Presentation follows road geometry without feeding back into handling.
+const cameraFrame={curves:Array(126).fill(2),hills:Array.from({length:126},(_,i)=>i*30),fraction:.5,playerX:.2,speedKmh:250,boosting:true};
+const cameraRoad=previewPoints(cameraFrame),tilt=roadVehiclePose(cameraRoad,cameraFrame);
+assert(tilt.pitch>0&&tilt.yaw<0,'car follows uphill tangent and curve heading');
+const downhill=previewPoints({...cameraFrame,hills:cameraFrame.hills.map(y=>-y)});
+assert(roadVehiclePose(downhill,cameraFrame).pitch<0,'downhill pitches the nose down');
+const mirrorFrame={...cameraFrame,curves:cameraFrame.curves.map(c=>-c),playerX:-cameraFrame.playerX};
+const mirror=roadVehiclePose(previewPoints(mirrorFrame),mirrorFrame);
+assert(Math.abs(tilt.yaw+mirror.yaw)<1e-10,'road orientation mirrors left/right');
+const chase=createChaseRig();updateChaseRig(chase,cameraRoad,cameraFrame,0,0);
+assert(chase.lookX>0&&chase.lookY>1.25,'camera anticipates right turn and hill');
+assert(chase.fov>66&&chase.fov<=69,'bounded boost FOV');
+const frozen=JSON.stringify(chase);updateChaseRig(chase,downhill,{...cameraFrame,boosting:false},.3,0);
+assert.equal(JSON.stringify(chase),frozen,'paused camera freezes');
+const fpsStates=[30,60,120].map(fps=>{
+ const rig=createChaseRig();updateChaseRig(rig,previewPoints({}),{},0,0);
+ for(let i=0;i<fps;i++)updateChaseRig(rig,cameraRoad,cameraFrame,.1,1/fps);
+ return rig;
+});
+for(const key of ['x','y','lookX','lookY','fov'])assert(Math.abs(fpsStates[0][key]-fpsStates[2][key])<1e-10,'camera damping independent of FPS');
 const events={};
 const canvas={style:{},addEventListener:(n,fn)=>events[n]=fn,removeEventListener:n=>delete events[n]};
 const world=createFull3DScene(THREE,canvas);

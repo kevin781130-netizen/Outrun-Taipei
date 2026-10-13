@@ -35,6 +35,28 @@ function previewPoints(input) {
  for(const p of points){p.x-=origin.x;p.y-=origin.y;p.z+=PLAYER_Z-origin.z;}
  return points;
 }
+function roadVehiclePose(points,frame){
+ const f=clamp(Number(frame.fraction)||0,0,1),lateral=(Number(frame.playerX)||0)*HALF_WIDTH;
+ const at=sampleRoadPoint(points,f,lateral);
+ const front=sampleRoadPoint(points,f+.4,lateral),rear=sampleRoadPoint(points,f-.4,lateral);
+ return {yaw:-at.heading||0,pitch:Math.atan2(front.y-rear.y,Math.hypot(front.x-rear.x,front.z-rear.z))};
+}
+function createChaseRig(){return {initialized:false,x:0,y:3.55,z:10.35,lookX:0,lookY:1.25,lookZ:-19,fov:66};}
+function updateChaseRig(rig,points,frame,sway,dt){
+ if(!Number.isFinite(dt)||dt<0)throw new TypeError('nonnegative camera dt required');
+ const f=clamp(Number(frame.fraction)||0,0,1);
+ const lateral=(Number(frame.playerX)||0)*HALF_WIDTH;
+ const ahead=sampleRoadPoint(points,f+8,lateral),behind=sampleRoadPoint(points,f-2,lateral);
+ const steer=clamp(Number(frame.steer)||0,-1,1),speed=clamp((Number(frame.speedKmh)||0)/325,0,1);
+ const target={x:sway+steer*.08,y:3.55+clamp(behind.y,-1.1,1.1),z:10.35,
+  lookX:clamp(ahead.x*.48,-3.2,3.2)+sway*.4,
+  lookY:1.25+clamp(ahead.y*.65,-2,3),lookZ:-19,
+  fov:66+speed*1.2+(frame.boosting?1.8:0)};
+ // Exponential damping gives the same response at 30/60/120 FPS. Pause freezes it.
+ const alpha=rig.initialized?1-Math.exp(-Math.min(dt,.1)*5):1;
+ for(const key of Object.keys(target))rig[key]+=(target[key]-rig[key])*alpha;
+ rig.initialized=true;return rig;
+}
 function createFull3DScene(THREE,canvas) {
  if(!THREE?.WebGLRenderer || !canvas)throw new TypeError('WebGL canvas and Three.js required');
  const geometries=[],materials=[];
@@ -117,6 +139,7 @@ function createFull3DScene(THREE,canvas) {
  const pose=createVehiclePose();
  const driving=createDrivingVisualSnapshot();
  const driftRig=createDriftVisualRig();
+ const chaseRig=createChaseRig();
  const gripFrame=createDrivingVisualSnapshot();
  let lastCarColor='',renderRandomSeed=0x6f34ac19;
  function with3DOnlyRandom(callback){
@@ -265,12 +288,16 @@ function createFull3DScene(THREE,canvas) {
    braking:!!frame.braking,boosting:!!frame.boosting
   },Math.max(0,dt));
   car.applyPose(pose);
+  const roadPose=roadVehiclePose(points,frame);
+  car.root.rotation.set(roadPose.pitch,roadPose.yaw,0);
   car.root.position.set(driftRig.offsetX,.02,PLAYER_Z);
   car.root.scale.set(.92,.83,.92);
   // Camera sits behind +Z and looks down -Z: the rear (taillights +Z)
   // ALWAYS faces the camera. Do not rotate the car 180 degrees.
-  camera.position.set(driftRig.cameraX+clamp(Number(frame.steer)||0,-1,1)*.08,3.55,10.35);
-  camera.lookAt(driftRig.cameraX*.4+clamp(Number(frame.steer)||0,-1,1)*.22,1.25,-19);
+  updateChaseRig(chaseRig,points,frame,driftRig.cameraX,Math.max(0,dt));
+  camera.position.set(chaseRig.x,chaseRig.y,chaseRig.z);
+  camera.lookAt(chaseRig.lookX,chaseRig.lookY,chaseRig.lookZ);
+  if(camera.fov!==chaseRig.fov){camera.fov=chaseRig.fov;camera.updateProjectionMatrix();}
   scene.background.setHex(frame.night?0x10213b:0x6793ad);
   scene.fog.color.setHex(frame.night?0x233b58:0x809caa);
   renderer.render(scene,camera);
@@ -285,4 +312,4 @@ function createFull3DScene(THREE,canvas) {
  }
  return {render,dispose,get ready(){return ready&&!lost&&active},get contextLost(){return lost}};
 }
-module.exports={createFull3DScene,previewPoints,sampleRoadPoint};
+module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,createChaseRig,updateChaseRig};
