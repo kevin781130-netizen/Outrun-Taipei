@@ -1273,8 +1273,12 @@ function createFull3DScene(THREE,canvas) {
   if(lastDpr!==dpr){renderer.setPixelRatio(dpr);lastDpr=dpr;}
   paintWorld(frame,points,quality);
   environment.update(frame,points,quality);
-  landmarks.update(frame,points);
-  wayfinding.update(frame,points);
+  // Three allocates UUIDs while a route's models/signs are first constructed.
+  // Those visual allocations must not advance traffic/gameplay randomness.
+  with3DOnlyRandom(()=>{
+   landmarks.update(frame,points);
+   wayfinding.update(frame,points);
+  });
   updateTraffic(frame,points);
   if(frame.carColor!==lastCarColor){
    const value=typeof frame.carColor==='string'?new THREE.Color(frame.carColor).getHex():0x202838;

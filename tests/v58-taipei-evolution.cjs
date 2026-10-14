@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const {load}=require('./canvas-harness.cjs');
 const game=load(path.join(__dirname,'../index.html'));
-const sandbox={};vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../assets/vendor/three-r149.min.js'),'utf8'),sandbox);
+const sandbox={Math};vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../assets/vendor/three-r149.min.js'),'utf8'),sandbox);
 const T=sandbox.THREE;
 const {ROUTE_MODELS,createLandmarkGeometry,createTaipeiLandmarks}=require('../src/rendering/TaipeiLandmarks.cjs');
 const {previewPoints,sampleRoadPoint,streetOffset,createFull3DScene}=require('../src/rendering/Full3DScene.cjs');
@@ -22,7 +22,10 @@ for(const [id,models] of Object.entries(ROUTE_MODELS)){
   const frame=JSON.parse(game.run('JSON.stringify(v57SceneFrame())'));
   assert.equal(frame.landmarks[j].name,names[j]);
   assert.equal(frame.landmarks[j].seg,game.run(`stageLandmarkPlan[${j}].seg`));
-  const before=JSON.stringify(frame);world.render(frame,1/60);
+  const before=JSON.stringify(frame),random=Math.random;let randomCalls=0;
+  Math.random=()=>{randomCalls++;return random();};
+  try{world.render(frame,1/60);}finally{Math.random=random;}
+  assert.equal(randomCalls,0,'route models/signs must not consume simulation randomness');
   last.scene.updateMatrixWorld(true);last.scene.traverse(object=>assert(object.matrixWorld.elements.every(Number.isFinite),object.name+' finite world transform'));
   const mesh=last.scene.getObjectByName('Taipei_'+id+':'+j+'_'+models[j]);
   assert(mesh?.visible,id+'/'+models[j]+' appears before its original anchor');
