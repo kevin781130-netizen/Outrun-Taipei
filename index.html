@@ -4360,6 +4360,7 @@ function v57SceneFrame(){
     fraction:(visualPlayerZ%SEGMENT_LENGTH)/SEGMENT_LENGTH,
     playerX,traffic:traffic3D,carColor:currentCar.color,
     driving:v56DrivingFrame,
+    crash:handlingProfile59&&crashSequence?{anim:crashSequence.anim??0,side:crashSequence.side}:null,
     archetype:currentNode.archetype,seed:currentNode.seed,
     yawDeg:v56DrivingFrame.yawDeg,rollDeg:chassisRoll,pitchDeg:chassisPitch,
     steer,speedKmh:speed,direction:motionDirection,

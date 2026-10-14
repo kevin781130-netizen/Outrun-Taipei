@@ -4,6 +4,7 @@ const {createVehiclePose, updateVehiclePose} = require('./VehiclePoseBridge.cjs'
 const {createDrivingVisualSnapshot,updateDrivingVisualSnapshot} = require('./DrivingVisualSnapshot.cjs');
 const {createDriftVisualRig,updateDriftVisualRig} = require('./DriftVisualRig.cjs');
 const {createDrivingEffects}=require('./DrivingEffects.cjs');
+const {createCrashChase}=require('./CrashChase.cjs');
 const {createTaipeiLandmarks}=require('./TaipeiLandmarks.cjs');
 const {createRaceEnvironment}=require('./RaceEnvironment.cjs');
 const {createRaceWayfinding}=require('./RaceWayfinding.cjs');
@@ -226,6 +227,8 @@ function createFull3DScene(THREE,canvas) {
   try{return callback();}finally{Math.random=original;}
  }
 
+ const crashChase=with3DOnlyRandom(()=>createCrashChase(THREE,scene));
+ const crashOffset=new THREE.Vector3(),crashGround=new THREE.Vector3();
  const tyreMat=material(new THREE.MeshStandardMaterial({color:0x10141a,roughness:.96}));
  const rearMat=material(new THREE.MeshBasicMaterial({color:0xff385d}));
  const trafficMeshes=[];
@@ -430,7 +433,15 @@ function createFull3DScene(THREE,canvas) {
   car.root.rotation.set(roadPose.pitch,roadPose.yaw,0);
   car.root.position.set(driftRig.offsetX,.02,PLAYER_Z);
   car.root.scale.set(.92,.83,.92);
-  contactShadow.position.set(driftRig.offsetX,.049,PLAYER_Z);
+  const crashPose=crashChase.update(frame.crash,{y:.02,z:PLAYER_Z,pitch:roadPose.pitch,yaw:roadPose.yaw},width/height,quality);
+  if(crashPose){
+   crashOffset.set(crashPose.x,crashPose.y,crashPose.z).applyEuler(car.root.rotation);
+   crashGround.set(crashPose.x,0,crashPose.z).applyEuler(car.root.rotation);
+   car.root.position.set(crashOffset.x,.02+crashOffset.y,PLAYER_Z+crashOffset.z);
+   car.root.rotation.z=crashPose.roll;
+  }
+  contactShadow.position.set(crashPose?crashGround.x:car.root.position.x,.049+(crashPose?crashGround.y:0),crashPose?PLAYER_Z+crashGround.z:car.root.position.z);
+  contactShadow.material.opacity=crashPose?.y>0?.28/(1+crashPose.y):.28;
   contactShadow.rotation.set(-Math.PI/2+roadPose.pitch,0,roadPose.yaw+pose.yawRad);
   // Camera sits behind +Z and looks down -Z: the rear (taillights +Z)
   // ALWAYS faces the camera. Do not rotate the car 180 degrees.
@@ -450,6 +461,7 @@ function createFull3DScene(THREE,canvas) {
   ground.position.y=Math.min(-.22,...points.map((p,i)=>p.y-.3-(frame.deckHeights?.[i]||0)/260));
   trafficVisibility(frame,points,width,height);
   effects.update(frame,Math.max(0,dt),quality,camera,car);
+  if(frame.crash){const smoke=car.root.getObjectByName('V57_DriftSmoke');if(smoke)smoke.visible=false;}
   renderer.render(scene,camera);
   canvas.style.visibility='visible';ready=true;return true;
  }
@@ -457,7 +469,7 @@ function createFull3DScene(THREE,canvas) {
   if(!active)return;active=false;ready=false;
   canvas.removeEventListener('webglcontextlost',lostHandler);
   canvas.removeEventListener('webglcontextrestored',restoredHandler);
-  wayfinding.dispose();landmarks.dispose();environment.dispose();effects.dispose();car.dispose();for(const t of textures)t.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
+  crashChase.dispose();wayfinding.dispose();landmarks.dispose();environment.dispose();effects.dispose();car.dispose();for(const t of textures)t.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
   renderer.dispose();
  }
  return {render,dispose,prepareTrafficVisibility,get ready(){return ready&&!lost&&active},get contextLost(){return lost}};
