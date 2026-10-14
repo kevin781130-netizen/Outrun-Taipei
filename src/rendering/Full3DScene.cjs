@@ -175,9 +175,11 @@ function createFull3DScene(THREE,canvas) {
  const buildings=new THREE.InstancedMesh(boxG,buildingMat,120);
  buildings.name='Race_DistrictBuildings';
  const windows=new THREE.InstancedMesh(boxG,glassMat,120);
+ const crownG=geometry(new THREE.SphereGeometry(1,8,6));
  const trees=new THREE.InstancedMesh(coneG,treesMat,120);
+ const trunks=new THREE.InstancedMesh(boxG,material(new THREE.MeshStandardMaterial({color:0x69503a,roughness:1})),120);trunks.name='Race_BroadleafTrunks';
  const lights=new THREE.InstancedMesh(boxG,polesMat,50);
- for(const mesh of [buildings,windows,trees,lights]){
+ for(const mesh of [buildings,windows,trees,trunks,lights]){
   mesh.frustumCulled=false;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   scene.add(mesh);
@@ -254,7 +256,15 @@ function createFull3DScene(THREE,canvas) {
  canvas.addEventListener('webglcontextlost',lostHandler);
  canvas.addEventListener('webglcontextrestored',restoredHandler);
 
+ function placeTree(anchor,height,width,index,district){
+  if(district){
+   dummy.position.set(anchor.x,anchor.y+1.8,anchor.z);dummy.rotation.set(0,0,0);dummy.scale.set(.24,3.6,.24);dummy.updateMatrix();trunks.setMatrixAt(index,dummy.matrix);
+   dummy.position.set(anchor.x,anchor.y+3.7,anchor.z);dummy.scale.set(Math.min(2.5,Math.max(1.6,width*.45)),1.7,Math.min(2.5,Math.max(1.6,width*.45)));
+  }else{dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);dummy.rotation.set(0,0,0);dummy.scale.set(width,height,width);}
+  dummy.updateMatrix();trees.setMatrixAt(index,dummy.matrix);
+ }
  function paintWorld(frame,pts,quality){
+  trees.geometry=frame.geography?crownG:coneG;
   for(const r of roads)r.used=0;
   const corridors=frame.corridors||[];
   for(let i=-5;i<COUNT;i++){
@@ -331,13 +341,11 @@ function createFull3DScene(THREE,canvas) {
       }
     }else if(district?district.trees:(frame.archetype!=='expressway' && !(frame.archetype==='coastal'&&side<0))){
       const height=7+h*9;
-      dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
-      dummy.rotation.set(0,0,0);dummy.scale.set(2.7+h*2,height,2.7+h*2);
-      dummy.updateMatrix();if(it<120)trees.setMatrixAt(it++,dummy.matrix);
+      if(it<120)placeTree(anchor,height,2.7+h*2,it++,district);
     }
     if(district?.urban&&district.trees&&it<120&&absolute%6===0){
-      const tree=point(c,streetOffset(neighborhood,side,2.6,2),2.8-drop);
-      dummy.position.set(tree.x,tree.y,tree.z);dummy.rotation.set(0,0,0);dummy.scale.set(1.5,5.6,1.5);dummy.updateMatrix();trees.setMatrixAt(it++,dummy.matrix);
+      const tree=point(c,streetOffset(neighborhood,side,2.6,2),-.15-drop);
+      placeTree(tree,5.6,1.5,it++,district);
     }
     if(absolute%12===0&&il<50){
       const lamp=point(c,streetOffset(neighborhood,side,.18,.7),5.2);
@@ -347,7 +355,7 @@ function createFull3DScene(THREE,canvas) {
     }
    }
   }
-  const assignments=[[buildings,ib],[windows,iw],[trees,it],[lights,il],...signs.map((m,i)=>[m,signCounts[i]])];
+  const assignments=[[buildings,ib],[windows,iw],[trees,it],[trunks,frame.geography?it:0],[lights,il],...signs.map((m,i)=>[m,signCounts[i]])];
   for(const [m,count] of assignments){m.count=count;m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;}
  }
  function updateTraffic(frame,pts){
@@ -468,6 +476,7 @@ function createFull3DScene(THREE,canvas) {
   glassMat.emissiveIntensity=frame.night?.7:.12;
   scene.background.setHex(frame.night?0x10213b:0xf4ae78);
   scene.fog.color.setHex(frame.night?0x233b58:0xd69b82);
+  if(frame.geography?.[0]?.ground)ground.material.color.set(frame.geography[0].ground);else ground.material.color.setHex(0x32484b);
   // A flat ground plane must never cover a descending road.
   ground.position.y=Math.min(-.22,...points.map((p,i)=>p.y-.3-(frame.deckHeights?.[i]||0)/260-(frame.geography?.[i]?.water==='distant-sea'?19:frame.geography?.[i]?.water&&frame.geography[i].water!=='none'?1:0)));
   trafficVisibility(frame,points,width,height);

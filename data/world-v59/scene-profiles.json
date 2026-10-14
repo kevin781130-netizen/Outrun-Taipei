@@ -22,7 +22,8 @@
       "trees": true,
       "hillSides": [],
       "water": "none",
-      "facade": "#b99383"
+      "facade": "#b99383",
+      "ground": "#786e5d"
     },
     "avenue": {
       "urban": true,
@@ -32,7 +33,8 @@
         1
       ],
       "water": "none",
-      "facade": "#b8b5a3"
+      "facade": "#b8b5a3",
+      "ground": "#607144"
     },
     "foothill": {
       "urban": true,
@@ -42,7 +44,8 @@
         1
       ],
       "water": "none",
-      "facade": "#ad9d82"
+      "facade": "#ad9d82",
+      "ground": "#536c3b"
     },
     "digital": {
       "urban": true,
@@ -51,7 +54,8 @@
       "hillSides": [],
       "water": "none",
       "elevated": true,
-      "facade": "#6e91a6"
+      "facade": "#6e91a6",
+      "ground": "#79756c"
     },
     "river": {
       "urban": true,
@@ -61,7 +65,8 @@
         1
       ],
       "water": "river",
-      "facade": "#ba9b7d"
+      "facade": "#ba9b7d",
+      "ground": "#61734d"
     },
     "spring": {
       "urban": true,
@@ -72,7 +77,8 @@
         1
       ],
       "water": "none",
-      "facade": "#bda583"
+      "facade": "#bda583",
+      "ground": "#5e7047"
     },
     "dazhi": {
       "urban": true,
@@ -80,7 +86,8 @@
       "trees": true,
       "hillSides": [],
       "water": "none",
-      "facade": "#829daa"
+      "facade": "#829daa",
+      "ground": "#777767"
     },
     "cultural": {
       "urban": true,
@@ -88,7 +95,8 @@
       "trees": true,
       "hillSides": [],
       "water": "none",
-      "facade": "#af7562"
+      "facade": "#af7562",
+      "ground": "#81765e"
     },
     "historic": {
       "urban": true,
@@ -98,7 +106,8 @@
         1
       ],
       "water": "estuary",
-      "facade": "#ba826d"
+      "facade": "#ba826d",
+      "ground": "#73805a"
     },
     "volcanic": {
       "urban": false,
@@ -109,7 +118,8 @@
         1
       ],
       "water": "none",
-      "facade": "#7a8069"
+      "facade": "#7a8069",
+      "ground": "#747563"
     },
     "grassland": {
       "urban": false,
@@ -120,7 +130,8 @@
         1
       ],
       "water": "none",
-      "facade": "#7e9870"
+      "facade": "#7e9870",
+      "ground": "#728648"
     },
     "market": {
       "urban": true,
@@ -128,7 +139,8 @@
       "trees": false,
       "hillSides": [],
       "water": "none",
-      "facade": "#bd8a71"
+      "facade": "#bd8a71",
+      "ground": "#80715d"
     },
     "office": {
       "urban": true,
@@ -136,7 +148,8 @@
       "trees": true,
       "hillSides": [],
       "water": "none",
-      "facade": "#7c9fad"
+      "facade": "#7c9fad",
+      "ground": "#777e71"
     },
     "village": {
       "urban": true,
@@ -144,7 +157,8 @@
       "trees": true,
       "hillSides": [],
       "water": "none",
-      "facade": "#a67364"
+      "facade": "#a67364",
+      "ground": "#85745d"
     },
     "xinyi": {
       "urban": true,
@@ -152,7 +166,8 @@
       "trees": true,
       "hillSides": [],
       "water": "none",
-      "facade": "#7294a7"
+      "facade": "#7294a7",
+      "ground": "#777c70"
     },
     "marina": {
       "urban": true,
@@ -160,7 +175,8 @@
       "trees": true,
       "hillSides": [],
       "water": "marina",
-      "facade": "#e0c8a0"
+      "facade": "#e0c8a0",
+      "ground": "#93856e"
     },
     "coast": {
       "urban": false,
@@ -170,7 +186,8 @@
         1
       ],
       "water": "sea",
-      "facade": "#697c72"
+      "facade": "#697c72",
+      "ground": "#7e795f"
     },
     "jiufen": {
       "urban": false,
@@ -181,7 +198,9 @@
         1
       ],
       "water": "distant-sea",
-      "facade": "#a36a54"
+      "facade": "#a36a54",
+      "ground": "#765c42",
+      "hillColor": "#4f6b3c"
     },
     "tea": {
       "urban": false,
@@ -192,7 +211,9 @@
         1
       ],
       "water": "none",
-      "facade": "#9c8968"
+      "facade": "#9c8968",
+      "ground": "#637d3d",
+      "hillColor": "#4c7137"
     }
   },
   "routes": {

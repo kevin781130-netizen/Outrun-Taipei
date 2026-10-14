@@ -18,7 +18,8 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
  function pool(g,color,size){const m=add(new T.InstancedMesh(g,mat(new T.MeshStandardMaterial({color,roughness:.9})),size));m.frustumCulled=false;m.instanceMatrix.setUsage(T.DynamicDrawUsage);m.count=0;return m;}
  const rails=pool(cube,0xc3c7be,600),supports=pool(cube,0x77828a,100),hills=pool(hill,0x49705b,40);
  const rocks=pool(hill,0x5f6260,64),teaRows=pool(cube,0x497745,160),houses=pool(cube,0xb18165,100),terraces=pool(cube,0x635e52,160),boats=pool(cube,0xe2e0cc,32),piers=pool(cube,0x8f7e63,32),waves=pool(cube,0xd6e9e7,64);
- const extras=[rocks,teaRows,houses,terraces,boats,piers,waves];
+ const roofs=pool(geo(new T.ConeGeometry(1,1,4)),0x8a4031,100);roofs.name='Race_SlopeRoofs';
+ const extras=[rocks,teaRows,houses,terraces,boats,piers,waves,roofs];
  ['Rocks','TeaRows','SlopeHouses','Terraces','Boats','Piers','Waves'].forEach((name,i)=>extras[i].name='Race_'+name);
  supports.name='Race_Supports';hills.name='Race_Hills';
  const markerGeo=geo(new T.PlaneGeometry(1,1));let tex=null;
@@ -36,8 +37,8 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
   for(const r of [land,water,walk,deck])r.used=0;
   for(const m of [rails,supports,hills,arrows,...extras])m.count=0;
   const arch=frame.archetype,coast=arch==='coastal',highway=arch==='expressway',mountain=arch==='mountain';
-  land.mesh.material.color.set(frame.groundColor||'#526c51');
-  hills.material.color.set(frame.mountainColor||'#49705b');
+  land.mesh.material.color.set(frame.geography?.[0]?.ground||frame.groundColor||'#526c51');
+  hills.material.color.set(frame.geography?.[0]?.hillColor||frame.geography?.[0]?.ground||frame.mountainColor||'#49705b');
   const waterKind=frame.geography?.find(s=>s.water!=='none')?.water;
   water.mesh.material.color.setHex(frame.night?0x193d60:({river:0x587f79,estuary:0x4e8d91,marina:0x447d9b,sea:0x287daa,'distant-sea':0x547e9a}[waterKind]||0x337f99));water.mesh.material.roughness=.38;
   const kinds=new Set();water.mesh.userData.kinds=[];
@@ -71,12 +72,13 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
      const p=sample(points,i,offset(lanes,side,22,16));p.y-=3;
      put(hills,p,12,8+(absolute%17),14,0);
     }
-    if(district&&!inLandmarkVista(frame.landmarks,absolute,side)){
+    if(district&&(!inLandmarkVista(frame.landmarks,absolute,side)||district.id==='tea')){
      if(district.id==='jiufen'&&absolute%12===0){
       for(let level=0;level<3;level++){
        const place=sample(points,i,offset(lanes,side,8,6+level*7));place.y+=level*3.0;
        const base=level*3.0+1.6;put(terraces,{...place,y:place.y-base/2},8,base,7,points[i].heading);
        put(houses,{...place,y:place.y+1.4},5.6,2.8,4.6,points[i].heading);
+       put(roofs,{...place,y:place.y+3.35},4,1.1,3.5,points[i].heading-Math.PI/4);
       }
      }
      if(district.id==='tea'&&absolute%8===0){

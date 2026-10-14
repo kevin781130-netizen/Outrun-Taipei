@@ -35,7 +35,7 @@ for(const id of routeIds){
  }
 }
 // Specific identity checks away from landmark occlusion windows.
-for(const [id,name] of [['5C','Race_SlopeHouses'],['5E','Race_TeaRows'],['5A','Race_Boats'],['5B','Race_Rocks'],['5B','Race_Waves']]){
+for(const [id,name] of [['2A','Race_BroadleafTrunks'],['5C','Race_SlopeRoofs'],['5C','Race_SlopeHouses'],['5E','Race_TeaRows'],['5A','Race_Boats'],['5B','Race_Rocks'],['5B','Race_Waves']]){
  game.run(`setStage(...Object.values(routeForId('${id}')),false);playerZ=50*SEGMENT_LENGTH;`);
  world.render(JSON.parse(game.run('JSON.stringify(v57SceneFrame())')),0);
  assert(rendered.scene.getObjectByName(name).count>0,id+' has '+name);

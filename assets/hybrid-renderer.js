@@ -797,7 +797,8 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
  function pool(g,color,size){const m=add(new T.InstancedMesh(g,mat(new T.MeshStandardMaterial({color,roughness:.9})),size));m.frustumCulled=false;m.instanceMatrix.setUsage(T.DynamicDrawUsage);m.count=0;return m;}
  const rails=pool(cube,0xc3c7be,600),supports=pool(cube,0x77828a,100),hills=pool(hill,0x49705b,40);
  const rocks=pool(hill,0x5f6260,64),teaRows=pool(cube,0x497745,160),houses=pool(cube,0xb18165,100),terraces=pool(cube,0x635e52,160),boats=pool(cube,0xe2e0cc,32),piers=pool(cube,0x8f7e63,32),waves=pool(cube,0xd6e9e7,64);
- const extras=[rocks,teaRows,houses,terraces,boats,piers,waves];
+ const roofs=pool(geo(new T.ConeGeometry(1,1,4)),0x8a4031,100);roofs.name='Race_SlopeRoofs';
+ const extras=[rocks,teaRows,houses,terraces,boats,piers,waves,roofs];
  ['Rocks','TeaRows','SlopeHouses','Terraces','Boats','Piers','Waves'].forEach((name,i)=>extras[i].name='Race_'+name);
  supports.name='Race_Supports';hills.name='Race_Hills';
  const markerGeo=geo(new T.PlaneGeometry(1,1));let tex=null;
@@ -815,8 +816,8 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
   for(const r of [land,water,walk,deck])r.used=0;
   for(const m of [rails,supports,hills,arrows,...extras])m.count=0;
   const arch=frame.archetype,coast=arch==='coastal',highway=arch==='expressway',mountain=arch==='mountain';
-  land.mesh.material.color.set(frame.groundColor||'#526c51');
-  hills.material.color.set(frame.mountainColor||'#49705b');
+  land.mesh.material.color.set(frame.geography?.[0]?.ground||frame.groundColor||'#526c51');
+  hills.material.color.set(frame.geography?.[0]?.hillColor||frame.geography?.[0]?.ground||frame.mountainColor||'#49705b');
   const waterKind=frame.geography?.find(s=>s.water!=='none')?.water;
   water.mesh.material.color.setHex(frame.night?0x193d60:({river:0x587f79,estuary:0x4e8d91,marina:0x447d9b,sea:0x287daa,'distant-sea':0x547e9a}[waterKind]||0x337f99));water.mesh.material.roughness=.38;
   const kinds=new Set();water.mesh.userData.kinds=[];
@@ -850,12 +851,13 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
      const p=sample(points,i,offset(lanes,side,22,16));p.y-=3;
      put(hills,p,12,8+(absolute%17),14,0);
     }
-    if(district&&!inLandmarkVista(frame.landmarks,absolute,side)){
+    if(district&&(!inLandmarkVista(frame.landmarks,absolute,side)||district.id==='tea')){
      if(district.id==='jiufen'&&absolute%12===0){
       for(let level=0;level<3;level++){
        const place=sample(points,i,offset(lanes,side,8,6+level*7));place.y+=level*3.0;
        const base=level*3.0+1.6;put(terraces,{...place,y:place.y-base/2},8,base,7,points[i].heading);
        put(houses,{...place,y:place.y+1.4},5.6,2.8,4.6,points[i].heading);
+       put(roofs,{...place,y:place.y+3.35},4,1.1,3.5,points[i].heading-Math.PI/4);
       }
      }
      if(district.id==='tea'&&absolute%8===0){
@@ -1222,9 +1224,11 @@ function createFull3DScene(THREE,canvas) {
  const buildings=new THREE.InstancedMesh(boxG,buildingMat,120);
  buildings.name='Race_DistrictBuildings';
  const windows=new THREE.InstancedMesh(boxG,glassMat,120);
+ const crownG=geometry(new THREE.SphereGeometry(1,8,6));
  const trees=new THREE.InstancedMesh(coneG,treesMat,120);
+ const trunks=new THREE.InstancedMesh(boxG,material(new THREE.MeshStandardMaterial({color:0x69503a,roughness:1})),120);trunks.name='Race_BroadleafTrunks';
  const lights=new THREE.InstancedMesh(boxG,polesMat,50);
- for(const mesh of [buildings,windows,trees,lights]){
+ for(const mesh of [buildings,windows,trees,trunks,lights]){
   mesh.frustumCulled=false;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   scene.add(mesh);
@@ -1301,7 +1305,15 @@ function createFull3DScene(THREE,canvas) {
  canvas.addEventListener('webglcontextlost',lostHandler);
  canvas.addEventListener('webglcontextrestored',restoredHandler);
 
+ function placeTree(anchor,height,width,index,district){
+  if(district){
+   dummy.position.set(anchor.x,anchor.y+1.8,anchor.z);dummy.rotation.set(0,0,0);dummy.scale.set(.24,3.6,.24);dummy.updateMatrix();trunks.setMatrixAt(index,dummy.matrix);
+   dummy.position.set(anchor.x,anchor.y+3.7,anchor.z);dummy.scale.set(Math.min(2.5,Math.max(1.6,width*.45)),1.7,Math.min(2.5,Math.max(1.6,width*.45)));
+  }else{dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);dummy.rotation.set(0,0,0);dummy.scale.set(width,height,width);}
+  dummy.updateMatrix();trees.setMatrixAt(index,dummy.matrix);
+ }
  function paintWorld(frame,pts,quality){
+  trees.geometry=frame.geography?crownG:coneG;
   for(const r of roads)r.used=0;
   const corridors=frame.corridors||[];
   for(let i=-5;i<COUNT;i++){
@@ -1378,13 +1390,11 @@ function createFull3DScene(THREE,canvas) {
       }
     }else if(district?district.trees:(frame.archetype!=='expressway' && !(frame.archetype==='coastal'&&side<0))){
       const height=7+h*9;
-      dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
-      dummy.rotation.set(0,0,0);dummy.scale.set(2.7+h*2,height,2.7+h*2);
-      dummy.updateMatrix();if(it<120)trees.setMatrixAt(it++,dummy.matrix);
+      if(it<120)placeTree(anchor,height,2.7+h*2,it++,district);
     }
     if(district?.urban&&district.trees&&it<120&&absolute%6===0){
-      const tree=point(c,streetOffset(neighborhood,side,2.6,2),2.8-drop);
-      dummy.position.set(tree.x,tree.y,tree.z);dummy.rotation.set(0,0,0);dummy.scale.set(1.5,5.6,1.5);dummy.updateMatrix();trees.setMatrixAt(it++,dummy.matrix);
+      const tree=point(c,streetOffset(neighborhood,side,2.6,2),-.15-drop);
+      placeTree(tree,5.6,1.5,it++,district);
     }
     if(absolute%12===0&&il<50){
       const lamp=point(c,streetOffset(neighborhood,side,.18,.7),5.2);
@@ -1394,7 +1404,7 @@ function createFull3DScene(THREE,canvas) {
     }
    }
   }
-  const assignments=[[buildings,ib],[windows,iw],[trees,it],[lights,il],...signs.map((m,i)=>[m,signCounts[i]])];
+  const assignments=[[buildings,ib],[windows,iw],[trees,it],[trunks,frame.geography?it:0],[lights,il],...signs.map((m,i)=>[m,signCounts[i]])];
   for(const [m,count] of assignments){m.count=count;m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;}
  }
  function updateTraffic(frame,pts){
@@ -1515,6 +1525,7 @@ function createFull3DScene(THREE,canvas) {
   glassMat.emissiveIntensity=frame.night?.7:.12;
   scene.background.setHex(frame.night?0x10213b:0xf4ae78);
   scene.fog.color.setHex(frame.night?0x233b58:0xd69b82);
+  if(frame.geography?.[0]?.ground)ground.material.color.set(frame.geography[0].ground);else ground.material.color.setHex(0x32484b);
   // A flat ground plane must never cover a descending road.
   ground.position.y=Math.min(-.22,...points.map((p,i)=>p.y-.3-(frame.deckHeights?.[i]||0)/260-(frame.geography?.[i]?.water==='distant-sea'?19:frame.geography?.[i]?.water&&frame.geography[i].water!=='none'?1:0)));
   trafficVisibility(frame,points,width,height);
@@ -1559,7 +1570,8 @@ module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,
       "trees": true,
       "hillSides": [],
       "water": "none",
-      "facade": "#b99383"
+      "facade": "#b99383",
+      "ground": "#786e5d"
     },
     "avenue": {
       "urban": true,
@@ -1569,7 +1581,8 @@ module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,
         1
       ],
       "water": "none",
-      "facade": "#b8b5a3"
+      "facade": "#b8b5a3",
+      "ground": "#607144"
     },
     "foothill": {
       "urban": true,
@@ -1579,7 +1592,8 @@ module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,
         1
       ],
       "water": "none",
-      "facade": "#ad9d82"
+      "facade": "#ad9d82",
+      "ground": "#536c3b"
     },
     "digital": {
       "urban": true,
@@ -1588,7 +1602,8 @@ module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,
       "hillSides": [],
       "water": "none",
       "elevated": true,
-      "facade": "#6e91a6"
+      "facade": "#6e91a6",
+      "ground": "#79756c"
     },
     "river": {
       "urban": true,
@@ -1598,7 +1613,8 @@ module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,
         1
       ],
       "water": "river",
-      "facade": "#ba9b7d"
+      "facade": "#ba9b7d",
+      "ground": "#61734d"
     },
     "spring": {
       "urban": true,
@@ -1609,7 +1625,8 @@ module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,
         1
       ],
       "water": "none",
-      "facade": "#bda583"
+      "facade": "#bda583",
+      "ground": "#5e7047"
     },
     "dazhi": {
       "urban": true,
@@ -1617,7 +1634,8 @@ module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,
       "trees": true,
       "hillSides": [],
       "water": "none",
-      "facade": "#829daa"
+      "facade": "#829daa",
+      "ground": "#777767"
     },
     "cultural": {
       "urban": true,
@@ -1625,7 +1643,8 @@ module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,
       "trees": true,
       "hillSides": [],
       "water": "none",
-      "facade": "#af7562"
+      "facade": "#af7562",
+      "ground": "#81765e"
     },
     "historic": {
       "urban": true,
@@ -1635,7 +1654,8 @@ module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,
         1
       ],
       "water": "estuary",
-      "facade": "#ba826d"
+      "facade": "#ba826d",
+      "ground": "#73805a"
     },
     "volcanic": {
       "urban": false,
@@ -1646,7 +1666,8 @@ module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,
         1
       ],
       "water": "none",
-      "facade": "#7a8069"
+      "facade": "#7a8069",
+      "ground": "#747563"
     },
     "grassland": {
       "urban": false,
@@ -1657,7 +1678,8 @@ module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,
         1
       ],
       "water": "none",
-      "facade": "#7e9870"
+      "facade": "#7e9870",
+      "ground": "#728648"
     },
     "market": {
       "urban": true,
@@ -1665,7 +1687,8 @@ module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,
       "trees": false,
       "hillSides": [],
       "water": "none",
-      "facade": "#bd8a71"
+      "facade": "#bd8a71",
+      "ground": "#80715d"
     },
     "office": {
       "urban": true,
@@ -1673,7 +1696,8 @@ module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,
       "trees": true,
       "hillSides": [],
       "water": "none",
-      "facade": "#7c9fad"
+      "facade": "#7c9fad",
+      "ground": "#777e71"
     },
     "village": {
       "urban": true,
@@ -1681,7 +1705,8 @@ module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,
       "trees": true,
       "hillSides": [],
       "water": "none",
-      "facade": "#a67364"
+      "facade": "#a67364",
+      "ground": "#85745d"
     },
     "xinyi": {
       "urban": true,
@@ -1689,7 +1714,8 @@ module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,
       "trees": true,
       "hillSides": [],
       "water": "none",
-      "facade": "#7294a7"
+      "facade": "#7294a7",
+      "ground": "#777c70"
     },
     "marina": {
       "urban": true,
@@ -1697,7 +1723,8 @@ module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,
       "trees": true,
       "hillSides": [],
       "water": "marina",
-      "facade": "#e0c8a0"
+      "facade": "#e0c8a0",
+      "ground": "#93856e"
     },
     "coast": {
       "urban": false,
@@ -1707,7 +1734,8 @@ module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,
         1
       ],
       "water": "sea",
-      "facade": "#697c72"
+      "facade": "#697c72",
+      "ground": "#7e795f"
     },
     "jiufen": {
       "urban": false,
@@ -1718,7 +1746,9 @@ module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,
         1
       ],
       "water": "distant-sea",
-      "facade": "#a36a54"
+      "facade": "#a36a54",
+      "ground": "#765c42",
+      "hillColor": "#4f6b3c"
     },
     "tea": {
       "urban": false,
@@ -1729,7 +1759,9 @@ module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,
         1
       ],
       "water": "none",
-      "facade": "#9c8968"
+      "facade": "#9c8968",
+      "ground": "#637d3d",
+      "hillColor": "#4c7137"
     }
   },
   "routes": {
