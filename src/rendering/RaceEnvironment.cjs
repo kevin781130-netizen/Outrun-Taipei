@@ -17,7 +17,7 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
  const cube=geo(new T.BoxGeometry(1,1,1)),hill=geo(new T.SphereGeometry(1,10,6));
  function pool(g,color,size){const m=add(new T.InstancedMesh(g,mat(new T.MeshStandardMaterial({color,roughness:.9})),size));m.frustumCulled=false;m.instanceMatrix.setUsage(T.DynamicDrawUsage);m.count=0;return m;}
  const rails=pool(cube,0xc3c7be,600),supports=pool(cube,0x77828a,100),hills=pool(hill,0x49705b,40);
- const rocks=pool(hill,0x5f6260,64),teaRows=pool(cube,0x497745,160),houses=pool(cube,0xb18165,100),terraces=pool(cube,0x635e52,100),boats=pool(cube,0xe2e0cc,32),piers=pool(cube,0x8f7e63,32),waves=pool(cube,0xd6e9e7,64);
+ const rocks=pool(hill,0x5f6260,64),teaRows=pool(cube,0x497745,160),houses=pool(cube,0xb18165,100),terraces=pool(cube,0x635e52,160),boats=pool(cube,0xe2e0cc,32),piers=pool(cube,0x8f7e63,32),waves=pool(cube,0xd6e9e7,64);
  const extras=[rocks,teaRows,houses,terraces,boats,piers,waves];
  ['Rocks','TeaRows','SlopeHouses','Terraces','Boats','Piers','Waves'].forEach((name,i)=>extras[i].name='Race_'+name);
  supports.name='Race_Supports';hills.name='Race_Hills';
@@ -75,12 +75,12 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
      if(district.id==='jiufen'&&absolute%12===0){
       for(let level=0;level<3;level++){
        const place=sample(points,i,offset(lanes,side,8,6+level*7));place.y+=level*3.0;
-       put(terraces,{...place,y:place.y-.8},8,1.6,7,points[i].heading);
+       const base=level*3.0+1.6;put(terraces,{...place,y:place.y-base/2},8,base,7,points[i].heading);
        put(houses,{...place,y:place.y+1.4},5.6,2.8,4.6,points[i].heading);
       }
      }
      if(district.id==='tea'&&absolute%8===0){
-      for(let row=0;row<5;row++){const at=sample(points,i,offset(lanes,side,9,5+row*2));at.y+=.3+row*.4;put(teaRows,at,9,.6,1.0,points[i].heading);}
+      for(let row=0;row<5;row++){const at=sample(points,i,offset(lanes,side,9,5+row*2));at.y+=.3+row*.4;put(teaRows,at,9,.6,1.0,points[i].heading);const base=row*.4+.5;put(terraces,{...at,y:at.y-.3-base/2},9,base,2.0,points[i].heading);}
      }
      if((district.id==='coast'||district.id==='volcanic')&&absolute%8===0){
       const at=sample(points,i,offset(lanes,side,2,3));put(rocks,{...at,y:at.y+.4},1.8,.9,2.0,points[i].heading);

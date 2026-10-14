@@ -39,6 +39,17 @@ for(const [id,name] of [['5C','Race_SlopeHouses'],['5E','Race_TeaRows'],['5A','R
  game.run(`setStage(...Object.values(routeForId('${id}')),false);playerZ=50*SEGMENT_LENGTH;`);
  world.render(JSON.parse(game.run('JSON.stringify(v57SceneFrame())')),0);
  assert(rendered.scene.getObjectByName(name).count>0,id+' has '+name);
+ if(name==='Race_SlopeHouses'||name==='Race_TeaRows'){
+  const objects=rendered.scene.getObjectByName(name),bases=rendered.scene.getObjectByName('Race_Terraces'),m=new T.Matrix4(),a=new T.Vector3(),b=new T.Vector3(),sa=new T.Vector3(),sb=new T.Vector3(),q=new T.Quaternion();
+  assert.equal(objects.count,bases.count,'every raised object has a foundation');
+  for(let n=0;n<objects.count;n++){
+   objects.getMatrixAt(n,m);m.decompose(a,q,sa);bases.getMatrixAt(n,m);m.decompose(b,q,sb);
+   assert(Math.abs(a.y-sa.y/2-b.y-sb.y/2)<1e-4,'foundation touches object base');
+   const level=n%(name==='Race_SlopeHouses'?3:5),rise=level*(name==='Race_SlopeHouses'?3:.4);
+   assert(b.y-sb.y/2<=a.y-sa.y/2-rise-.24,'foundation reaches the terrain instead of floating');
+  }
+ }
+
 }
 assert(receipts.filter(r=>r.id==='3A').every(r=>!r.water.includes('sea')),'Guandu is never open coast');
 assert(receipts.filter(r=>r.id==='4A').every(r=>r.water.includes('estuary')));
