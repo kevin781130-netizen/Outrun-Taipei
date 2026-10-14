@@ -152,7 +152,10 @@ async function main(){
    });
    assert(Number.isFinite(pose.body)&&Number.isFinite(pose.front)&&pose.body*pose.front<0,'front wheels countersteer against rendered body yaw');
    const shot=path.join(out,'v59-counter-'+side+'.png');
-   await page.locator('#v56-full-3d-canvas').screenshot({path:shot,timeout:60000});
+   // Read real WebGL pixels immediately after render; avoid compositor screenshot waits
+   // on a page whose animation clock is intentionally frozen by this deterministic test.
+   const png=await page.evaluate(()=>{window.__v56TestEval('render(0)');return document.getElementById('v56-full-3d-canvas').toDataURL('image/png');});
+   fs.writeFileSync(shot,Buffer.from(png.split(',')[1],'base64'));
    assert(fs.statSync(shot).size>5000,'nonempty rendered V59 countersteer screenshot');
    await page.keyboard.up('KeyW');await tick(page,42);
    assert(!(await physics(page)).isDrifting,'V59 lifted countersteer recovers');
