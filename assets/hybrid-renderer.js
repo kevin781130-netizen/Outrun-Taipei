@@ -769,12 +769,13 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
  const geometries=[],materials=[],textures=[],meshes=[];
  const geo=g=>(geometries.push(g),g),mat=m=>(materials.push(m),m);
  const add=m=>(scene.add(m),meshes.push(m),m);
- function ribbon(color){
-  const g=geo(new T.BufferGeometry()),a=new T.BufferAttribute(new Float32Array(126*6*3*2),3);a.setUsage(T.DynamicDrawUsage);g.setAttribute('position',a);const normals=new Float32Array(a.array.length);for(let i=1;i<normals.length;i+=3)normals[i]=1;g.setAttribute('normal',new T.BufferAttribute(normals,3));g.setDrawRange(0,0);
+ function ribbon(color,quads=252){
+  const g=geo(new T.BufferGeometry()),a=new T.BufferAttribute(new Float32Array(quads*18),3);a.setUsage(T.DynamicDrawUsage);g.setAttribute('position',a);const normals=new Float32Array(a.array.length);for(let i=1;i<normals.length;i+=3)normals[i]=1;g.setAttribute('normal',new T.BufferAttribute(normals,3));g.setDrawRange(0,0);
   const material=mat(new T.MeshStandardMaterial({color,roughness:.95,side:T.DoubleSide}));
   const mesh=add(new T.Mesh(g,material));mesh.frustumCulled=false;return {mesh,a,used:0};
  }
- const land=ribbon(0x526c51),water=ribbon(0x337f99),walk=ribbon(0x9b9181),deck=ribbon(0x64727e);
+ const land=ribbon(0x526c51),water=ribbon(0x337f99),walk=ribbon(0x9b9181),deck=ribbon(0x64727e,504);
+ deck.mesh.name='Race_ExpresswayDeck';
  function quad(r,a,b,c,d){if(r.used+18>r.a.array.length)return;r.a.array.set([a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z,a.x,a.y,a.z,c.x,c.y,c.z,d.x,d.y,d.z],r.used);r.used+=18;}
  const cube=geo(new T.BoxGeometry(1,1,1)),hill=geo(new T.SphereGeometry(1,10,6));
  function pool(g,color,size){const m=add(new T.InstancedMesh(g,mat(new T.MeshStandardMaterial({color,roughness:.9})),size));m.frustumCulled=false;m.instanceMatrix.setUsage(T.DynamicDrawUsage);m.count=0;return m;}

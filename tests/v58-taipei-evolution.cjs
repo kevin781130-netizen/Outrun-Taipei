@@ -41,7 +41,12 @@ for(const side of [-1,1])for(const modelIndex of [0,1,2])for(const distance of [
  for(const p of receipts)assert(side*p.lateral-p.halfWidth>=2.8*8+4.99,'landmark clears both branches');
 }
 let released=0;for(const m of scene.children)m.geometry.addEventListener('dispose',()=>released++);
-marks.dispose();assert.equal(released,1);assert.equal(scene.children.length,0);marks.dispose();world.dispose();
+marks.dispose();assert.equal(released,1);assert.equal(scene.children.length,0);marks.dispose();
+const forkFrame={curves:Array(126).fill(0),hills:Array(126).fill(0),archetype:'expressway',
+ corridors:Array.from({length:126},()=>[{center:-2,half:.8},{center:2,half:.8}]),deckHeights:Array(126).fill(1000)};
+world.render(forkFrame,1/60);
+assert.equal(last.scene.getObjectByName('Race_ExpresswayDeck').geometry.drawRange.count,125*4*6,'both fork decks remain complete to draw distance');
+world.dispose();
 assert.equal(total,27);assert(vertices<500000,'bounded merged landmark geometry budget');
 // Input calibration is continuous at the dead zone and symmetric; digital full
 // lock remains unchanged and keyboard driving remains covered by replay tests.

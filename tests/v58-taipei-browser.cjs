@@ -20,7 +20,9 @@ const server=http.createServer((req,res)=>{
   await page.addInitScript(()=>{window.requestAnimationFrame=()=>0;});
   await page.goto('http://127.0.0.1:'+server.address().port+'/');
   const run=code=>page.evaluate(code=>window.__sceneAudit(code),code);
-  assert(await page.evaluate(()=>window.v56ThreeStatus().ready),'WebGL renderer must initialize');
+  await page.waitForFunction(()=>window.v56ThreeStatus?.().loaded,{timeout:20000});
+  await run('render(0)');
+  assert(await page.evaluate(()=>window.v56ThreeStatus().ready),'WebGL renderer must initialize and render');
   for(const id of ['1A','2A','2B','3A','3B','3C','4A','4B','4C','4D','5A','5B','5C','5D','5E']){
    const names=await run(`v34Mode='arcade';setStage(...Object.values(routeForId('${id}')),false);gameStarted=true;raceActive=true;paused=false;gameOver=false;traffic=[];overlay.classList.add('hidden');stageLandmarkPlan.map(h=>h.name)`);
    for(let i=0;i<names.length;i++)for(const mood of ['sunset','neon']){
