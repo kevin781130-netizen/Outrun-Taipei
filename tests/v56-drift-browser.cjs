@@ -73,7 +73,7 @@ async function main(){
   const options={headless:true,args:['--enable-webgl','--enable-unsafe-swiftshader','--use-angle=swiftshader']};
   if(process.env.CHROMIUM_PATH)options.executablePath=process.env.CHROMIUM_PATH;
   browser=await chromium.launch(options);
-  const page=await browser.newPage({viewport:{width:1280,height:800}});
+  let page=await browser.newPage({viewport:{width:1280,height:800}});
   page.on('pageerror',err=>result.pageErrors.push(err.message));
   await page.addInitScript(()=>{window.requestAnimationFrame=()=>0;});
   await page.goto('http://127.0.0.1:'+server.address().port+'/',{waitUntil:'load'});
@@ -126,6 +126,11 @@ async function main(){
   assert((await physics(page)).nitro>boosted.nitro,'nitro must charge during boost + drift');
   await page.screenshot({path:path.join(out,'boost.png')});await release(page);
   result.checks.push('boost + charge + exhaust flames while drifting');
+  // Release the previous WebGL page before allocating the opt-in scene on software GPU CI.
+  await page.close();
+  page=await browser.newPage({viewport:{width:1280,height:800}});
+  page.on('pageerror',err=>result.pageErrors.push(err.message));
+  await page.addInitScript(()=>{window.requestAnimationFrame=()=>0;});
   // Exercise the real opt-in URL, keyboard events and GPU front-wheel/body separation.
   await page.goto('http://127.0.0.1:'+server.address().port+'/?handling=v59',{waitUntil:'load'});
   await page.waitForFunction(()=>window.v56ThreeStatus?.().loaded,{timeout:20000});
@@ -146,7 +151,9 @@ async function main(){
     return {body:car?.children.find(x=>x.isGroup)?.rotation.y,front:car?.getObjectByName('front-left-steer')?.rotation.y};
    });
    assert(Number.isFinite(pose.body)&&Number.isFinite(pose.front)&&pose.body*pose.front<0,'front wheels countersteer against rendered body yaw');
-   await page.screenshot({path:path.join(out,'v59-counter-'+side+'.png')});
+   const shot=path.join(out,'v59-counter-'+side+'.png');
+   await page.locator('#v56-full-3d-canvas').screenshot({path:shot,timeout:60000});
+   assert(fs.statSync(shot).size>5000,'nonempty rendered V59 countersteer screenshot');
    await page.keyboard.up('KeyW');await tick(page,42);
    assert(!(await physics(page)).isDrifting,'V59 lifted countersteer recovers');
    await release(page);
