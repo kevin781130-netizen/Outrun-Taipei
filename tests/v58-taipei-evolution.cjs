@@ -23,6 +23,7 @@ for(const [id,models] of Object.entries(ROUTE_MODELS)){
   assert.equal(frame.landmarks[j].name,names[j]);
   assert.equal(frame.landmarks[j].seg,game.run(`stageLandmarkPlan[${j}].seg`));
   const before=JSON.stringify(frame);world.render(frame,1/60);
+  last.scene.updateMatrixWorld(true);last.scene.traverse(object=>assert(object.matrixWorld.elements.every(Number.isFinite),object.name+' finite world transform'));
   const mesh=last.scene.getObjectByName('Taipei_'+id+':'+j+'_'+models[j]);
   assert(mesh?.visible,id+'/'+models[j]+' appears before its original anchor');
   const box=new T.Box3().setFromObject(mesh);assert(!box.isEmpty());
