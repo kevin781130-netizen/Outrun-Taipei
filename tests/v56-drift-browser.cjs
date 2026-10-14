@@ -126,6 +126,32 @@ async function main(){
   assert((await physics(page)).nitro>boosted.nitro,'nitro must charge during boost + drift');
   await page.screenshot({path:path.join(out,'boost.png')});await release(page);
   result.checks.push('boost + charge + exhaust flames while drifting');
+  // Exercise the real opt-in URL, keyboard events and GPU front-wheel/body separation.
+  await page.goto('http://127.0.0.1:'+server.address().port+'/?handling=v59',{waitUntil:'load'});
+  await page.waitForFunction(()=>window.v56ThreeStatus?.().loaded,{timeout:20000});
+  assert.equal(await audit(page,'handlingProfile59'),true);
+  for(const side of [-1,1]){
+   await audit(page,"v34Mode='cruise';selectedRoute=routeForId('1A');resetGame();gameStarted=true;raceActive=true;paused=false;gameOver=false;inRadioScreen=false;traffic=[];collisionCooldown=100;timeLeft=9999;playerX=0;playerZ=180*SEGMENT_LENGTH;speed=175;currentGear='HIGH';driveGear='D';motionDirection=1;roadGrip=1;overlay.classList.add('hidden');for(const s of segments)s.curve="+(side*.8));
+   await page.keyboard.down('KeyW');await page.keyboard.down(side===1?'ArrowRight':'ArrowLeft');await page.keyboard.down('ShiftLeft');
+   await tick(page,18);await page.keyboard.up('ShiftLeft');await page.keyboard.up(side===1?'ArrowRight':'ArrowLeft');
+   await page.keyboard.down(side===1?'ArrowLeft':'ArrowRight');
+   const states=await tick(page,90),balanced=await physics(page);
+   assert(states.every(s=>s!=='recover')&&balanced.isDrifting,'V59 keyboard throttle + countersteer sustains 1.5s');
+   assert(Math.sign(balanced.driftAngle)===side&&balanced.driftChargeRate>0,'body heading retains slide direction and charges');
+   // Observe the actual rendered vehicle after rendering, rather than reconstructing a pose in test code.
+   const pose=await page.evaluate(()=>{
+    let car;const original=window.THREE.Object3D.prototype.updateMatrixWorld;
+    window.THREE.Object3D.prototype.updateMatrixWorld=function(force){const r=original.call(this,force);if(this.name==='V55_OriginalArcadeVehicle')car=this;return r;};
+    try{window.__v56TestEval('render(0)');}finally{window.THREE.Object3D.prototype.updateMatrixWorld=original;}
+    return {body:car?.children.find(x=>x.isGroup)?.rotation.y,front:car?.getObjectByName('front-left-steer')?.rotation.y};
+   });
+   assert(Number.isFinite(pose.body)&&Number.isFinite(pose.front)&&pose.body*pose.front<0,'front wheels countersteer against rendered body yaw');
+   await page.screenshot({path:path.join(out,'v59-counter-'+side+'.png')});
+   await page.keyboard.up('KeyW');await tick(page,42);
+   assert(!(await physics(page)).isDrifting,'V59 lifted countersteer recovers');
+   await release(page);
+  }
+  result.checks.push('V59 opt-in URL: both keyboard countersteer holds, rendered front wheels vs body, lift recovery');
   assert.deepEqual(result.pageErrors,[],'no JS page errors');
   result.status='passed';
   console.log('DRIFT-05 Chromium WebGL: '+result.checks.join('; '));

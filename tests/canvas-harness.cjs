@@ -10,7 +10,7 @@ class Element {
  setAttribute(k,v){this[k]=v} getAttribute(k){return this[k]} matches(){return false} setPointerCapture(){} releasePointerCapture(){}
  get innerHTML(){return this._html} set innerHTML(s){this._html=s}
 }
-function load(file,{navigator={}}={}){
+function load(file,{navigator={},search=""}={}){
  const html=fs.readFileSync(file,'utf8'),elements=new Map();
  const doc=new Element();doc.hidden=false;
  doc.getElementById=id=>{if(!elements.has(id)){const el=id==='gameCanvas'?createCanvas(960,540):id==='tacho-gauge'?createCanvas(172,104):id==='route-map'?createCanvas(436,216):id==='garage-preview'?createCanvas(640,150):new Element(id);el.style??={};el.addEventListener??=()=>{};elements.set(id,el)}return elements.get(id)};
@@ -20,7 +20,7 @@ function load(file,{navigator={}}={}){
  doc.getElementById('car-select').value='testarossa';
  const win=new Element(),storage=new Map();
  const context={window:win,document:doc,navigator,console,performance:{now:()=>1000},localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},requestAnimationFrame:()=>0,setInterval:()=>0,clearInterval:()=>{},setTimeout:()=>0,clearTimeout:()=>{},Math,Date};
- win.innerWidth=1280;win.innerHeight=800;win.devicePixelRatio=1;
+ win.location={search};win.innerWidth=1280;win.innerHeight=800;win.devicePixelRatio=1;
  vm.createContext(context);
  let scripts=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n');
  scripts=scripts.replace('resetGame(); updateHUD(); drawRouteMap(); render(0);','window.__audit=code=>eval(code);resetGame(); updateHUD(); drawRouteMap(); render(0);');

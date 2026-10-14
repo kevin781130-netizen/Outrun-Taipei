@@ -2704,7 +2704,7 @@ function update(dt){
   const steerRate=Math.abs(steerTarget)>.001?steeringProfile.response:V51_HANDLING.steerRelease;
   steer=lerp(steer,steerTarget,1-Math.exp(-dt*steerRate));
   const segIndex=clamp(Math.floor(playerZ/SEGMENT_LENGTH),0,segments.length-1),seg=segments[segIndex];
-  raceElapsed+=dt;stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,seg.curve);
+  raceElapsed+=dt;stepHandlingDrift(dt,brakeHeld,accelHeld,steerTarget,seg.curve);
   const nitroHeld=inputHeld('KeyN')||gamepadInput.nitro;
   if(nitroHeld&&!nitroWasHeld&&!brakeHeld)activateNitro();
   nitroWasHeld=nitroHeld;
@@ -4803,7 +4803,7 @@ let chassisRoll=0,chassisPitch=0,visualLoad=0;
 let trafficSeed=1;
 function seededRange(a,b){trafficSeed=(Math.imul(1664525,trafficSeed)+1013904223)>>>0;return a+(trafficSeed/4294967296)*(b-a);}
 function resetDrivingState(){
- helperWasHeld=false;helperPulse=0;counterTime=0;neutralTime=0;draftLevel=0;
+ helperWasHeld=false;helperPulse=0;counterTime=0;neutralTime=0;draftLevel=0;v59LiftTime=0;
  driftRearmBlocked=false;driftState='grip';brakeHoldTime=0;brakeLoss=0;driftAge=0;driftCooldown=0;
  brakeEntry=0;brakeWasHeld=false;brakeVisual=0;driftAngle=0;yawRate=0;slipAngle=0;coastWindow=0;previousGas=false;
  isDrifting=false;driftDirection=0;cleanDriftTime=0;exitBoost=0;momentBoostWindow=0;momentBoostArmed=false;boostKick=0;shiftCutTimer=0;shiftPunch=0;lateralVelocity=0;slideTrails=[];chassisRoll=0;chassisPitch=0;visualLoad=0;
@@ -4869,6 +4869,110 @@ function v52OverspeedPush(speedNow,curve){
   const excess=Math.max(0,speedNow-v52SafeCornerSpeed(curve));if(excess<=0||!curve)return 0;
   const t=Math.pow(clamp(excess/V52_CORNER.pushSpan,0,1),V52_CORNER.pushExp);
   return Math.sign(curve)*t*clamp(Math.abs(curve)/V52_CORNER.pushCurveRef,.25,1.35)*V52_CORNER.pushGain;
+}
+// Opt-in research handling; the public/default legacy profile remains unchanged.
+// Select before race startup with ?handling=v59; no mid-race profile switches.
+const V59_HANDLING=Object.freeze({id:'v59-countersteer-1',recordSuffix:':H59.1'});
+const handlingProfile59=/(?:^|[?&])handling=v59(?:&|$)/.test(window.location?.search||'');
+if(handlingProfile59)document.title+=' · V59 反打測試';
+let v59LiftTime=0;
+function handlingRecordSuffix59(){return handlingProfile59?V59_HANDLING.recordSuffix:'';}
+function stepHandlingDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
+ if(handlingProfile59)stepCountersteerDrift59(dt,brakeHeld,accelHeld,steerTarget,curve);
+ else stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve);
+}
+function stepCountersteerDrift59(dt,brakeHeld,accelHeld,steerTarget,curve){
+ if(!isDrifting)v59LiftTime=0;
+ const helper=inputHeld('ShiftLeft')||inputHeld('ShiftRight')||gamepadInput.drift;
+ if(helper&&!helperWasHeld&&!isDrifting&&speed>DRIFT51.entryMinSpeed&&driveGear==='D'&&motionDirection===1){helperPulse=.085;brakeEntry=.78;}
+ helperWasHeld=helper;helperPulse=Math.max(0,helperPulse-dt);
+ const previousBrake=brakeWasHeld,sign=Math.abs(steerTarget)>.10?Math.sign(steerTarget):0;
+ const gasPressed=accelHeld&&!previousGas,gasReleased=!accelHeld&&previousGas;
+ const ratio=clamp(speed/COMPETITION.topSpeed,0,1.1);
+ brakeVisual=lerp(brakeVisual,(brakeHeld||helperPulse>0)&&speed>25?1:0,1-Math.exp(-dt*18));
+ if(brakeHeld){
+  if(!previousBrake){brakeHoldTime=0;brakeLoss=0;}
+  brakeHoldTime+=dt;brakeLoss+=Math.min(speed,COMPETITION.brake*dt);
+  if(!driftRearmBlocked&&brakeHoldTime>=.008){brakeEntry=.72;if(!isDrifting)driftState='brake';}
+ }else{
+  brakeEntry=Math.max(0,brakeEntry-dt*1.25);
+  if(!isDrifting&&Math.abs(slipAngle)<DRIFT51.rearmSlip&&Math.abs(driftAngle)<DRIFT51.rearmYaw)driftRearmBlocked=false;
+ }
+ if(previousGas&&!accelHeld&&!brakeHeld)coastWindow=.26;else coastWindow=Math.max(0,coastWindow-dt);
+ momentBoostWindow=Math.max(0,momentBoostWindow-dt);
+ if(momentBoostWindow>0&&!isDrifting){
+  if(gasReleased)momentBoostArmed=true;
+  if(momentBoostArmed&&gasPressed&&!brakeHeld&&roadGrip>.8&&driveGear==='D'&&motionDirection===1){
+   exitBoost=Math.max(exitBoost,DRIFT51.exitBoost);momentBoostWindow=0;momentBoostArmed=false;boostKick=Math.max(boostKick,.62);
+   flash=Math.max(flash,.035);screenShake=Math.max(screenShake,1.8);
+   styleMessage('MOMENT BOOST!','放油再補油成功 · 小噴接續氮氣');
+  }
+ }
+ previousGas=accelHeld;brakeWasHeld=brakeHeld;exitBoost=Math.max(0,exitBoost-dt);
+ const liftEntry=coastWindow>0&&Math.abs(curve)>.28&&Math.abs(curve)<2.55&&sign===Math.sign(curve)&&speed>100;
+ if(driveGear==='D'&&motionDirection===1&&!isDrifting&&!driftRearmBlocked&&sign&&Math.abs(steer)>.10&&speed>DRIFT51.entryMinSpeed&&roadGrip>.8&&(brakeEntry>0||liftEntry)){
+  isDrifting=true;driftDirection=sign;driftState='entry';driftAge=0;cleanDriftTime=0;counterTime=0;neutralTime=0;brakeEntry=0;coastWindow=0;
+  styleMessage('V59 DRIFT','補油反打維持滑移 · 回正或放油收尾');
+ }
+ let targetYaw,targetSlip=0;
+ if(isDrifting){
+  driftAge+=dt;
+  const counter=sign!==0&&sign!==driftDirection,neutral=sign===0;
+  counterTime=counter?counterTime+dt:Math.max(0,counterTime-dt*3);
+  neutralTime=neutral?neutralTime+dt:0;
+
+  // Independent V59 model: throttle balances countersteer instead of a timer ending the slide.
+  // Lift and neutral steering deliberately recover; counter input alone never flips the slide.
+  v59LiftTime=accelHeld?0:v59LiftTime+dt;
+  if(neutralTime>DRIFT51.neutralRecover||v59LiftTime>(counter?.18:.40)||speed<68||roadGrip<.7||driftState==='recover'){
+   driftState='recover';driftRearmBlocked=true;targetYaw=0;targetSlip=0;
+   if(Math.abs(driftAngle)<DRIFT51.rearmYaw&&Math.abs(slipAngle)<DRIFT51.rearmSlip){
+    if(cleanDriftTime>.30&&roadGrip>.8&&!brakeHeld){
+      momentBoostWindow=Math.max(momentBoostWindow,DRIFT51.momentWindow);momentBoostArmed=!accelHeld;
+      styleMessage('MOMENT BOOST READY','反打收尾 · 放油再補油觸發小噴');
+     }
+    isDrifting=false;driftState='grip';driftDirection=0;cleanDriftTime=0;counterTime=0;neutralTime=0;
+   }
+  }else{
+   driftState=driftAge<DRIFT51.entryRamp?'entry':'drift';
+   const into=Math.max(0,steer*driftDirection);
+   const entryEase=clamp(driftAge/DRIFT51.entryRamp,0,1);
+   const curveDemand=clamp(Math.abs(curve)/1.8,0,1);
+   const curveAssist=Math.sign(curve)===driftDirection?Math.min(Math.abs(curve),1.8)*DRIFT51.curveYaw:0;
+   const steerYawGain=lerp(.52,1,curveDemand),slipGain=lerp(.62,1,curveDemand);
+   const yawFull=DRIFT51.baseYaw+into*DRIFT51.steerYaw*steerYawGain+ratio*DRIFT51.speedYaw*(.78+.22*curveDemand)+curveAssist;
+   const slipFull=DRIFT51.baseSlip+into*DRIFT51.steerSlip*slipGain;
+   const correction=clamp(-steer*driftDirection,0,1);
+   const yawTrim=counter?lerp(1,.52,correction):neutral?.78:1;
+   const slipTrim=counter?lerp(1,.66,correction):neutral?.78:1;
+   targetYaw=driftDirection*yawFull*entryEase*yawTrim;
+   targetSlip=driftDirection*slipFull*entryEase*slipTrim;
+  }
+ }else{
+  targetYaw=steer*(5.5+ratio*4.5);
+  if(!brakeHeld)driftState=brakeEntry>0?'armed':'grip';
+ }
+ if(targetYaw===undefined)targetYaw=0;
+ targetYaw=clamp(targetYaw,-DRIFT51.maxBodyYaw,DRIFT51.maxBodyYaw);
+ const omega=driftState==='recover'?DRIFT51.recoverResponse:DRIFT51.yawResponse;
+ const error=driftAngle-targetYaw,c=yawRate+omega*error,decay=Math.exp(-omega*dt);
+ driftAngle=clamp(targetYaw+(error+c*dt)*decay,-DRIFT51.maxBodyYaw,DRIFT51.maxBodyYaw);
+ yawRate=clamp((yawRate-omega*c*dt)*decay,-190,190);
+ slipAngle=lerp(slipAngle,targetSlip,1-Math.exp(-dt*(driftState==='recover'?DRIFT51.recoverSlipResponse:DRIFT51.slipResponse)));
+ const nitroRequested=boostRemaining>0;
+ const driftEnergy=driveGear==='D'&&motionDirection===1&&isDrifting&&driftState!=='recover'&&!brakeHeld&&Math.abs(slipAngle)>2.0&&speed>=DRIFT51.entryMinSpeed&&roadGrip>.8;
+ driftChargeRate=0;
+ if(driftEnergy){
+  cleanDriftTime+=dt;driftTime+=dt;styleIdle=0;styleBank+=speed*dt*(nitroRequested?1.55:1.35);
+  const slipSkill=clamp((Math.abs(slipAngle)-1.5)/8,.72,1.22),speedSkill=.88+clamp(speed/COMPETITION.topSpeed,0,1)*.26;
+  const throttleFactor=accelHeld?1:.78,chargeFactor=nitroRequested?1:1;
+  driftChargeRate=COMPETITION.nitroCharge*chargeFactor*throttleFactor*slipSkill*speedSkill;
+ }
+ else{styleIdle+=dt;if(styleIdle>.60){if(styleBank>0)bankStyle();else driftTime=0;}}
+ styleCombo=clamp(1+Math.floor(cleanDriftTime/.8)*.5,1,5);
+ if(isDrifting&&Math.abs(slipAngle)>3&&Math.random()<dt*30){const p=vehicleProject([currentCar.isBike?1:driftDirection*(currentCar.isTruck?75:81),0,-66],v51DriftVisualYaw());addParticle(W/2+p.x,H-65+p.y,rand(-28,28)-lateralVelocity*24,rand(-24,-2),.42,rand(7,12),'smoke');}
+ for(const trail of slideTrails)trail.life-=dt;slideTrails=slideTrails.filter(p=>p.life>0);
+ if(isDrifting&&Math.abs(slipAngle)>2.5&&speed>70){const points=(currentCar.isBike?[1]:currentCar.isTruck?[-75,75]:[-81,81]).map(x=>vehicleProject([x,0,-66],v51DriftVisualYaw()));slideTrails.push({life:.62,y:H-65,points,dir:driftDirection});if(slideTrails.length>32)slideTrails.shift();}
 }
 function v51SteeringProfile(speedNow,drifting=false){
   const t=clamp(speedNow/COMPETITION.topSpeed,0,1);
@@ -5013,8 +5117,8 @@ function drawSlideTrails(){
  ctx.restore();
 }
 
-function bestRecordKey(id=currentNode.id){return `${id}:${autoGear?'AT':'MT'}:${dipSettings.difficulty}:${COMPETITION.version}`;}
-function arcadeBoardKey(){return `${autoGear?'AT':'MT'}:${dipSettings.difficulty}:${dipSettings.time}:${COMPETITION.version}`;}
+function bestRecordKey(id=currentNode.id){return `${id}:${autoGear?'AT':'MT'}:${dipSettings.difficulty}:${COMPETITION.version}${handlingRecordSuffix59()}`;}
+function arcadeBoardKey(){return `${autoGear?'AT':'MT'}:${dipSettings.difficulty}:${dipSettings.time}:${COMPETITION.version}${handlingRecordSuffix59()}`;}
 
 // Street identity persists across the entire segment, instead of vanishing after the opening.
 const SCENES={
