@@ -1,0 +1,302 @@
+{
+  "schemaVersion": 1,
+  "profile": "taipei-v59-environment-1",
+  "status": "geographic scene classification; NOT surveyed route geometry",
+  "zoneBasis": "Original 2D landmark order; midpoint scene boundaries are authored, not real road coordinates.",
+  "roadGeometry": "Original arcade curves, hills, forks and collision corridors are preserved.",
+  "structurePolicy": "Only 2B represents a known named viaduct corridor. 4C stays ground until actual Huandong spans are georeferenced. Footbridges are landmarks only.",
+  "waterSidePolicy": "Left-side staging is artistic, not a verified travel direction or bank orientation.",
+  "sources": {
+    "civic-structure": "https://atis.taipei.gov.tw/aspx/speed/speedN.aspx?ddlRoadType=2&lang=zh-Hant-TW",
+    "avenue": "https://www.gov.taipei/News_Content.aspx?n=F0DDAF49B89E9413&s=0C17427C384D0198&sms=72544237BBE4C5F6",
+    "guandu": "https://www.travel.taipei/zh-tw/attraction/details/191",
+    "estuary": "https://newtaipei.travel/zh-tw/attractions/detail/111403",
+    "coast": "https://www.northguan-nsa.gov.tw/user/article.aspx?Lang=1&SNo=03002475",
+    "jiufen": "https://newtaipei.travel/zh-tw/attractions/detail/109990",
+    "tea": "https://www.taiwan.net.tw/m1.aspx?id=2891&sno=0001016"
+  },
+  "styles": {
+    "civic": {
+      "urban": true,
+      "height": 10,
+      "trees": true,
+      "hillSides": [],
+      "water": "none",
+      "facade": "#b99383"
+    },
+    "avenue": {
+      "urban": true,
+      "height": 12,
+      "trees": true,
+      "hillSides": [
+        1
+      ],
+      "water": "none",
+      "facade": "#b8b5a3"
+    },
+    "foothill": {
+      "urban": true,
+      "height": 7,
+      "trees": true,
+      "hillSides": [
+        1
+      ],
+      "water": "none",
+      "facade": "#ad9d82"
+    },
+    "digital": {
+      "urban": true,
+      "height": 21,
+      "trees": false,
+      "hillSides": [],
+      "water": "none",
+      "elevated": true,
+      "facade": "#6e91a6"
+    },
+    "river": {
+      "urban": true,
+      "height": 7,
+      "trees": true,
+      "hillSides": [
+        1
+      ],
+      "water": "river",
+      "facade": "#ba9b7d"
+    },
+    "spring": {
+      "urban": true,
+      "height": 6,
+      "trees": true,
+      "hillSides": [
+        -1,
+        1
+      ],
+      "water": "none",
+      "facade": "#bda583"
+    },
+    "dazhi": {
+      "urban": true,
+      "height": 22,
+      "trees": true,
+      "hillSides": [],
+      "water": "none",
+      "facade": "#829daa"
+    },
+    "cultural": {
+      "urban": true,
+      "height": 10,
+      "trees": true,
+      "hillSides": [],
+      "water": "none",
+      "facade": "#af7562"
+    },
+    "historic": {
+      "urban": true,
+      "height": 7,
+      "trees": true,
+      "hillSides": [
+        1
+      ],
+      "water": "estuary",
+      "facade": "#ba826d"
+    },
+    "volcanic": {
+      "urban": false,
+      "height": 0,
+      "trees": false,
+      "hillSides": [
+        -1,
+        1
+      ],
+      "water": "none",
+      "facade": "#7a8069"
+    },
+    "grassland": {
+      "urban": false,
+      "height": 0,
+      "trees": false,
+      "hillSides": [
+        -1,
+        1
+      ],
+      "water": "none",
+      "facade": "#7e9870"
+    },
+    "market": {
+      "urban": true,
+      "height": 8,
+      "trees": false,
+      "hillSides": [],
+      "water": "none",
+      "facade": "#bd8a71"
+    },
+    "office": {
+      "urban": true,
+      "height": 24,
+      "trees": true,
+      "hillSides": [],
+      "water": "none",
+      "facade": "#7c9fad"
+    },
+    "village": {
+      "urban": true,
+      "height": 5,
+      "trees": true,
+      "hillSides": [],
+      "water": "none",
+      "facade": "#a67364"
+    },
+    "xinyi": {
+      "urban": true,
+      "height": 32,
+      "trees": true,
+      "hillSides": [],
+      "water": "none",
+      "facade": "#7294a7"
+    },
+    "marina": {
+      "urban": true,
+      "height": 5,
+      "trees": true,
+      "hillSides": [],
+      "water": "marina",
+      "facade": "#e0c8a0"
+    },
+    "coast": {
+      "urban": false,
+      "height": 0,
+      "trees": false,
+      "hillSides": [
+        1
+      ],
+      "water": "sea",
+      "facade": "#697c72"
+    },
+    "jiufen": {
+      "urban": false,
+      "height": 6,
+      "trees": false,
+      "hillSides": [
+        -1,
+        1
+      ],
+      "water": "distant-sea",
+      "facade": "#a36a54"
+    },
+    "tea": {
+      "urban": false,
+      "height": 5,
+      "trees": true,
+      "hillSides": [
+        -1,
+        1
+      ],
+      "water": "none",
+      "facade": "#9c8968"
+    }
+  },
+  "routes": {
+    "1A": {
+      "zones": [
+        "civic",
+        "civic",
+        "civic"
+      ],
+      "bridgeEvidence": null
+    },
+    "2A": {
+      "zones": [
+        "avenue",
+        "foothill"
+      ],
+      "bridgeEvidence": null
+    },
+    "2B": {
+      "zones": [
+        "digital"
+      ],
+      "bridgeEvidence": "named-civic-corridor"
+    },
+    "3A": {
+      "zones": [
+        "river",
+        "spring"
+      ],
+      "bridgeEvidence": null
+    },
+    "3B": {
+      "zones": [
+        "dazhi",
+        "foothill"
+      ],
+      "bridgeEvidence": null
+    },
+    "3C": {
+      "zones": [
+        "cultural",
+        "cultural"
+      ],
+      "bridgeEvidence": null
+    },
+    "4A": {
+      "zones": [
+        "historic",
+        "historic"
+      ],
+      "bridgeEvidence": null
+    },
+    "4B": {
+      "zones": [
+        "volcanic",
+        "grassland"
+      ],
+      "bridgeEvidence": null
+    },
+    "4C": {
+      "zones": [
+        "market",
+        "office",
+        "river"
+      ],
+      "bridgeEvidence": null
+    },
+    "4D": {
+      "zones": [
+        "village",
+        "xinyi"
+      ],
+      "bridgeEvidence": null
+    },
+    "5A": {
+      "zones": [
+        "marina"
+      ],
+      "bridgeEvidence": null
+    },
+    "5B": {
+      "zones": [
+        "coast"
+      ],
+      "bridgeEvidence": null
+    },
+    "5C": {
+      "zones": [
+        "jiufen"
+      ],
+      "bridgeEvidence": null
+    },
+    "5D": {
+      "zones": [
+        "xinyi"
+      ],
+      "bridgeEvidence": null
+    },
+    "5E": {
+      "zones": [
+        "tea",
+        "tea"
+      ],
+      "bridgeEvidence": null
+    }
+  }
+}

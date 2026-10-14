@@ -4352,6 +4352,7 @@ function v57SceneFrame(){
   v56DrivingFrame.yawDeg=v51DriftVisualYaw();
   return {
     curves,hills,corridors,deckHeights,
+    geographyProfile:handlingProfile59?'taipei-v59-environment-1':null,
     routeId:currentNode.id,raceSigns:v58RaceSigns(),
     skyColors:skyMood==='sunset'?v40Art().sky:scene().night,
     groundColor:v40Art().ground[0],mountainColor:v40Art().mountain,

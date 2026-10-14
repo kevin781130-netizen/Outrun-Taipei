@@ -9,6 +9,7 @@ const {createTaipeiLandmarks}=require('./TaipeiLandmarks.cjs');
 const {createRaceEnvironment}=require('./RaceEnvironment.cjs');
 const {createRaceWayfinding}=require('./RaceWayfinding.cjs');
 const {inLandmarkVista}=require('./ScenicVisibility.cjs');
+const {resolveGeographicFrame}=require('./RouteGeography.cjs');
 
 // Full WebGL road/world renderer. This is intentionally NOT a Canvas overlay.
 // World coordinates: +X right, +Y up, -Z forward. Camera is behind the car (+Z).
@@ -172,6 +173,7 @@ function createFull3DScene(THREE,canvas) {
  const treesMat=material(new THREE.MeshStandardMaterial({color:0x305548,roughness:1}));
  const polesMat=material(new THREE.MeshStandardMaterial({color:0xc1c3bd,metalness:.4,roughness:.55}));
  const buildings=new THREE.InstancedMesh(boxG,buildingMat,120);
+ buildings.name='Race_DistrictBuildings';
  const windows=new THREE.InstancedMesh(boxG,glassMat,120);
  const trees=new THREE.InstancedMesh(coneG,treesMat,120);
  const lights=new THREE.InstancedMesh(boxG,polesMat,50);
@@ -301,18 +303,21 @@ function createFull3DScene(THREE,canvas) {
     // Scan the building footprint so widened forks keep their clear shoulder.
     const neighborhood=corridors.slice(Math.max(0,i-3),i+4).flat();
     const lateral=streetOffset(neighborhood,side,width,2+h*7);
+    const district=frame.geography?.[i];
+    if(district?.water&&district.water!=='none'&&district.water!=='distant-sea'&&side<0)continue;
     const landmarkZone=inLandmarkVista(frame.landmarks,absolute,side);
     if(landmarkZone)continue;
-    const anchor=point(c,lateral,-.15);
-    if(urban && frame.archetype!=='expressway'){
-      const height=7+h*23;
+    const drop=district?.elevated?(frame.deckHeights?.[i]||0)/260:0;
+    const anchor=point(c,lateral,-.15-drop);
+    if(district?district.urban:(urban && frame.archetype!=='expressway')){
+      const height=district?district.height*(.65+h*.7):7+h*23;
       dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
       dummy.rotation.set(0,-c.heading,0);
       dummy.scale.set(width,height,width*.8);
       dummy.updateMatrix();if(ib<120){buildings.setMatrixAt(ib,dummy.matrix);
-        swatch.setHex(palette[Math.floor(h*palette.length)]);buildings.setColorAt(ib,swatch);ib++;}
+        if(district)swatch.set(district.facade);else swatch.setHex(palette[Math.floor(h*palette.length)]);buildings.setColorAt(ib,swatch);ib++;}
       dummy.scale.set(width*.91,Math.max(1,height*.47),width*.04);
-      const facade=point(c,lateral, height*.63-.15);
+      const facade=point(c,lateral, height*.63-.15-drop);
       dummy.position.set(facade.x+Math.sin(c.heading)*width*.42,facade.y,facade.z+Math.cos(c.heading)*width*.42);
       dummy.updateMatrix();if(iw<120){windows.setMatrixAt(iw++,dummy.matrix);}
       if(quality!=='LOW'&&absolute%6===0){
@@ -324,11 +329,15 @@ function createFull3DScene(THREE,canvas) {
         dummy.scale.set(1.3,5.2,1);dummy.updateMatrix();signs[signIndex].setMatrixAt(n,dummy.matrix);signCounts[signIndex]++;
        }
       }
-    }else if(frame.archetype!=='expressway' && !(frame.archetype==='coastal'&&side<0)){
+    }else if(district?district.trees:(frame.archetype!=='expressway' && !(frame.archetype==='coastal'&&side<0))){
       const height=7+h*9;
       dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
       dummy.rotation.set(0,0,0);dummy.scale.set(2.7+h*2,height,2.7+h*2);
       dummy.updateMatrix();if(it<120)trees.setMatrixAt(it++,dummy.matrix);
+    }
+    if(district?.urban&&district.trees&&it<120&&absolute%6===0){
+      const tree=point(c,streetOffset(neighborhood,side,2.6,2),2.8-drop);
+      dummy.position.set(tree.x,tree.y,tree.z);dummy.rotation.set(0,0,0);dummy.scale.set(1.5,5.6,1.5);dummy.updateMatrix();trees.setMatrixAt(it++,dummy.matrix);
     }
     if(absolute%12===0&&il<50){
       const lamp=point(c,streetOffset(neighborhood,side,.18,.7),5.2);
@@ -392,12 +401,14 @@ function createFull3DScene(THREE,canvas) {
  }
  function prepareTrafficVisibility(frame,width=960,height=540){
   if(!active||lost||!ready)return [];
+  frame=resolveGeographicFrame(frame);
   const points=previewPoints(frame);updateTraffic(frame,points);
   return trafficVisibility(frame,points,width,height);
  }
  function render(frame,dt=0,width=960,height=540,quality='STANDARD'){
   if(!active||lost)return false;
   if(!frame?.curves?.length) return false;
+  frame=resolveGeographicFrame(frame);
   const points=previewPoints(frame);
   if(width!==lastW||height!==lastH){
    renderer.setSize(width,height,false);lastW=width;lastH=height;
@@ -458,7 +469,7 @@ function createFull3DScene(THREE,canvas) {
   scene.background.setHex(frame.night?0x10213b:0xf4ae78);
   scene.fog.color.setHex(frame.night?0x233b58:0xd69b82);
   // A flat ground plane must never cover a descending road.
-  ground.position.y=Math.min(-.22,...points.map((p,i)=>p.y-.3-(frame.deckHeights?.[i]||0)/260));
+  ground.position.y=Math.min(-.22,...points.map((p,i)=>p.y-.3-(frame.deckHeights?.[i]||0)/260-(frame.geography?.[i]?.water==='distant-sea'?19:frame.geography?.[i]?.water&&frame.geography[i].water!=='none'?1:0)));
   trafficVisibility(frame,points,width,height);
   effects.update(frame,Math.max(0,dt),quality,camera,car);
   if(frame.crash){const smoke=car.root.getObjectByName('V57_DriftSmoke');if(smoke)smoke.visible=false;}

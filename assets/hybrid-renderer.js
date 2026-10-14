@@ -790,12 +790,16 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
   const material=mat(new T.MeshStandardMaterial({color,roughness:.95,side:T.DoubleSide}));
   const mesh=add(new T.Mesh(g,material));mesh.frustumCulled=false;return {mesh,a,used:0};
  }
- const land=ribbon(0x526c51),water=ribbon(0x337f99),walk=ribbon(0x9b9181),deck=ribbon(0x64727e,504);
- deck.mesh.name='Race_ExpresswayDeck';
+ const land=ribbon(0x526c51,504),water=ribbon(0x337f99),walk=ribbon(0x9b9181),deck=ribbon(0x64727e,504);
+ deck.mesh.name='Race_ExpresswayDeck';water.mesh.name='Race_GeographicWater';land.mesh.name='Race_GeographicLand';
  function quad(r,a,b,c,d){if(r.used+18>r.a.array.length)return;r.a.array.set([a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z,a.x,a.y,a.z,c.x,c.y,c.z,d.x,d.y,d.z],r.used);r.used+=18;}
  const cube=geo(new T.BoxGeometry(1,1,1)),hill=geo(new T.SphereGeometry(1,10,6));
  function pool(g,color,size){const m=add(new T.InstancedMesh(g,mat(new T.MeshStandardMaterial({color,roughness:.9})),size));m.frustumCulled=false;m.instanceMatrix.setUsage(T.DynamicDrawUsage);m.count=0;return m;}
  const rails=pool(cube,0xc3c7be,600),supports=pool(cube,0x77828a,100),hills=pool(hill,0x49705b,40);
+ const rocks=pool(hill,0x5f6260,64),teaRows=pool(cube,0x497745,160),houses=pool(cube,0xb18165,100),terraces=pool(cube,0x635e52,100),boats=pool(cube,0xe2e0cc,32),piers=pool(cube,0x8f7e63,32),waves=pool(cube,0xd6e9e7,64);
+ const extras=[rocks,teaRows,houses,terraces,boats,piers,waves];
+ ['Rocks','TeaRows','SlopeHouses','Terraces','Boats','Piers','Waves'].forEach((name,i)=>extras[i].name='Race_'+name);
+ supports.name='Race_Supports';hills.name='Race_Hills';
  const markerGeo=geo(new T.PlaneGeometry(1,1));let tex=null;
  if(doc?.createElement){const c=doc.createElement('canvas');c.width=128;c.height=128;const ctx=c.getContext('2d');if(ctx){
   ctx.fillStyle='#f8d256';ctx.fillRect(0,0,128,128);ctx.fillStyle='#132632';ctx.beginPath();ctx.moveTo(28,15);ctx.lineTo(68,15);ctx.lineTo(104,64);ctx.lineTo(68,113);ctx.lineTo(28,113);ctx.lineTo(64,64);ctx.closePath();ctx.fill();
@@ -809,38 +813,71 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
  function update(frame,points,quality){
   if(disposed)return;
   for(const r of [land,water,walk,deck])r.used=0;
-  for(const m of [rails,supports,hills,arrows])m.count=0;
+  for(const m of [rails,supports,hills,arrows,...extras])m.count=0;
   const arch=frame.archetype,coast=arch==='coastal',highway=arch==='expressway',mountain=arch==='mountain';
   land.mesh.material.color.set(frame.groundColor||'#526c51');
   hills.material.color.set(frame.mountainColor||'#49705b');
-  water.mesh.material.color.setHex(frame.night?0x193d60:0x337f99);water.mesh.material.roughness=.38;
+  const waterKind=frame.geography?.find(s=>s.water!=='none')?.water;
+  water.mesh.material.color.setHex(frame.night?0x193d60:({river:0x587f79,estuary:0x4e8d91,marina:0x447d9b,sea:0x287daa,'distant-sea':0x547e9a}[waterKind]||0x337f99));water.mesh.material.roughness=.38;
+  const kinds=new Set();water.mesh.userData.kinds=[];
   const lanesAt=i=>frame.corridors?.[Math.max(0,Math.min(125,i))]||[{center:0,half:1}];
   for(let i=0;i<points.length-1;i++){
    const absolute=(frame.segment||0)+i;
-   const lanes=lanesAt(i),next=lanesAt(i+1),height=(frame.deckHeights?.[i]||0)/260;
+   const lanes=lanesAt(i),next=lanesAt(i+1),district=frame.geography?.[i];
+   const isHigh=district?district.elevated:highway,kind=district?.water||(coast?'sea':'none');
+   const height=isHigh?(frame.deckHeights?.[i]||0)/260:0;
+   if(kind!=='none')kinds.add(kind);
    for(const side of [-1,1]){
     const a=offset(lanes,side,0,0),b=offset(next,side,0,0);
     const outer=side*180;
     const p=(index,x,y)=>{const p=sample(points,index,x);p.y+=y;return p;};
-    // Coastal water stays beyond the seawall. Expressway terrain sits below deck.
-    quad(coast&&side<0?water:land,p(i,a+side*1.8,-.25-height),p(i,a+outer,-.25-height),p(i+1,b+outer,-.25-height),p(i+1,b+side*1.8,-.25-height));
+    // Water type controls finite river banks, sheltered harbor or open sea.
+    if(district&&side<0&&kind!=='none'){
+     const far=kind==='river'?48:kind==='estuary'?120:kind==='marina'?38:700;
+     const near=kind==='distant-sea'?75:8,drop=kind==='distant-sea'?18:.65;
+     quad(land,p(i,a+side*1.8,-.25-height),p(i,a+side*near,(kind==='distant-sea'?-drop:-.25)-height),p(i+1,b+side*near,(kind==='distant-sea'?-drop:-.25)-height),p(i+1,b+side*1.8,-.25-height));
+     quad(water,p(i,a+side*near,-drop-height),p(i,a+side*far,-drop-height),p(i+1,b+side*far,-drop-height),p(i+1,b+side*near,-drop-height));
+     if(far<180)quad(land,p(i,a+side*far,-.25-height),p(i,a+side*180,-.25-height),p(i+1,b+side*180,-.25-height),p(i+1,b+side*far,-.25-height));
+    }else quad(!district&&coast&&side<0?water:land,p(i,a+side*1.8,-.25-height),p(i,a+outer,-.25-height),p(i+1,b+outer,-.25-height),p(i+1,b+side*1.8,-.25-height));
     quad(walk,p(i,a,-.03),p(i,a+side*1.8,-.03),p(i+1,b+side*1.8,-.03),p(i+1,b,-.03));
-    if(highway||coast||mountain){
+    if(district?(isHigh||kind!=='none'||district.hillSides.length>0):(highway||coast||mountain)){
      const here=sample(points,i,a+side*.8),there=sample(points,i+1,b+side*.8),mid={x:(here.x+there.x)/2,y:(here.y+there.y)/2+.57,z:(here.z+there.z)/2};
      const heading=Math.atan2(there.x-here.x,-(there.z-here.z));
      put(rails,mid,.16,.32,Math.hypot(there.x-here.x,there.z-here.z)+.08,heading);
      if(absolute%4===0)put(supports,{...here,y:here.y+.3},.15,.65,.15,heading);
     }
-    if(mountain&&absolute%12===0&&quality!=='LOW'&&!inLandmarkVista(frame.landmarks,absolute,side)){
+    if((district?district.hillSides.includes(side):mountain)&&absolute%12===0&&quality!=='LOW'&&!inLandmarkVista(frame.landmarks,absolute,side)){
      const p=sample(points,i,offset(lanes,side,22,16));p.y-=3;
      put(hills,p,12,8+(absolute%17),14,0);
+    }
+    if(district&&!inLandmarkVista(frame.landmarks,absolute,side)){
+     if(district.id==='jiufen'&&absolute%12===0){
+      for(let level=0;level<3;level++){
+       const place=sample(points,i,offset(lanes,side,8,6+level*7));place.y+=level*3.0;
+       put(terraces,{...place,y:place.y-.8},8,1.6,7,points[i].heading);
+       put(houses,{...place,y:place.y+1.4},5.6,2.8,4.6,points[i].heading);
+      }
+     }
+     if(district.id==='tea'&&absolute%8===0){
+      for(let row=0;row<5;row++){const at=sample(points,i,offset(lanes,side,9,5+row*2));at.y+=.3+row*.4;put(teaRows,at,9,.6,1.0,points[i].heading);}
+     }
+     if((district.id==='coast'||district.id==='volcanic')&&absolute%8===0){
+      const at=sample(points,i,offset(lanes,side,2,3));put(rocks,{...at,y:at.y+.4},1.8,.9,2.0,points[i].heading);
+     }
+    }
+    if(district&&side<0&&absolute%12===0){
+     if(kind==='marina'){
+      const at=sample(points,i,a-19);at.y-=.45;put(boats,at,1.6,.4,4,points[i].heading);
+      const pier=sample(points,i,a-10);pier.y-=.2;put(piers,pier,9,.25,.8,points[i].heading);
+     }
+     if(kind==='sea')for(const distance of [15,35]){const at=sample(points,i,a-distance);at.y-=.58;put(waves,at,7,.045,.25,points[i].heading);}
     }
     if(Math.abs(frame.curves?.[i]||0)>1.35&&absolute%10===0&&Math.sign(frame.curves[i])===-side){
      const p=sample(points,i,offset(lanes,side,1.2,1.2));p.y+=1.9;
      put(arrows,p,1.3,1.3,1,points[i].heading,frame.curves[i]<0?Math.PI:0);
     }
    }
-   if(highway){
+   if(isHigh){
     for(let j=0;j<lanes.length;j++){
      const a=lanes[j],b=next[Math.min(j,next.length-1)];
      for(const side of [-1,1]){const x=(a.center+side*a.half)*8,y=(b.center+side*b.half)*8;
@@ -850,7 +887,8 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
    }
   }
   for(const r of [land,water,walk,deck]){r.mesh.geometry.setDrawRange(0,r.used/3);r.a.needsUpdate=true;}
-  for(const m of [rails,supports,hills,arrows])m.instanceMatrix.needsUpdate=true;
+  water.mesh.userData.kinds=Array.from(kinds);
+  for(const m of [rails,supports,hills,arrows,...extras])m.instanceMatrix.needsUpdate=true;
  }
  return {update,dispose(){if(disposed)return;disposed=true;for(const m of meshes)scene.remove(m);for(const g of geometries)g.dispose();for(const m of materials)m.dispose();for(const t of textures)t.dispose();}};
 }
@@ -985,6 +1023,27 @@ function createCrashChase(THREE,scene){
 module.exports={sampleCrashChase,createCrashChase};
 
   },
+  "./RouteGeography.cjs": function(require, module) {
+'use strict';
+const data=require('../../data/world-v59/scene-profiles.json');
+const styles={};
+for(const [id,s] of Object.entries(data.styles))styles[id]=Object.freeze({id,elevated:false,...s,hillSides:Object.freeze(s.hillSides)});
+function geographyAt(routeId,absolute,landmarks=[]){
+ const route=data.routes[routeId];if(!route)return null;
+ let index=0;
+ while(index<route.zones.length-1&&landmarks[index+1]&&absolute>=(landmarks[index].seg+landmarks[index+1].seg)/2)index++;
+ return styles[route.zones[index]];
+}
+function resolveGeographicFrame(frame){
+ if(frame?.geographyProfile!==data.profile||!data.routes[frame.routeId])return frame;
+ const geography=Array.from({length:126},(_,i)=>geographyAt(frame.routeId,(frame.segment||0)+i,frame.landmarks));
+ const elevated=frame.routeId==='2B';
+ return {...frame,geography,deckHeights:(frame.deckHeights||[]).map((h,i)=>geography[i]?.elevated?h:0),
+  landmarks:(frame.landmarks||[]).map(h=>({...h,groundDrop:elevated?h.groundDrop:0}))};
+}
+module.exports={geographyAt,resolveGeographicFrame,profileId:data.profile};
+
+  },
   "./Full3DScene.cjs": function(require, module) {
 'use strict';
 const {createVehicle3D} = require('./Vehicle3D.cjs');
@@ -997,6 +1056,7 @@ const {createTaipeiLandmarks}=require('./TaipeiLandmarks.cjs');
 const {createRaceEnvironment}=require('./RaceEnvironment.cjs');
 const {createRaceWayfinding}=require('./RaceWayfinding.cjs');
 const {inLandmarkVista}=require('./ScenicVisibility.cjs');
+const {resolveGeographicFrame}=require('./RouteGeography.cjs');
 
 // Full WebGL road/world renderer. This is intentionally NOT a Canvas overlay.
 // World coordinates: +X right, +Y up, -Z forward. Camera is behind the car (+Z).
@@ -1160,6 +1220,7 @@ function createFull3DScene(THREE,canvas) {
  const treesMat=material(new THREE.MeshStandardMaterial({color:0x305548,roughness:1}));
  const polesMat=material(new THREE.MeshStandardMaterial({color:0xc1c3bd,metalness:.4,roughness:.55}));
  const buildings=new THREE.InstancedMesh(boxG,buildingMat,120);
+ buildings.name='Race_DistrictBuildings';
  const windows=new THREE.InstancedMesh(boxG,glassMat,120);
  const trees=new THREE.InstancedMesh(coneG,treesMat,120);
  const lights=new THREE.InstancedMesh(boxG,polesMat,50);
@@ -1289,18 +1350,21 @@ function createFull3DScene(THREE,canvas) {
     // Scan the building footprint so widened forks keep their clear shoulder.
     const neighborhood=corridors.slice(Math.max(0,i-3),i+4).flat();
     const lateral=streetOffset(neighborhood,side,width,2+h*7);
+    const district=frame.geography?.[i];
+    if(district?.water&&district.water!=='none'&&district.water!=='distant-sea'&&side<0)continue;
     const landmarkZone=inLandmarkVista(frame.landmarks,absolute,side);
     if(landmarkZone)continue;
-    const anchor=point(c,lateral,-.15);
-    if(urban && frame.archetype!=='expressway'){
-      const height=7+h*23;
+    const drop=district?.elevated?(frame.deckHeights?.[i]||0)/260:0;
+    const anchor=point(c,lateral,-.15-drop);
+    if(district?district.urban:(urban && frame.archetype!=='expressway')){
+      const height=district?district.height*(.65+h*.7):7+h*23;
       dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
       dummy.rotation.set(0,-c.heading,0);
       dummy.scale.set(width,height,width*.8);
       dummy.updateMatrix();if(ib<120){buildings.setMatrixAt(ib,dummy.matrix);
-        swatch.setHex(palette[Math.floor(h*palette.length)]);buildings.setColorAt(ib,swatch);ib++;}
+        if(district)swatch.set(district.facade);else swatch.setHex(palette[Math.floor(h*palette.length)]);buildings.setColorAt(ib,swatch);ib++;}
       dummy.scale.set(width*.91,Math.max(1,height*.47),width*.04);
-      const facade=point(c,lateral, height*.63-.15);
+      const facade=point(c,lateral, height*.63-.15-drop);
       dummy.position.set(facade.x+Math.sin(c.heading)*width*.42,facade.y,facade.z+Math.cos(c.heading)*width*.42);
       dummy.updateMatrix();if(iw<120){windows.setMatrixAt(iw++,dummy.matrix);}
       if(quality!=='LOW'&&absolute%6===0){
@@ -1312,11 +1376,15 @@ function createFull3DScene(THREE,canvas) {
         dummy.scale.set(1.3,5.2,1);dummy.updateMatrix();signs[signIndex].setMatrixAt(n,dummy.matrix);signCounts[signIndex]++;
        }
       }
-    }else if(frame.archetype!=='expressway' && !(frame.archetype==='coastal'&&side<0)){
+    }else if(district?district.trees:(frame.archetype!=='expressway' && !(frame.archetype==='coastal'&&side<0))){
       const height=7+h*9;
       dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
       dummy.rotation.set(0,0,0);dummy.scale.set(2.7+h*2,height,2.7+h*2);
       dummy.updateMatrix();if(it<120)trees.setMatrixAt(it++,dummy.matrix);
+    }
+    if(district?.urban&&district.trees&&it<120&&absolute%6===0){
+      const tree=point(c,streetOffset(neighborhood,side,2.6,2),2.8-drop);
+      dummy.position.set(tree.x,tree.y,tree.z);dummy.rotation.set(0,0,0);dummy.scale.set(1.5,5.6,1.5);dummy.updateMatrix();trees.setMatrixAt(it++,dummy.matrix);
     }
     if(absolute%12===0&&il<50){
       const lamp=point(c,streetOffset(neighborhood,side,.18,.7),5.2);
@@ -1380,12 +1448,14 @@ function createFull3DScene(THREE,canvas) {
  }
  function prepareTrafficVisibility(frame,width=960,height=540){
   if(!active||lost||!ready)return [];
+  frame=resolveGeographicFrame(frame);
   const points=previewPoints(frame);updateTraffic(frame,points);
   return trafficVisibility(frame,points,width,height);
  }
  function render(frame,dt=0,width=960,height=540,quality='STANDARD'){
   if(!active||lost)return false;
   if(!frame?.curves?.length) return false;
+  frame=resolveGeographicFrame(frame);
   const points=previewPoints(frame);
   if(width!==lastW||height!==lastH){
    renderer.setSize(width,height,false);lastW=width;lastH=height;
@@ -1446,7 +1516,7 @@ function createFull3DScene(THREE,canvas) {
   scene.background.setHex(frame.night?0x10213b:0xf4ae78);
   scene.fog.color.setHex(frame.night?0x233b58:0xd69b82);
   // A flat ground plane must never cover a descending road.
-  ground.position.y=Math.min(-.22,...points.map((p,i)=>p.y-.3-(frame.deckHeights?.[i]||0)/260));
+  ground.position.y=Math.min(-.22,...points.map((p,i)=>p.y-.3-(frame.deckHeights?.[i]||0)/260-(frame.geography?.[i]?.water==='distant-sea'?19:frame.geography?.[i]?.water&&frame.geography[i].water!=='none'?1:0)));
   trafficVisibility(frame,points,width,height);
   effects.update(frame,Math.max(0,dt),quality,camera,car);
   if(frame.crash){const smoke=car.root.getObjectByName('V57_DriftSmoke');if(smoke)smoke.visible=false;}
@@ -1464,7 +1534,310 @@ function createFull3DScene(THREE,canvas) {
 }
 module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,createChaseRig,updateChaseRig,streetOffset,TAIPEI_SIGNS};
 
+  },
+  "../../data/world-v59/scene-profiles.json": function(require, module) {module.exports = {
+  "schemaVersion": 1,
+  "profile": "taipei-v59-environment-1",
+  "status": "geographic scene classification; NOT surveyed route geometry",
+  "zoneBasis": "Original 2D landmark order; midpoint scene boundaries are authored, not real road coordinates.",
+  "roadGeometry": "Original arcade curves, hills, forks and collision corridors are preserved.",
+  "structurePolicy": "Only 2B represents a known named viaduct corridor. 4C stays ground until actual Huandong spans are georeferenced. Footbridges are landmarks only.",
+  "waterSidePolicy": "Left-side staging is artistic, not a verified travel direction or bank orientation.",
+  "sources": {
+    "civic-structure": "https://atis.taipei.gov.tw/aspx/speed/speedN.aspx?ddlRoadType=2&lang=zh-Hant-TW",
+    "avenue": "https://www.gov.taipei/News_Content.aspx?n=F0DDAF49B89E9413&s=0C17427C384D0198&sms=72544237BBE4C5F6",
+    "guandu": "https://www.travel.taipei/zh-tw/attraction/details/191",
+    "estuary": "https://newtaipei.travel/zh-tw/attractions/detail/111403",
+    "coast": "https://www.northguan-nsa.gov.tw/user/article.aspx?Lang=1&SNo=03002475",
+    "jiufen": "https://newtaipei.travel/zh-tw/attractions/detail/109990",
+    "tea": "https://www.taiwan.net.tw/m1.aspx?id=2891&sno=0001016"
+  },
+  "styles": {
+    "civic": {
+      "urban": true,
+      "height": 10,
+      "trees": true,
+      "hillSides": [],
+      "water": "none",
+      "facade": "#b99383"
+    },
+    "avenue": {
+      "urban": true,
+      "height": 12,
+      "trees": true,
+      "hillSides": [
+        1
+      ],
+      "water": "none",
+      "facade": "#b8b5a3"
+    },
+    "foothill": {
+      "urban": true,
+      "height": 7,
+      "trees": true,
+      "hillSides": [
+        1
+      ],
+      "water": "none",
+      "facade": "#ad9d82"
+    },
+    "digital": {
+      "urban": true,
+      "height": 21,
+      "trees": false,
+      "hillSides": [],
+      "water": "none",
+      "elevated": true,
+      "facade": "#6e91a6"
+    },
+    "river": {
+      "urban": true,
+      "height": 7,
+      "trees": true,
+      "hillSides": [
+        1
+      ],
+      "water": "river",
+      "facade": "#ba9b7d"
+    },
+    "spring": {
+      "urban": true,
+      "height": 6,
+      "trees": true,
+      "hillSides": [
+        -1,
+        1
+      ],
+      "water": "none",
+      "facade": "#bda583"
+    },
+    "dazhi": {
+      "urban": true,
+      "height": 22,
+      "trees": true,
+      "hillSides": [],
+      "water": "none",
+      "facade": "#829daa"
+    },
+    "cultural": {
+      "urban": true,
+      "height": 10,
+      "trees": true,
+      "hillSides": [],
+      "water": "none",
+      "facade": "#af7562"
+    },
+    "historic": {
+      "urban": true,
+      "height": 7,
+      "trees": true,
+      "hillSides": [
+        1
+      ],
+      "water": "estuary",
+      "facade": "#ba826d"
+    },
+    "volcanic": {
+      "urban": false,
+      "height": 0,
+      "trees": false,
+      "hillSides": [
+        -1,
+        1
+      ],
+      "water": "none",
+      "facade": "#7a8069"
+    },
+    "grassland": {
+      "urban": false,
+      "height": 0,
+      "trees": false,
+      "hillSides": [
+        -1,
+        1
+      ],
+      "water": "none",
+      "facade": "#7e9870"
+    },
+    "market": {
+      "urban": true,
+      "height": 8,
+      "trees": false,
+      "hillSides": [],
+      "water": "none",
+      "facade": "#bd8a71"
+    },
+    "office": {
+      "urban": true,
+      "height": 24,
+      "trees": true,
+      "hillSides": [],
+      "water": "none",
+      "facade": "#7c9fad"
+    },
+    "village": {
+      "urban": true,
+      "height": 5,
+      "trees": true,
+      "hillSides": [],
+      "water": "none",
+      "facade": "#a67364"
+    },
+    "xinyi": {
+      "urban": true,
+      "height": 32,
+      "trees": true,
+      "hillSides": [],
+      "water": "none",
+      "facade": "#7294a7"
+    },
+    "marina": {
+      "urban": true,
+      "height": 5,
+      "trees": true,
+      "hillSides": [],
+      "water": "marina",
+      "facade": "#e0c8a0"
+    },
+    "coast": {
+      "urban": false,
+      "height": 0,
+      "trees": false,
+      "hillSides": [
+        1
+      ],
+      "water": "sea",
+      "facade": "#697c72"
+    },
+    "jiufen": {
+      "urban": false,
+      "height": 6,
+      "trees": false,
+      "hillSides": [
+        -1,
+        1
+      ],
+      "water": "distant-sea",
+      "facade": "#a36a54"
+    },
+    "tea": {
+      "urban": false,
+      "height": 5,
+      "trees": true,
+      "hillSides": [
+        -1,
+        1
+      ],
+      "water": "none",
+      "facade": "#9c8968"
+    }
+  },
+  "routes": {
+    "1A": {
+      "zones": [
+        "civic",
+        "civic",
+        "civic"
+      ],
+      "bridgeEvidence": null
+    },
+    "2A": {
+      "zones": [
+        "avenue",
+        "foothill"
+      ],
+      "bridgeEvidence": null
+    },
+    "2B": {
+      "zones": [
+        "digital"
+      ],
+      "bridgeEvidence": "named-civic-corridor"
+    },
+    "3A": {
+      "zones": [
+        "river",
+        "spring"
+      ],
+      "bridgeEvidence": null
+    },
+    "3B": {
+      "zones": [
+        "dazhi",
+        "foothill"
+      ],
+      "bridgeEvidence": null
+    },
+    "3C": {
+      "zones": [
+        "cultural",
+        "cultural"
+      ],
+      "bridgeEvidence": null
+    },
+    "4A": {
+      "zones": [
+        "historic",
+        "historic"
+      ],
+      "bridgeEvidence": null
+    },
+    "4B": {
+      "zones": [
+        "volcanic",
+        "grassland"
+      ],
+      "bridgeEvidence": null
+    },
+    "4C": {
+      "zones": [
+        "market",
+        "office",
+        "river"
+      ],
+      "bridgeEvidence": null
+    },
+    "4D": {
+      "zones": [
+        "village",
+        "xinyi"
+      ],
+      "bridgeEvidence": null
+    },
+    "5A": {
+      "zones": [
+        "marina"
+      ],
+      "bridgeEvidence": null
+    },
+    "5B": {
+      "zones": [
+        "coast"
+      ],
+      "bridgeEvidence": null
+    },
+    "5C": {
+      "zones": [
+        "jiufen"
+      ],
+      "bridgeEvidence": null
+    },
+    "5D": {
+      "zones": [
+        "xinyi"
+      ],
+      "bridgeEvidence": null
+    },
+    "5E": {
+      "zones": [
+        "tea",
+        "tea"
+      ],
+      "bridgeEvidence": null
+    }
   }
+}
+;}
 };
 const cache = Object.create(null);
 function load(id) {
