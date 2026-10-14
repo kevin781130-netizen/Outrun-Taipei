@@ -4,6 +4,9 @@ const {createVehiclePose, updateVehiclePose} = require('./VehiclePoseBridge.cjs'
 const {createDrivingVisualSnapshot,updateDrivingVisualSnapshot} = require('./DrivingVisualSnapshot.cjs');
 const {createDriftVisualRig,updateDriftVisualRig} = require('./DriftVisualRig.cjs');
 const {createDrivingEffects}=require('./DrivingEffects.cjs');
+const {createTaipeiLandmarks}=require('./TaipeiLandmarks.cjs');
+const {createRaceEnvironment}=require('./RaceEnvironment.cjs');
+const {createRaceWayfinding}=require('./RaceWayfinding.cjs');
 
 // Full WebGL road/world renderer. This is intentionally NOT a Canvas overlay.
 // World coordinates: +X right, +Y up, -Z forward. Camera is behind the car (+Z).
@@ -171,6 +174,9 @@ function createFull3DScene(THREE,canvas) {
  const sunMaterial=material(new THREE.MeshBasicMaterial({color:0xffd17c,fog:false,toneMapped:false}));
  const sun=new THREE.Mesh(geometry(new THREE.SphereGeometry(18,16,12)),sunMaterial);sun.name='V57_SunsetSun';scene.add(sun);
  const doc=canvas.ownerDocument||(typeof document!=='undefined'?document:null);
+ const wayfinding=createRaceWayfinding(THREE,scene,sampleRoadPoint,streetOffset,doc);
+ const landmarks=createTaipeiLandmarks(THREE,scene,sampleRoadPoint,streetOffset);
+ const environment=createRaceEnvironment(THREE,scene,sampleRoadPoint,streetOffset,doc);
  const signs=TAIPEI_SIGNS.map((text,i)=>{
   const texture=createSignTexture(THREE,text,SIGN_COLORS[i],doc);if(texture)textures.push(texture);
   const mat=material(new THREE.MeshBasicMaterial({map:texture,color:texture?0xffffff:SIGN_COLORS[i],side:THREE.DoubleSide,toneMapped:false}));
@@ -245,7 +251,7 @@ function createFull3DScene(THREE,canvas) {
      push(roads[2],point(here,a-.06,.04),point(here,a+.06,.04),point(there,b+.06,.04),point(there,b-.06,.04));
      push(roads[3],point(here,a+side*.12,.045),point(here,a+side*.18,.045),point(there,b+side*.18,.045),point(there,b+side*.12,.045));
     }
-    if(i%7<4 && q.half>.65){
+    if(((Math.floor(frame.segment||0)+i)%7+7)%7<4 && q.half>.65){
       for(const ratio of [-1/3,1/3]){
        const a=(q.center+q.half*ratio)*w,b=(n.center+n.half*ratio)*w;
        push(roads[2],point(here,a-.04,.042),point(here,a+.04,.042),point(there,b+.04,.042),point(there,b-.04,.042));
@@ -271,8 +277,10 @@ function createFull3DScene(THREE,canvas) {
     // Scan the building footprint so widened forks keep their clear shoulder.
     const neighborhood=corridors.slice(Math.max(0,i-3),i+4).flat();
     const lateral=streetOffset(neighborhood,side,width,2+h*7);
+    const landmarkZone=(frame.landmarks||[]).some(mark=>Math.abs(mark.seg-absolute)<18&&(mark.side<0?-1:1)===side);
+    if(landmarkZone)continue;
     const anchor=point(c,lateral,-.15);
-    if(urban){
+    if(urban && frame.archetype!=='expressway'){
       const height=7+h*23;
       dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
       dummy.rotation.set(0,-c.heading,0);
@@ -292,7 +300,7 @@ function createFull3DScene(THREE,canvas) {
         dummy.scale.set(1.3,5.2,1);dummy.updateMatrix();signs[signIndex].setMatrixAt(n,dummy.matrix);signCounts[signIndex]++;
        }
       }
-    }else{
+    }else if(frame.archetype!=='expressway' && !(frame.archetype==='coastal'&&side<0)){
       const height=7+h*9;
       dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
       dummy.rotation.set(0,0,0);dummy.scale.set(2.7+h*2,height,2.7+h*2);
@@ -374,6 +382,9 @@ function createFull3DScene(THREE,canvas) {
   const dpr=quality==='LOW'?.7:quality==='ULTRA'?1.15:1;
   if(lastDpr!==dpr){renderer.setPixelRatio(dpr);lastDpr=dpr;}
   paintWorld(frame,points,quality);
+  environment.update(frame,points,quality);
+  landmarks.update(frame,points);
+  wayfinding.update(frame,points);
   updateTraffic(frame,points);
   if(frame.carColor!==lastCarColor){
    const value=typeof frame.carColor==='string'?new THREE.Color(frame.carColor).getHex():0x202838;
@@ -401,15 +412,15 @@ function createFull3DScene(THREE,canvas) {
   camera.lookAt(chaseRig.lookX,chaseRig.lookY,chaseRig.lookZ);
   if(camera.fov!==chaseRig.fov){camera.fov=chaseRig.fov;camera.updateProjectionMatrix();}
   skyDome.position.copy(camera.position);
-  skyMaterial.uniforms.top.value.setHex(frame.night?0x08152f:0x53416f);
-  skyMaterial.uniforms.horizon.value.setHex(frame.night?0x344861:0xf4ae78);
+  skyMaterial.uniforms.top.value.set(frame.skyColors?.[0]||(frame.night?'#08152f':'#53416f'));
+  skyMaterial.uniforms.horizon.value.set(frame.skyColors?.[2]||(frame.night?'#344861':'#f4ae78'));
   sun.visible=!frame.night;sun.position.set(camera.position.x-110,camera.position.y+40,camera.position.z-290);
   sunlight.color.setHex(frame.night?0x9dbbff:0xffc58e);
   glassMat.emissiveIntensity=frame.night?.7:.12;
   scene.background.setHex(frame.night?0x10213b:0xf4ae78);
   scene.fog.color.setHex(frame.night?0x233b58:0xd69b82);
   // A flat ground plane must never cover a descending road.
-  ground.position.y=Math.min(-.22,...points.map(p=>p.y-.22));
+  ground.position.y=Math.min(-.22,...points.map((p,i)=>p.y-.3-(frame.deckHeights?.[i]||0)/260));
   trafficVisibility(frame,points,width,height);
   effects.update(frame,Math.max(0,dt),quality,camera,car);
   renderer.render(scene,camera);
@@ -419,7 +430,7 @@ function createFull3DScene(THREE,canvas) {
   if(!active)return;active=false;ready=false;
   canvas.removeEventListener('webglcontextlost',lostHandler);
   canvas.removeEventListener('webglcontextrestored',restoredHandler);
-  effects.dispose();car.dispose();for(const t of textures)t.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
+  wayfinding.dispose();landmarks.dispose();environment.dispose();effects.dispose();car.dispose();for(const t of textures)t.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
   renderer.dispose();
  }
  return {render,dispose,prepareTrafficVisibility,get ready(){return ready&&!lost&&active},get contextLost(){return lost}};
