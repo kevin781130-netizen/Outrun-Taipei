@@ -25,10 +25,11 @@ const server=http.createServer((req,res)=>{
   assert(await page.evaluate(()=>window.v56ThreeStatus().ready),'WebGL renderer must initialize and render');
   for(const id of ['1A','2A','2B','3A','3B','3C','4A','4B','4C','4D','5A','5B','5C','5D','5E']){
    const names=await run(`v34Mode='arcade';setStage(...Object.values(routeForId('${id}')),false);gameStarted=true;raceActive=true;paused=false;gameOver=false;traffic=[];overlay.classList.add('hidden');stageLandmarkPlan.map(h=>h.name)`);
-   for(let i=0;i<names.length;i++)for(const mood of ['sunset','neon']){
-    await run(`skyMood='${mood}';playerZ=(stageLandmarkPlan[${i}].seg-48)*SEGMENT_LENGTH-PLAYER_DEPTH;playerX=0;speed=160;updateHUD();render(1/60);`);
-    const file=id+'-'+i+'-'+mood+'.png';await page.locator('#v56-full-3d-canvas').screenshot({path:path.join(output,file)});
-    assert(fs.statSync(path.join(output,file)).size>5000,'nonempty screenshot '+file);captures.push({route:id,landmark:names[i],mood,file});
+   for(let i=0;i<names.length;i++)for(const shot of [{mood:'sunset',distance:48},{mood:'neon',distance:48},{mood:'sunset',distance:24}]){
+    const {mood,distance}=shot;
+    await run(`skyMood='${mood}';playerZ=(stageLandmarkPlan[${i}].seg-${distance})*SEGMENT_LENGTH-PLAYER_DEPTH;playerX=0;speed=160;updateHUD();render(1/60);`);
+    const file=id+'-'+i+'-'+mood+(distance===24?'-near':'')+'.png';await page.locator('#v56-full-3d-canvas').screenshot({path:path.join(output,file)});
+    assert(fs.statSync(path.join(output,file)).size>5000,'nonempty screenshot '+file);captures.push({route:id,landmark:names[i],mood,distance,file});
    }
    if(!id.startsWith('5'))for(const side of ['left','right']){
     await run(`skyMood='sunset';playerZ=(FORK_LOCK-12)*SEGMENT_LENGTH;pendingChoice='${side}';playerX=${side==='left'?-.7:.7};render(1/60);`);
@@ -41,6 +42,6 @@ const server=http.createServer((req,res)=>{
   }
   assert.deepEqual(errors,[],'no shader or runtime errors');
   fs.writeFileSync(path.join(output,'manifest.json'),JSON.stringify({captures,errors,visualReview:'Screenshots captured for human inspection; nonempty checks are not aesthetic approval.'},null,2));
-  console.log('V58 real WebGL: 54 landmark/mood captures, 20 fork captures, 2 mobile viewports; no runtime errors');
+  console.log('V58 real WebGL: 81 landmark/mood/distance captures, 20 fork captures, 2 mobile viewports; no runtime errors');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>new Promise(done=>server.close(done)));

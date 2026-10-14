@@ -68,3 +68,16 @@ race simulation, anti-cheat, ranked matchmaking, latency compensation, competiti
 operations and measured device performance remain separate engineering work. Local
 records must not be represented as verified online rankings. Large future systems
 should follow the repository's parallel Unity Primary migration constitution.
+
+## Landmark visibility / asphalt repair
+
+The first screenshot review found that an 18-segment anchor exclusion left tall
+foreground facades and trees blocking landmarks farther down the road. The
+renderer now shares an absolute, side-specific approach window with the terrain
+renderer. Generic facades, signs, trees and decorative hill meshes yield on that
+side; road geometry, opposite frontage and collision rules remain unchanged.
+
+The road now uses a deterministic charcoal sRGB aggregate texture with mipmaps,
+zero metalness, and absolute-segment UVs, reducing the pale road and preventing
+the grain from sliding with the player. Browser captures include a second, closer
+sunset view of every landmark: 81 landmark views plus branch/mobile captures.

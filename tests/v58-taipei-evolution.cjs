@@ -4,6 +4,7 @@ const {load}=require('./canvas-harness.cjs');
 const game=load(path.join(__dirname,'../index.html'));
 const sandbox={Math};vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../assets/vendor/three-r149.min.js'),'utf8'),sandbox);
 const T=sandbox.THREE;
+const {inLandmarkVista}=require('../src/rendering/ScenicVisibility.cjs');
 const {ROUTE_MODELS,createLandmarkGeometry,createTaipeiLandmarks}=require('../src/rendering/TaipeiLandmarks.cjs');
 const {previewPoints,sampleRoadPoint,streetOffset,createFull3DScene}=require('../src/rendering/Full3DScene.cjs');
 let total=0,vertices=0,last;
@@ -50,6 +51,22 @@ const forkFrame={curves:Array(126).fill(0),hills:Array(126).fill(0),archetype:'e
  corridors:Array.from({length:126},()=>[{center:-2,half:.8},{center:2,half:.8}]),deckHeights:Array(126).fill(1000)};
 world.render(forkFrame,1/60);
 assert.equal(last.scene.getObjectByName('Race_ExpresswayDeck').geometry.drawRange.count,125*4*6,'both fork decks remain complete to draw distance');
+// A foreground facade 50 segments before the landmark used to survive the
+// tiny anchor-only exclusion. Preserve the opposite side and unrelated streets.
+const vista=[{seg:200,side:1}];
+assert(inLandmarkVista(vista,150,1),'clear obstructing foreground on landmark side');
+assert(!inLandmarkVista(vista,150,-1),'retain opposite street frontage');
+assert(!inLandmarkVista(vista,60,1),'retain unrelated districts');
+assert(!inLandmarkVista(vista,240,1),'restore scenery beyond the landmark');
+const roadFrame={curves:Array(126).fill(0),hills:Array(126).fill(0),segment:100,archetype:'urban'};
+world.render(roadFrame,0);
+const road=last.scene.getObjectByName('V58_Asphalt'),uv=road.geometry.attributes.uv;
+const prior=Array.from(uv.array.slice(12,24)),tex=road.material.map;
+assert(tex&&tex.encoding===T.sRGBEncoding&&tex.wrapS===T.RepeatWrapping,'asphalt uses repeating sRGB aggregate');
+assert.equal(road.material.metalness,0,'dry road has no metallic sheen');
+world.render({...roadFrame,segment:101},0);
+assert.deepEqual(Array.from(uv.array.slice(0,12)),prior,'road grain stays anchored when advancing one segment');
+assert(Array.from(uv.array).every(Number.isFinite),'UVs remain finite');
 world.dispose();
 assert.equal(total,27);assert(vertices<500000,'bounded merged landmark geometry budget');
 // Input calibration is continuous at the dead zone and symmetric; digital full

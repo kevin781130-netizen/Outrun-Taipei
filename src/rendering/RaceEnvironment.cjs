@@ -1,4 +1,5 @@
 'use strict';
+const {inLandmarkVista}=require('./ScenicVisibility.cjs');
 // Surface-aware scenery and race readability. All coordinates use the road
 // tangent; every roadside object clears the full authored fork envelope.
 function createRaceEnvironment(T,scene,sample,offset,doc){
@@ -51,7 +52,7 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
      put(rails,mid,.16,.32,Math.hypot(there.x-here.x,there.z-here.z)+.08,heading);
      if(absolute%4===0)put(supports,{...here,y:here.y+.3},.15,.65,.15,heading);
     }
-    if(mountain&&absolute%12===0&&quality!=='LOW'){
+    if(mountain&&absolute%12===0&&quality!=='LOW'&&!inLandmarkVista(frame.landmarks,absolute,side)){
      const p=sample(points,i,offset(lanes,side,22,16));p.y-=3;
      put(hills,p,12,8+(absolute%17),14,0);
     }
