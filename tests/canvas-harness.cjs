@@ -1,4 +1,4 @@
-const fs=require('node:fs'),vm=require('node:vm');
+const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 // Real Skia Canvas; the minimal DOM below is for simulation and raster checks.
 // Browser input/layout/audio are covered separately by browser-smoke.cjs.
 const {createCanvas}=require(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES?process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES+'/@napi-rs/canvas':'@napi-rs/canvas');
@@ -22,6 +22,13 @@ function load(file,{navigator={},search=""}={}){
  const context={window:win,document:doc,navigator,console,performance:{now:()=>1000},localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},requestAnimationFrame:()=>0,setInterval:()=>0,clearInterval:()=>{},setTimeout:()=>0,clearTimeout:()=>{},Math,Date};
  win.location={search};win.innerWidth=1280;win.innerHeight=800;win.devicePixelRatio=1;
  vm.createContext(context);
+ // Mirror local browser script load order. Reject remote and escaping paths.
+ for(const match of html.matchAll(/<script\s+src="([^"]+)"\s*><\/script>/g)){
+   const relative=match[1];
+   if(!/^[A-Za-z0-9_./-]+\.js$/.test(relative)||relative.startsWith('/')||relative.split('/').includes('..'))throw Error('Unsafe test script path: '+relative);
+   const external=path.resolve(path.dirname(file),relative);
+   vm.runInContext(fs.readFileSync(external,'utf8'),context,{filename:external});
+ }
  let scripts=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n');
  scripts=scripts.replace('resetGame(); updateHUD(); drawRouteMap(); render(0);','window.__audit=code=>eval(code);resetGame(); updateHUD(); drawRouteMap(); render(0);');
  vm.runInContext(scripts,context,{filename:file});
