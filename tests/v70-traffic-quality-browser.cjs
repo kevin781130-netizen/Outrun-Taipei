@@ -89,12 +89,14 @@ async function different(a,b){
    assert(meta.distance>0&&meta.distance<42,'car must be in V70 detail LOD range');
    if(route==='4B'||route==='5B')assert.equal(meta.deck,0,'mountain/coast cannot have an invented viaduct');
    const canvas=page.locator('#v56-full-3d-canvas');
-   const render=(flag,color)=>page.evaluate(({flag,color})=>{
-    const data=window.__v70Frame;
-    const frame={...data,trafficVisual70:flag,
-     traffic:color?[{...data.traffic[0],color}]:data.traffic};
+   // V56's scene and canvas are lexical variables in the game script; only
+   // the ephemeral in-script audit bridge can access them.
+   const render=(flag,color)=>audit(page,`(()=>{
+    const data=window.__v70Frame,chosen=${JSON.stringify(color||null)};
+    const frame={...data,trafficVisual70:${flag===true},
+     traffic:chosen?data.traffic.map((item,i)=>i===0?{...item,color:chosen}:item):data.traffic};
     return v56Scene.render(frame,0,canvas.width,canvas.height,graphicsQuality);
-   },{flag,color});
+   })()`);
    await render(false);await render(false);
    const baseline=await canvas.screenshot({type:'png',animations:'disabled'});
    // Positive control: a deliberately different traffic body color MUST be
