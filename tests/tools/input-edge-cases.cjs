@@ -1,0 +1,58 @@
+'use strict';
+const assert=require('node:assert/strict');
+const setup=`v34Mode='cruise';selectedRoute=routeForId('1A');resetGame();
+gameStarted=true;raceActive=true;paused=false;gameOver=false;inRadioScreen=false;
+crashSequence=null;traffic=[];timeLeft=9999;collisionCooldown=100;
+playerX=0;playerZ=180*SEGMENT_LENGTH;speed=175;currentGear='HIGH';
+driveGear='D';motionDirection=1;roadGrip=1;nitro=0;nitroStock=2;
+for(const segment of segments)segment.curve=0;overlay.classList.add('hidden');`;
+async function checkInputEdges({run,send,enabled}){
+ const state=()=>run('({stock:nitroStock,boosting,pending:nitroPressPending})');
+ const reset=async()=>{await send('KeyN',false);await send('KeyS',false);await run(setup);};
+ const tap=async()=>{await send('KeyN',true);await send('KeyN',false);};
+ await reset();await tap();await run('update(1/60)');
+ assert.equal((await state()).stock,enabled?1:2,'fast tap crossing no update');
+ const keys=await run('({best:bestRecordKey(),board:arcadeBoardKey()})');
+ assert.equal(keys.best.endsWith(':I1'),enabled);assert.equal(keys.board.endsWith(':I1'),enabled);
+ if(!enabled)return;
+ await reset();await send('KeyN',true);await run('update(1/60)');
+ await send('KeyN',true,true);await run('for(let i=0;i<210;i++)update(1/60)');
+ assert.equal((await state()).stock,1,'holding/repeat cannot spend second stock');
+ await send('KeyN',false);await tap();await run('update(1/60)');
+ assert.equal((await state()).stock,0,'fresh press after boost can spend second stock');
+ await reset();await send('KeyN',true);await run('togglePause();togglePause()');
+ await send('KeyN',true,true);await run('update(1/60)');
+ assert.equal((await state()).stock,2,'pause clears pending; repeat cannot resurrect it');
+ await reset();await send('KeyS',true);await tap();await run('update(1/60)');
+ await send('KeyS',false);await run('update(1/60)');
+ assert.equal((await state()).stock,2,'braking discards request, no deferred boost');
+ await reset();await tap();await run('driveGear="R";update(1/60);driveGear="D";update(1/60)');
+ assert.equal((await state()).stock,2,'reverse discards request');
+ await reset();await tap();await run('nitroStock=0;update(1/60);nitroStock=2;update(1/60)');
+ assert.equal((await state()).stock,2,'empty stock does not defer request until refill');
+ await reset();await run('speed=0');await tap();await run('update(1/60);speed=175;update(1/60)');
+ assert.equal((await state()).stock,2,'low speed discards request');
+ await reset();await tap();await run('update(1/60)');await tap();
+ await run('for(let i=0;i<210;i++)update(1/60)');
+ assert.equal((await state()).stock,1,'press during boost cannot wait for boost end');
+ await reset();await tap();await run('collisionCooldown=0;triggerCrash(null,null,true)');
+ assert.equal((await state()).pending,false,'crash resets queued pulse');
+ await reset();await run('gamepadInput.nitro=true;update(1/60)');
+ await run('for(let i=0;i<210;i++)update(1/60)');
+ assert.equal((await state()).stock,1,'gamepad retains hold edge semantics');
+ await run('gamepadInput.nitro=false;update(1/60);gamepadInput.nitro=true;update(1/60)');
+ assert.equal((await state()).stock,0,'gamepad rearms on release');
+ await reset();await send('KeyN',true);await run('gamepadInput.nitro=true;update(1/60)');
+ assert.equal((await state()).stock,1,'simultaneous sources consume one stock');
+ await reset();await run('raceActive=false');await tap();await run('raceActive=true;update(1/60)');
+ assert.equal((await state()).stock,2,'countdown cannot queue a boost');
+ for(const side of ['ArrowLeft','ArrowRight']){
+  await reset();await run('for(const seg of segments)seg.curve=.8');
+  await send('KeyW',true);await send(side,true);await send('ShiftLeft',true);
+  await run('for(let i=0;i<18;i++)update(1/60)');await send('ShiftLeft',false);
+  await tap();await run('update(1/60)');
+  assert.equal(await run('isDrifting&&boosting&&driftChargeRate>0'),true,'quick nitro and drift-charge coexist');
+  await send(side,false);await send('KeyW',false);
+ }
+}
+module.exports={setup,checkInputEdges};

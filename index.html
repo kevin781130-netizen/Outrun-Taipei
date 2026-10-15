@@ -1695,6 +1695,13 @@ let celebrationTimer = 0,resultTimer=null;
 let unlockedGoals = new Set();
 const keys = {};
 const pointerKeys = new Map();
+// Opt-in event buffering; fixed at startup, with isolated competition records.
+const nitroEdges1=/(?:^|[?&])input=edges1(?:&|$)/.test(window.location?.search||'');
+let nitroPressPending=false;
+function queueNitroPress1(){
+  if(nitroEdges1&&gameStarted&&raceActive&&!paused&&!gameOver&&!inRadioScreen&&!crashSequence&&!inputHeld('KeyN'))nitroPressPending=true;
+}
+function inputRecordSuffix1(){return nitroEdges1?':I1':'';}
 let checkpointPassed = false, checkpointBonus = 0;
 let distanceOffset = 0, simulationTime = 0, hudClock = 0;
 const projectedRoad = [];
@@ -1718,6 +1725,7 @@ try{
 
 const inputHeld = code => !!keys[code] || [...pointerKeys.values()].some(v => v.code === code);
 const clearInputs = () => {
+  nitroPressPending=false;
   nitroLatch=false;boosting=false;nitroWasHeld=false;gamepadInput={steer:0,gas:false,brake:false,drift:false,nitro:false};gyroSteer=0;reverseWindow=0;gearDWasHeld=false;gearRWasHeld=false;gearInputEvents=[];
   for(const k in keys) keys[k] = false;
   pointerKeys.clear();
@@ -2383,7 +2391,7 @@ window.addEventListener('keydown', e => {
   if(!e.repeat && e.code === 'KeyM') toggleRadio();
   if(!e.repeat && (e.code === 'KeyP' || e.code === 'Escape')) togglePause();
   if(!e.repeat && (e.code === 'Enter') && (!gameStarted || gameOver)){ openRadioSelector(); return; }
-  if(!paused) keys[e.code] = true;
+  if(!paused){if(e.code==='KeyN'&&!e.repeat)queueNitroPress1();keys[e.code] = true;}
 });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
 
@@ -2395,6 +2403,7 @@ function bindButton(id, code, isGear=false){
   }
   el.addEventListener('pointerdown', e => {
     e.preventDefault(); if(paused||gameOver||inRadioScreen||!raceActive) return;
+    if(code==='KeyN')queueNitroPress1();
     if(code==='KeyA'||code==='KeyZ')enqueueDriveGear(code==='KeyA'?'D':'R');
     el.setPointerCapture(e.pointerId); pointerKeys.set(e.pointerId, { code, el });
     el.classList.add('active');
@@ -2807,8 +2816,10 @@ function update(dt){
   const segIndex=clamp(Math.floor(playerZ/SEGMENT_LENGTH),0,segments.length-1),seg=segments[segIndex];
   raceElapsed+=dt;stepHandlingDrift(dt,brakeHeld,accelHeld,steerTarget,seg.curve);
   const nitroHeld=inputHeld('KeyN')||gamepadInput.nitro;
-  if(nitroHeld&&!nitroWasHeld&&!brakeHeld)activateNitro();
-  nitroWasHeld=nitroHeld;
+  const nitroPressed=nitroEdges1?(nitroPressPending||gamepadInput.nitro&&!nitroWasHeld):nitroHeld&&!nitroWasHeld;
+  nitroPressPending=false;
+  if(nitroPressed&&!brakeHeld)activateNitro();
+  nitroWasHeld=nitroEdges1?!!gamepadInput.nitro:nitroHeld;
   if(brakeHeld||driveGear!=='D'){boostRemaining=0;nitroLatch=false;}
   boosting=boostRemaining>0&&driveGear==='D'&&motionDirection===1&&(accelHeld||nitroLatch)&&!brakeHeld;
   boostRemaining=Math.max(0,boostRemaining-dt);
@@ -4944,6 +4955,7 @@ let chassisRoll=0,chassisPitch=0,visualLoad=0;
 let trafficSeed=1;
 function seededRange(a,b){trafficSeed=(Math.imul(1664525,trafficSeed)+1013904223)>>>0;return a+(trafficSeed/4294967296)*(b-a);}
 function resetDrivingState(){
+ nitroPressPending=false;
  helperWasHeld=false;helperPulse=0;counterTime=0;neutralTime=0;draftLevel=0;v59LiftTime=0;
  driftRearmBlocked=false;driftState='grip';brakeHoldTime=0;brakeLoss=0;driftAge=0;driftCooldown=0;
  brakeEntry=0;brakeWasHeld=false;brakeVisual=0;driftAngle=0;yawRate=0;slipAngle=0;coastWindow=0;previousGas=false;
@@ -5263,8 +5275,8 @@ function drawSlideTrails(){
  ctx.restore();
 }
 
-function bestRecordKey(id=currentNode.id){return `${id}:${autoGear?'AT':'MT'}:${dipSettings.difficulty}:${COMPETITION.version}${handlingRecordSuffix59()}${trafficAI60RecordSuffix()}`;}
-function arcadeBoardKey(){return `${autoGear?'AT':'MT'}:${dipSettings.difficulty}:${dipSettings.time}:${COMPETITION.version}${handlingRecordSuffix59()}`;}
+function bestRecordKey(id=currentNode.id){return `${id}:${autoGear?'AT':'MT'}:${dipSettings.difficulty}:${COMPETITION.version}${handlingRecordSuffix59()}${trafficAI60RecordSuffix()}${inputRecordSuffix1()}`;}
+function arcadeBoardKey(){return `${autoGear?'AT':'MT'}:${dipSettings.difficulty}:${dipSettings.time}:${COMPETITION.version}${handlingRecordSuffix59()}${inputRecordSuffix1()}`;}
 
 // Street identity persists across the entire segment, instead of vanishing after the opening.
 const SCENES={
