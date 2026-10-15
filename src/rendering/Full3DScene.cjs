@@ -237,7 +237,7 @@ function createFull3DScene(THREE,canvas) {
  const rearMat=material(new THREE.MeshBasicMaterial({color:0xff385d}));
  const trafficMeshes=[];
  for(let i=0;i<MAX_CARS;i++){
-  const group=new THREE.Group();
+  const group=new THREE.Group();group.userData.trafficIndex=i;
   function part(g,m,s,p){
    const mesh=new THREE.Mesh(g,m);mesh.scale.set(...s);mesh.position.set(...p);group.add(mesh);return mesh;
   }
@@ -365,7 +365,9 @@ function createFull3DScene(THREE,canvas) {
    const road=sampleRoadPoint(pts,item.distance+(Number(frame.fraction)||0),(Number(item.x)||0)*HALF_WIDTH);
    mesh.group.visible=true;
    mesh.group.position.set(road.x,road.y+.05,road.z);
-   mesh.group.rotation.y=-road.heading;
+   // Preview-only road-relative heading. Never modifies gameplay physics.
+   const trafficYaw=Number.isFinite(item.turnYawRad)?clamp(item.turnYawRad,-.16,.16):0;
+   mesh.group.rotation.y=-road.heading+trafficYaw;
    mesh.group.scale.x=Number.isFinite(item.halfWidth)?Math.max(.1,item.halfWidth*16/1.7):1;
    const color=item.color||'#f3c21f';
    if(color!==mesh.lastColor){
