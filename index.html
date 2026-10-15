@@ -2652,6 +2652,52 @@ function updateForkUI(){
 window.addEventListener('blur',()=>{clearInputs();if(gameStarted&&!paused&&!gameOver&&!inRadioScreen)togglePause();});
 document.addEventListener('visibilitychange',()=>{ if(document.hidden){ clearInputs(); if(gameStarted&&!paused&&!gameOver&&!inRadioScreen) togglePause(); } });
 
+// Only consulted by explicitly requested single-player cruise simulations.
+// Existing road corridors and traffic collision eligibility remain authoritative.
+function stepTrafficAI60(car,index,dt,peers,trafficLimit){
+  car.v60Think=Math.max(0,(car.v60Think||0)-dt);
+  car.v60Cooldown=Math.max(0,(car.v60Cooldown||0)-dt);
+  const moving=!!car.v60PassActive;
+  if(car.v60Think<=0&&(moving||Math.abs(car.x-car.laneTarget)<.14)){
+    car.v60Think=moving?.16:.4;
+    const seg=Math.max(0,Math.min(segments.length-1,Math.floor(car.z/SEGMENT_LENGTH)));
+    const previewEnd=Math.min(segments.length-1,seg+12);
+    const input={
+      allow:car.z>0&&car.z<Math.min(trafficLimit,(FORK_WARN-65)*SEGMENT_LENGTH)&&!car.near&&car.hitTimer<=0,
+      self:{id:index,x:car.x,z:car.z,speed:car.speed,halfWidth:trafficHalfWidth(car),laneTarget:car.laneTarget},
+      others:peers,
+      corridors:[roadCorridors(seg),roadCorridors(previewEnd)],
+      player:{z:playerZ+PLAYER_DEPTH},
+      forkWarningZ:FORK_WARN*SEGMENT_LENGTH,
+      cooldown:car.v60Cooldown
+    };
+    if(moving){
+      // New traffic entering the target lane can veto an in-progress maneuver.
+      // Stop lateral movement; never snap the vehicle or rewrite its longitudinal speed.
+      const check=window.TaipeiTrafficAI.inspectLanePath({...input,target:car.laneTarget});
+      if(!check.safe){
+        car.laneTarget=car.x;car.v60PassActive=false;
+        car.v60Cooldown=Math.max(car.v60Cooldown,1.2);
+        car.v60LastVeto=check.reason;
+      }
+    }else{
+      const intent=window.TaipeiTrafficAI.planLaneIntent(input);
+      if(intent.action==='change'){
+        car.laneTarget=intent.target;car.v60Cooldown=intent.cooldown;
+        car.v60PassActive=true;car.v60LastVeto=null;
+      }
+    }
+    // Share same-frame target reservations with subsequent traffic in stable index order.
+    if(peers)for(const peer of peers)if(peer.id===index){
+      peer.passActive=!!car.v60PassActive;peer.laneTarget=car.laneTarget;break;
+    }
+  }
+  // Exponential damping is stable at 30, 60 and 120 simulation steps/second.
+  car.x=lerp(car.x,car.laneTarget,1-Math.exp(-Math.max(0,dt)*1.15));
+  if(car.v60PassActive&&Math.abs(car.x-car.laneTarget)<.03)car.v60PassActive=false;
+}
+
+
 function update(dt){
   if(inRadioScreen) return;
   if(!gameStarted || gameOver || paused) return;
@@ -2802,51 +2848,6 @@ function update(dt){
   if(v34Mode==='arcade' && stageLevel === 4 && playerZ >= FINISH_LINE * SEGMENT_LENGTH){
     playerZ = FINISH_LINE * SEGMENT_LENGTH; finishGame(true); return;
   }
-
-// Only consulted by explicitly requested single-player cruise simulations.
-// Existing road corridors and traffic collision eligibility remain authoritative.
-function stepTrafficAI60(car,index,dt,peers,trafficLimit){
-  car.v60Think=Math.max(0,(car.v60Think||0)-dt);
-  car.v60Cooldown=Math.max(0,(car.v60Cooldown||0)-dt);
-  const moving=!!car.v60PassActive;
-  if(car.v60Think<=0&&(moving||Math.abs(car.x-car.laneTarget)<.14)){
-    car.v60Think=moving?.16:.4;
-    const seg=Math.max(0,Math.min(segments.length-1,Math.floor(car.z/SEGMENT_LENGTH)));
-    const previewEnd=Math.min(segments.length-1,seg+12);
-    const input={
-      allow:car.z>0&&car.z<Math.min(trafficLimit,(FORK_WARN-65)*SEGMENT_LENGTH)&&!car.near&&car.hitTimer<=0,
-      self:{id:index,x:car.x,z:car.z,speed:car.speed,halfWidth:trafficHalfWidth(car),laneTarget:car.laneTarget},
-      others:peers,
-      corridors:[roadCorridors(seg),roadCorridors(previewEnd)],
-      player:{z:playerZ+PLAYER_DEPTH},
-      forkWarningZ:FORK_WARN*SEGMENT_LENGTH,
-      cooldown:car.v60Cooldown
-    };
-    if(moving){
-      // New traffic entering the target lane can veto an in-progress maneuver.
-      // Stop lateral movement; never snap the vehicle or rewrite its longitudinal speed.
-      const check=window.TaipeiTrafficAI.inspectLanePath({...input,target:car.laneTarget});
-      if(!check.safe){
-        car.laneTarget=car.x;car.v60PassActive=false;
-        car.v60Cooldown=Math.max(car.v60Cooldown,1.2);
-        car.v60LastVeto=check.reason;
-      }
-    }else{
-      const intent=window.TaipeiTrafficAI.planLaneIntent(input);
-      if(intent.action==='change'){
-        car.laneTarget=intent.target;car.v60Cooldown=intent.cooldown;
-        car.v60PassActive=true;car.v60LastVeto=null;
-      }
-    }
-    // Share same-frame target reservations with subsequent traffic in stable index order.
-    if(peers)for(const peer of peers)if(peer.id===index){
-      peer.passActive=!!car.v60PassActive;peer.laneTarget=car.laneTarget;break;
-    }
-  }
-  // Exponential damping is stable at 30, 60 and 120 simulation steps/second.
-  car.x=lerp(car.x,car.laneTarget,1-Math.exp(-Math.max(0,dt)*1.15));
-  if(car.v60PassActive&&Math.abs(car.x-car.laneTarget)<.03)car.v60PassActive=false;
-}
 
   // V60 original clean-room preview. Build a single pre-update snapshot so
   // vehicle decisions never depend on array iteration or a partially updated car.
