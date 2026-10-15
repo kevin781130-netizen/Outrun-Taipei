@@ -2808,31 +2808,59 @@ function update(dt){
 function stepTrafficAI60(car,index,dt,peers,trafficLimit){
   car.v60Think=Math.max(0,(car.v60Think||0)-dt);
   car.v60Cooldown=Math.max(0,(car.v60Cooldown||0)-dt);
-  if(car.v60Think<=0&&Math.abs(car.x-car.laneTarget)<.14){
-    car.v60Think=.4;
+  const moving=!!car.v60PassActive;
+  if(car.v60Think<=0&&(moving||Math.abs(car.x-car.laneTarget)<.14)){
+    car.v60Think=moving?.16:.4;
     const seg=Math.max(0,Math.min(segments.length-1,Math.floor(car.z/SEGMENT_LENGTH)));
     const previewEnd=Math.min(segments.length-1,seg+12);
-    const intent=window.TaipeiTrafficAI.planLaneIntent({
+    const input={
       allow:car.z>0&&car.z<Math.min(trafficLimit,(FORK_WARN-65)*SEGMENT_LENGTH)&&!car.near&&car.hitTimer<=0,
-      self:{...peers[index],x:car.x,z:car.z,speed:car.speed,laneTarget:car.laneTarget},
-      others:peers.filter(peer=>peer.id!==index),
+      self:{id:index,x:car.x,z:car.z,speed:car.speed,halfWidth:trafficHalfWidth(car),laneTarget:car.laneTarget},
+      others:peers,
       corridors:[roadCorridors(seg),roadCorridors(previewEnd)],
       player:{z:playerZ+PLAYER_DEPTH},
       forkWarningZ:FORK_WARN*SEGMENT_LENGTH,
       cooldown:car.v60Cooldown
-    });
-    if(intent.action==='change'){car.laneTarget=intent.target;car.v60Cooldown=intent.cooldown;}
+    };
+    if(moving){
+      // New traffic entering the target lane can veto an in-progress maneuver.
+      // Stop lateral movement; never snap the vehicle or rewrite its longitudinal speed.
+      const check=window.TaipeiTrafficAI.inspectLanePath({...input,target:car.laneTarget});
+      if(!check.safe){
+        car.laneTarget=car.x;car.v60PassActive=false;
+        car.v60Cooldown=Math.max(car.v60Cooldown,1.2);
+        car.v60LastVeto=check.reason;
+      }
+    }else{
+      const intent=window.TaipeiTrafficAI.planLaneIntent(input);
+      if(intent.action==='change'){
+        car.laneTarget=intent.target;car.v60Cooldown=intent.cooldown;
+        car.v60PassActive=true;car.v60LastVeto=null;
+      }
+    }
   }
-  // This preview only moves the original traffic x toward a safe lane intent.
-  // Position projection, road validity, collision, scoring, and speed are unchanged.
-  car.x=lerp(car.x,car.laneTarget,Math.min(1,dt*1.15));
+  // Exponential damping is stable at 30, 60 and 120 simulation steps/second.
+  car.x=lerp(car.x,car.laneTarget,1-Math.exp(-Math.max(0,dt)*1.15));
+  if(car.v60PassActive&&Math.abs(car.x-car.laneTarget)<.03)car.v60PassActive=false;
 }
 
   // V60 original clean-room preview. Build a single pre-update snapshot so
   // vehicle decisions never depend on array iteration or a partially updated car.
   const v60Preview=trafficAI60Enabled();
-  const v60NeedsDecision=v60Preview&&traffic.some(car=>(car.v60Think||0)<=dt&&Math.abs(car.x-car.laneTarget)<.14);
-  const v60Peers=v60NeedsDecision?traffic.map((car,id)=>({id,x:car.x,z:car.z,speed:car.speed,halfWidth:trafficHalfWidth(car)})):null;
+  const v60NeedsDecision=v60Preview&&traffic.some(car=>(car.v60Think||0)<=dt&&
+    (car.v60PassActive||Math.abs(car.x-car.laneTarget)<.14));
+  // One immutable position sample per evaluation window; never include road-ineligible
+  // scooters or invisible/ghost traffic in another driver's overtaking decisions.
+  let v60Peers=null;
+  if(v60NeedsDecision){
+    v60Peers=[];
+    for(let i=0;i<traffic.length;i++){
+      const car=traffic[i];
+      if(trafficRoadEligible(car))v60Peers.push({
+        id:i,x:car.x,z:car.z,speed:car.speed,halfWidth:trafficHalfWidth(car)
+      });
+    }
+  }
   // Traffic updates
   const trafficLimit = (FORK_WARN - 28) * SEGMENT_LENGTH;
   for(let index=0;index<traffic.length;index++){
@@ -2857,7 +2885,7 @@ function stepTrafficAI60(car,index,dt,peers,trafficLimit){
       car.z=Math.min(playerZ+seededRange(22000,56000),trafficLimit);
       car.x=seededRange(-.65,.65)*roadFactor();car.laneTarget=seededRange(-.60,.60)*roadFactor();
       car.previousX=car.x;car.previousZ=car.z;car.near = false; car.screenBox = null; car.cp = null;
-      if(v60Preview){car.v60Think=0;car.v60Cooldown=0;}
+      if(v60Preview){car.v60Think=0;car.v60Cooldown=0;car.v60PassActive=false;car.v60LastVeto=null;}
     }
     if(dz > 2600) car.near = false;
   }

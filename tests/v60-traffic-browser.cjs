@@ -127,6 +127,20 @@ async function newPage(browser,base,query,viewport,errors){
    await page.close();
   }
 
+  // V61 in-flight intruder appears after a legally initiated pass.
+  const hazard=await newPage(browser,base,'trafficAI=v60',desktop,result.errors);
+  await audit(hazard,fixture('cruise'));
+  await tick(hazard,1);
+  assert.equal(await audit(hazard,'traffic[0].v60PassActive'),true);
+  await audit(hazard,"traffic[1].x=traffic[0].laneTarget;traffic[1].laneTarget=traffic[1].x;traffic[1].z=traffic[0].z+1000;traffic[1].speed=195;traffic[1].targetSpeed=195;traffic[1].previousZ=traffic[1].z;traffic[1].previousX=traffic[1].x;");
+  await tick(hazard,30);
+  const abort=await audit(hazard,'({active:traffic[0].v60PassActive,reason:traffic[0].v60LastVeto,stopped:Math.abs(traffic[0].x-traffic[0].laneTarget)<1e-10})');
+  assert.equal(abort.active,false,'intruding car cancels mid-pass');
+  assert.equal(abort.reason,'traffic-path-blocked');
+  assert(abort.stopped,'aborted lane transition is not teleported or reversed');
+  await hazard.close();
+  result.viewports.push({mode:'V61 mid-pass hazard',frames:30,aborted:true});
+
   const safety=await newPage(browser,base,'trafficAI=v60',desktop,result.errors);
   await audit(safety,fixture('cruise',15000));
   await tick(safety);

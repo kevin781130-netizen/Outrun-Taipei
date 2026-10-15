@@ -49,6 +49,34 @@ assert.equal(cruise.run('score>=0'),true);
 const close=load(file,{search:'?trafficAI=v60'});setup(close,'cruise',true);
 close.run('update(1/60)');
 assert.equal(close.run('traffic[0].laneTarget'),0,'player proximity blocks new lane changes');
+// V61: while a car is changing lanes, a newly arriving side car must stop
+// the lateral movement within the periodic .16s safety reassessment window.
+const intrude=load(file,{search:'?trafficAI=v60'});setup(intrude,'cruise');
+intrude.run('update(1/60)');
+assert.equal(intrude.run('traffic[0].v60PassActive'),true,'active pass has explicit state');
+intrude.run("const side=traffic[1];side.x=traffic[0].laneTarget;side.laneTarget=side.x;side.z=traffic[0].z+1000;side.speed=195;side.targetSpeed=195;side.near=false;side.previousX=side.x;side.previousZ=side.z;");
+const xBefore=intrude.run('traffic[0].x');
+for(let i=0;i<30;i++)intrude.run('update(1/60)');
+assert.equal(intrude.run('traffic[0].v60PassActive'),false,'new lane intruder vetoes active pass');
+assert.equal(intrude.run("traffic[0].v60LastVeto"),'traffic-path-blocked');
+assert(Math.abs(intrude.run('traffic[0].laneTarget')-intrude.run('traffic[0].x'))<1e-10,'abort stays at current position, without snap');
+assert(intrude.run('traffic[0].x')<xBefore,'first portion of pass remains smooth');
+
+// One-second lateral response must be invariant to fixed timestep resolution.
+const outcomes=[30,60,120].map(fps=>{
+  const p=load(file,{search:'?trafficAI=v60'});setup(p,'cruise');
+  p.run("traffic[0].v60Think=1000;traffic[0].laneTarget=-.4;traffic[0].v60PassActive=false;");
+  for(let i=0;i<fps;i++)p.run('update(1/'+fps+')');
+  return p.run('traffic[0].x');
+});
+assert(Math.max(...outcomes)-Math.min(...outcomes)<1e-9,'exponential steering stable at 30/60/120 steps per second');
+
+// Opt-in decision sensors never consider traffic that the original road filter excludes.
+const ghost=load(file,{search:'?trafficAI=v60'});setup(ghost,'cruise');
+ghost.run("setStage(...Object.values(routeForId('2B')),false);const a=traffic[0],b=traffic[1],s=traffic[2];traffic=[a,b,s];a.x=0;a.laneTarget=0;a.z=20000;a.speed=190;a.targetSpeed=190;b.x=0;b.z=24000;b.speed=120;b.targetSpeed=120;s.spec={...s.spec,scooter:true};s.x=-.52;s.laneTarget=-.52;s.z=21000;s.speed=220;s.targetSpeed=220;");
+ghost.run('update(1/60)');
+assert(ghost.run('traffic[0].laneTarget')<0,'expressway-excluded scooter cannot block legal pass');
+
 const missing=load(file,{search:'?trafficAI=v60'});setup(missing,'cruise');
 missing.window.TaipeiTrafficAI=undefined;
 assert.equal(missing.run('trafficAI60Enabled()'),false,'missing bundle fails closed');

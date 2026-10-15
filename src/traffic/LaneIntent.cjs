@@ -1,72 +1,102 @@
 'use strict';
-// Independent Taipei traffic intention model. No third-party code, assets, RNG, or gameplay writes.
-// All longitudinal distances are in the existing game's world-Z coordinates.
+// Taipei-original traffic planning and mid-maneuver safety. No proprietary source,
+// gameplay RNG, mutation of the caller, or render-system dependencies.
 const RULES=Object.freeze({
-  speedToWorld:18,
-  closingKph:14,
-  forwardLook:6500,
-  rearLook:4000,
-  decisionHorizon:2.5,
-  frontGap:1300,
-  rearGap:1300,
-  lateralGap:0.07,
-  roadMargin:0.04,
-  forkBuffer:4200,
-  playerBuffer:8000,
-  cooldownSeconds:3.2
+  speedToWorld:18,closingKph:14,forwardLook:6500,rearLook:4000,
+  decisionHorizon:2.5,frontGap:1300,rearGap:1300,lateralGap:.07,
+  roadMargin:.04,forkBuffer:4200,playerBuffer:8000,cooldownSeconds:3.2
 });
-const finite=n=>typeof n==='number'&&Number.isFinite(n);
+const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const number=(x,fallback)=>finite(x)?x:fallback;
-const blocked=(target,from,peer,ownHalf,frontGap,rearGap)=>{
+const ownValid=own=>own&&[own.x,own.z,own.speed,own.halfWidth].every(finite)&&own.halfWidth>0&&own.speed>=0;
+const sameVehicle=(own,peer)=>peer===own||(own.id!=null&&peer.id!=null&&own.id===peer.id);
+const blocked=(target,from,peer,ownHalf,frontGap,rearGap,dz)=>{
   const margin=peer.halfWidth+ownHalf+RULES.lateralGap;
   const nearTarget=Math.abs(peer.x-target)<=margin;
-  const nearPath=peer.x+margin>=Math.min(from,target) && peer.x-margin<=Math.max(from,target);
-  const dz=peer.z;
-  // A car directly ahead in the original lane motivates a lane change; it must
-  // not veto every destination. Still reject immediate side-swipe crossings.
+  const nearPath=peer.x+margin>=Math.min(from,target)&&peer.x-margin<=Math.max(from,target);
   if(nearPath&&Math.abs(dz)<950)return true;
   return nearTarget&&(dz>=0?dz<frontGap:-dz<rearGap);
 };
+function inspectLanePath(input){
+  const own=input?.self,target=input?.target;
+  const deny=reason=>({safe:false,reason});
+  if(!ownValid(own))return deny('invalid-self');
+  if(!finite(target))return deny('invalid-target');
+  if(input.allow!==true)return deny('disabled');
+  if(!Array.isArray(input.corridors)||!input.corridors.length||
+    input.corridors.some(segment=>!Array.isArray(segment)||segment.length!==1||
+      !finite(segment[0]?.center)||!finite(segment[0]?.half)||segment[0].half<=0))
+    return deny('split-or-invalid-road');
+  for(const [corridor] of input.corridors){
+    for(const x of [own.x,target]){
+      if(Math.abs(x-corridor.center)+own.halfWidth+RULES.roadMargin>corridor.half)
+        return deny('out-of-corridor');
+    }
+  }
+  if(input.player!=null){
+    if(!finite(input.player.z))return deny('invalid-player');
+    if(Math.abs(own.z-input.player.z)<RULES.playerBuffer)return deny('player-proximity');
+  }
+  if(finite(input.forkWarningZ)&&own.z>=input.forkWarningZ-RULES.forkBuffer)return deny('fork-approach');
+  if(!Array.isArray(input.others))return deny('invalid-peers');
+  for(const peer of input.others){
+    if(!peer||![peer.x,peer.z,peer.speed,peer.halfWidth].every(finite)||peer.halfWidth<=0)
+      return deny('invalid-peers');
+    if(sameVehicle(own,peer))continue;
+    const dz=peer.z-own.z;
+    if(dz>RULES.forwardLook||dz<-RULES.rearLook)continue;
+    const front=RULES.frontGap+Math.max(0,own.speed-peer.speed)*RULES.speedToWorld*RULES.decisionHorizon;
+    const rear=RULES.rearGap+Math.max(0,peer.speed-own.speed)*RULES.speedToWorld*RULES.decisionHorizon;
+    if(blocked(target,own.x,peer,own.halfWidth,front,rear,dz))return deny('traffic-path-blocked');
+  }
+  return {safe:true,reason:'clear'};
+}
 function planLaneIntent(input){
   const own=input?.self;
   const origin=number(own?.laneTarget,number(own?.x,0));
   const hold=reason=>({action:'hold',target:origin,reason,cooldown:0});
-  if(!own||![own.x,own.z,own.speed,own.halfWidth].every(finite)||own.halfWidth<=0||own.speed<0)return hold('invalid-self');
+  if(!ownValid(own))return hold('invalid-self');
   if(input?.allow!==true)return hold('disabled');
-  if(number(input?.cooldown,0)>0)return hold('cooldown');
-  if(!Array.isArray(input.corridors)||input.corridors.length===0||input.corridors.some(q=>!Array.isArray(q)||q.length!==1||!finite(q[0]?.center)||!finite(q[0]?.half)||q[0].half<=0))return hold('split-or-invalid-road');
-  const player=input.player;
-  if(player!=null){
-    if(!finite(player.z))return hold('invalid-player');
-    if(Math.abs(own.z-player.z)<RULES.playerBuffer)return hold('player-proximity');
+  if(number(input.cooldown,0)>0)return hold('cooldown');
+  if(!Array.isArray(input.corridors)||!input.corridors.length||
+    input.corridors.some(q=>!Array.isArray(q)||q.length!==1||!finite(q[0]?.center)||!finite(q[0]?.half)||q[0].half<=0))
+    return hold('split-or-invalid-road');
+  if(input.player!=null){
+    if(!finite(input.player.z))return hold('invalid-player');
+    if(Math.abs(own.z-input.player.z)<RULES.playerBuffer)return hold('player-proximity');
   }
   if(finite(input.forkWarningZ)&&own.z>=input.forkWarningZ-RULES.forkBuffer)return hold('fork-approach');
   if(!Array.isArray(input.others))return hold('invalid-peers');
-  if(input.others.some(p=>p!==own&&(!p||![p.x,p.z,p.speed,p.halfWidth].every(finite)||p.halfWidth<=0)))return hold('invalid-peers');
+  for(const peer of input.others){
+    if(!peer||![peer.x,peer.z,peer.speed,peer.halfWidth].every(finite)||peer.halfWidth<=0)
+      return hold('invalid-peers');
+  }
   const road=input.corridors[0][0];
   const lanes=[road.center-road.half*.52,road.center,road.center+road.half*.52];
-  const inside=lane=>input.corridors.every(segment=>segment.some(q=>Math.abs(lane-q.center)+own.halfWidth+RULES.roadMargin<=q.half));
-  const legal=lanes.map(inside);
+  const legal=lanes.map(lane=>input.corridors.every(segment=>segment.some(q=>
+    Math.abs(lane-q.center)+own.halfWidth+RULES.roadMargin<=q.half)));
   if(!legal.some(Boolean))return hold('narrow-road');
   const current=lanes.reduce((best,x,i)=>Math.abs(x-origin)<Math.abs(lanes[best]-origin)?i:best,0);
   if(!legal[current])return hold('out-of-corridor');
-  const peers=input.others.filter(p=>p!==own && !(own.id!=null && p.id!=null && p.id===own.id)).map(p=>({...p,dz:p.z-own.z}));
-  const leader=peers.filter(p=>p.dz>0&&p.dz<RULES.forwardLook
-    &&Math.abs(p.x-lanes[current])<=p.halfWidth+own.halfWidth+RULES.lateralGap)
-    .sort((a,b)=>a.dz-b.dz||String(a.id).localeCompare(String(b.id)))[0];
+  // Single leader scan: no temporary peer map, full sort, or per-peer object spread.
+  let leader=null,bestDz=Infinity;
+  for(const peer of input.others){
+    if(sameVehicle(own,peer))continue;
+    const dz=peer.z-own.z;
+    if(dz>0&&dz<RULES.forwardLook&&Math.abs(peer.x-lanes[current])<=
+      peer.halfWidth+own.halfWidth+RULES.lateralGap){
+      if(dz<bestDz||(dz===bestDz&&String(peer.id)<String(leader?.id))){
+        leader=peer;bestDz=dz;
+      }
+    }
+  }
   if(!leader||own.speed-leader.speed<RULES.closingKph)return hold('no-slow-leader');
-  const candidates=[current-1,current+1].filter(i=>i>=0&&i<lanes.length&&legal[i]);
-  for(const index of candidates){
-    const target=lanes[index];
-    const unsafe=peers.some(peer=>{
-      const relative=peer.dz;
-      if(relative>RULES.forwardLook||relative<-RULES.rearLook)return false;
-      const front=RULES.frontGap+Math.max(0,own.speed-peer.speed)*RULES.speedToWorld*RULES.decisionHorizon;
-      const rear=RULES.rearGap+Math.max(0,peer.speed-own.speed)*RULES.speedToWorld*RULES.decisionHorizon;
-      return blocked(target,own.x,{...peer,z:relative},own.halfWidth,front,rear);
-    });
-    if(!unsafe)return {action:'change',target,reason:'safe-pass',cooldown:RULES.cooldownSeconds};
+  for(const i of [current-1,current+1]){
+    if(i<0||i>=lanes.length||!legal[i])continue;
+    const target=lanes[i];
+    const safety=inspectLanePath({...input,target});
+    if(safety.safe)return {action:'change',target,reason:'safe-pass',cooldown:RULES.cooldownSeconds};
   }
   return hold('adjacent-lanes-blocked');
 }
-module.exports={RULES,planLaneIntent};
+module.exports={RULES,planLaneIntent,inspectLanePath};
