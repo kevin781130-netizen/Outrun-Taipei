@@ -104,11 +104,24 @@ async function newPage(browser,base,query,viewport,errors){
    await tick(page,1);
    const intent=await audit(page,'({target:traffic[0].laneTarget,cooldown:traffic[0].v60Cooldown})');
    assert(intent.target<-.15&&intent.cooldown>3,'lead-car pass and cooldown');
+   // Capture a real WebGL frame during the maneuver, not just after merging.
+   await tick(page,24);
+   const midTurn=await audit(page,'v57SceneFrame().traffic[0].turnYawRad');
+   assert(Number.isFinite(midTurn)&&Math.abs(midTurn)>.005&&Math.abs(midTurn)<=.16,
+    '3D vehicle heading follows current lateral movement');
+   result.captures.push(await capture(page,'v60-'+name+'-turn'));
    const samples=await audit(page,'(()=>{const start=performance.now();for(let i=0;i<240;i++)update(1/60);return {elapsedMs:performance.now()-start,position:traffic[0].x,score,crashes:crashCount,route:currentNode.id};})()');
    assert(samples.position<-.15&&samples.route==='1A','safe traffic lane progression');
    assert(Number.isFinite(samples.elapsedMs)&&samples.elapsedMs>=0&&samples.elapsedMs<20000,'bounded 240-frame CPU-only update');
    assert.equal(samples.crashes,0);
-   result.timings.push({viewport:name,frames:240,CPUUpdateMs:samples.elapsedMs,note:'simulation CPU timing, not GPU FPS'});
+   // CPU-side WebGL submission latency, not presentation-vsync FPS or real-device GPU time.
+   const renderStats=await audit(page,'(()=>{const xs=[];for(let i=0;i<8;i++){const t=performance.now();render(0);xs.push(performance.now()-t);}xs.sort((a,b)=>a-b);return {meanMs:xs.reduce((a,b)=>a+b,0)/xs.length,p95Ms:xs[Math.ceil(xs.length*.95)-1]};})()');
+   assert(Number.isFinite(renderStats.meanMs)&&renderStats.meanMs>=0);
+   result.timings.push({viewport:name,frames:240,CPUUpdateMs:samples.elapsedMs,
+    renderSubmitMeanMs:renderStats.meanMs,renderSubmitP95Ms:renderStats.p95Ms,
+    renderSamples:8,note:'headless Chromium software WebGL timing, NOT device FPS'});
+   console.log('V60 perf '+name+': 240 updates '+samples.elapsedMs.toFixed(1)+'ms; render-submit mean '
+    +renderStats.meanMs.toFixed(1)+'ms p95 '+renderStats.p95Ms.toFixed(1)+'ms');
    result.captures.push(await capture(page,'v60-'+name));
    result.viewports.push({name,width:viewport.width,height:viewport.height,AI:true});
    await page.close();
