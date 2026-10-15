@@ -4375,6 +4375,13 @@ function v57SceneFrame(){
    x:car.x,
    color:car.color
   }));
+  // V60 preview: visual body heading follows measured lateral movement;
+  // the gameplay coordinate, hit boxes, velocity and default renderer are untouched.
+  if(trafficAI60Enabled())for(const item of traffic3D){
+   const car=traffic[item.sourceIndex],dx=(car.x-(car.previousX??car.x))*8;
+   const forward=Math.abs(car.z-(car.previousZ??car.z))*2.7/SEGMENT_LENGTH;
+   item.turnYawRad=clamp(-Math.atan2(dx,Math.max(.025,forward)),-.16,.16);
+  }
   v56DrivingFrame.driftState=driftState;
   v56DrivingFrame.isDrifting=isDrifting;
   v56DrivingFrame.driftAngleDeg=driftAngle;
