@@ -8,7 +8,7 @@ const injected=source.replace('resetGame(); updateHUD(); drawRouteMap(); render(
 const server=http.createServer((req,res)=>{
  const pathname=new URL(req.url,'http://localhost').pathname;
  if(pathname==='/'){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(injected);return;}
- if(!['/assets/vendor/three-r149.min.js','/assets/hybrid-renderer.js','/assets/traffic-lane-intent.js'].includes(pathname)){res.writeHead(404);res.end();return;}
+ if(!['/assets/vendor/three-r149.min.js','/assets/hybrid-renderer.js','/assets/traffic-lane-intent.js','/assets/perf-diagnostics.js'].includes(pathname)){res.writeHead(404);res.end();return;}
  res.setHeader('Content-Type','application/javascript');fs.createReadStream(path.join(ROOT,pathname.slice(1))).pipe(res);
 });
 (async()=>{

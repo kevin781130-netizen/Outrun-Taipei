@@ -8,7 +8,7 @@ const marker='resetGame(); updateHUD(); drawRouteMap(); render(0);';
 assert.equal(html.split(marker).length,2,'unique game bootstrap marker');
 assert(!html.includes('__v56TestEval'),'test hook must not ship');
 const testHtml=html.replace(marker,'window.__v56TestEval=code=>eval(code);'+marker);
-const assets={'/assets/vendor/three-r149.min.js':'assets/vendor/three-r149.min.js','/assets/hybrid-renderer.js':'assets/hybrid-renderer.js','/assets/traffic-lane-intent.js':'assets/traffic-lane-intent.js'};
+const assets={'/assets/vendor/three-r149.min.js':'assets/vendor/three-r149.min.js','/assets/hybrid-renderer.js':'assets/hybrid-renderer.js','/assets/traffic-lane-intent.js':'assets/traffic-lane-intent.js','/assets/perf-diagnostics.js':'assets/perf-diagnostics.js'};
 const server=http.createServer((req,res)=>{
  const route=new URL(req.url,'http://127.0.0.1').pathname;
  if(route==='/'||route==='/index.html'){

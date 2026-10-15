@@ -7,7 +7,8 @@ const assets={
  '/':'index.html','/index.html':'index.html',
  '/assets/vendor/three-r149.min.js':'assets/vendor/three-r149.min.js',
  '/assets/hybrid-renderer.js':'assets/hybrid-renderer.js',
- '/assets/traffic-lane-intent.js':'assets/traffic-lane-intent.js'
+ '/assets/traffic-lane-intent.js':'assets/traffic-lane-intent.js',
+ '/assets/perf-diagnostics.js':'assets/perf-diagnostics.js'
 };
 const server=http.createServer((req,res)=>{
  const key=new URL(req.url,'http://localhost').pathname,rel=assets[key];

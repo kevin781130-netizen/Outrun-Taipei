@@ -9,7 +9,7 @@ const {audioBrowserChecks}=require('./audio-browser.cjs');
  const injected=source.replace('<script>\n(() => {','<script>\nwindow.__legacyRegression=true;\n(() => {').replace('resetGame(); updateHUD(); drawRouteMap(); render(0);','window.__audit=code=>eval(code);resetGame(); updateHUD(); drawRouteMap(); render(0);');
  const server=http.createServer((req,res)=>{
   const pathname=new URL(req.url,'http://127.0.0.1').pathname;
-  if(pathname==='/assets/vendor/three-r149.min.js'||pathname==='/assets/hybrid-renderer.js'||pathname==='/assets/traffic-lane-intent.js'){
+  if(pathname==='/assets/vendor/three-r149.min.js'||pathname==='/assets/hybrid-renderer.js'||pathname==='/assets/traffic-lane-intent.js'||pathname==='/assets/perf-diagnostics.js'){
    const rel=pathname.slice(1);const file=path.join(__dirname,'..',rel);
    res.setHeader('Content-Type','application/javascript; charset=utf-8');
    fs.createReadStream(file).pipe(res);return;
