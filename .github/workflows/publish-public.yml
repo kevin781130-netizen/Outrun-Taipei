@@ -55,6 +55,7 @@ jobs:
           # V55 uses local Three.js assets; publish them together with HTML.
           mkdir -p "public-site/$GAME_PATH/assets/vendor"
           cp assets/hybrid-renderer.js "public-site/$GAME_PATH/assets/hybrid-renderer.js"
+          cp assets/traffic-lane-intent.js "public-site/$GAME_PATH/assets/traffic-lane-intent.js"
           cp assets/vendor/three-r149.min.js "public-site/$GAME_PATH/assets/vendor/three-r149.min.js"
           cp assets/vendor/THREE_LICENSE.txt "public-site/$GAME_PATH/assets/vendor/THREE_LICENSE.txt"
           touch public-site/.nojekyll
