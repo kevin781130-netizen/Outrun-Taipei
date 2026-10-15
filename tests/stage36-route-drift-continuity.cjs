@@ -6,7 +6,7 @@ const {load}=require('./canvas-harness.cjs');
 const html=path.resolve(__dirname,'../index.html');
 
 function driveAcrossBoundary(profile,choice,side){
-  const game=load(html,{search:profile==='v59'?'?handling=v59':''});
+  const game=load(html,{search:profile==='chain2'?'?handling=v59&drift=chain2':profile==='v59'?'?handling=v59':''});
   return JSON.parse(game.run(`(()=>{
     v34Mode='arcade';
     setStage(0,0,false);
@@ -48,6 +48,10 @@ for(const choice of ['left','right'])for(const side of [-1,1]){
   assert(Math.abs(v.x-side*.17)<1e-9,'vehicle must not jump sideways');
   assert.deepEqual(v.after,v.before,'V59 route change must preserve entire drift/inertia and boost snapshot');
   assert(v.continues,'next handling frame may not interrupt sustained slide');
+  const chain=driveAcrossBoundary('chain2',choice,side);
+  assert(chain.profile&&chain.continues&&chain.identity);
+  assert.equal(chain.next,v.next,'CHAIN2 must use exactly the same Taipei route');
+  assert.deepEqual(chain.before,chain.after,'CHAIN2 must preserve drift and boost through fork');
   const legacy=driveAcrossBoundary('legacy',choice,side);
   assert(!legacy.profile);
   assert(!legacy.after.drifting&&legacy.after.state==='grip',
