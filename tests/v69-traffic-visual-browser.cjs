@@ -71,9 +71,13 @@ async function startPage(browser,origin,mode,viewport,errors){
 }
 async function shot(page,name,report){
  await audit(page,'render(0)');
- const rawPNG=await page.locator('#v56-full-3d-canvas').evaluate(canvas=>canvas.toDataURL('image/png'));
- assert(rawPNG.startsWith('data:image/png;base64,'),'rendered PNG');
- const data=Buffer.from(rawPNG.split(',')[1],'base64'),hash=crypto.createHash('sha256').update(data).digest('hex');
+ // Chromium's default WebGL preserveDrawingBuffer=false invalidates direct
+ // canvas.toDataURL() reads outside its draw event. Capture the *composited*
+ // visible WebGL canvas with Playwright after the renderer has submitted it.
+ const data=await page.locator('#v56-full-3d-canvas').screenshot({
+  type:'png',animations:'disabled'
+ });
+ const hash=crypto.createHash('sha256').update(data).digest('hex');
  assert(data.length>5000,'rendered PNG has meaningful image content '+name);
  const file=name+'.png';fs.writeFileSync(path.join(OUT,file),data);
  report.captures.push({file,bytes:data.length,sha256:hash});
