@@ -5,7 +5,7 @@
   "description": "Taipei arcade racing V56.0 full Three.js WebGL 3D road, traffic, chase camera and original driving physics",
   "scripts": {
     "test": "node tests/clean-room-compliance.cjs && node tests/clean-room-geometry.cjs && node tests/ui-consistency.cjs && node --expose-gc tests/regression.cjs && node tests/v55-pose-bridge.cjs && node tests/v55-vehicle-3d.cjs && node tools/build-hybrid.cjs --check && node tests/v55-hybrid-overlay.cjs && node tests/v55-vendor-rng.cjs && node tests/v56-full-3d.cjs && node tests/v56-drift-visual.cjs && node tests/v56-drift-replay.cjs && node tests/v57-driving-effects.cjs && node tests/v57-route-collision.cjs && node tests/v58-taipei-evolution.cjs && node tests/v59-countersteer.cjs && node tests/v59-crash-chase.cjs && node tests/v59-geography.cjs && node tests/v60-lane-intent.cjs && node tools/build-traffic-ai.cjs --check && node tests/v60-traffic-preview.cjs",
-    "test:browser": "node tests/browser-smoke.cjs && node tests/v56-browser.cjs && node tests/v56-drift-browser.cjs && node tests/v58-taipei-browser.cjs",
+    "test:browser": "node tests/browser-smoke.cjs && node tests/v56-browser.cjs && node tests/v56-drift-browser.cjs && node tests/v58-taipei-browser.cjs && node tests/v60-traffic-browser.cjs",
     "test:performance": "node tools/performance.cjs",
     "compare:performance": "node tools/compare-performance.cjs",
     "test:graphics": "node tests/v54-graphics.cjs",
@@ -33,7 +33,8 @@
     "test:taipei": "node tests/v58-taipei-evolution.cjs && node tests/v59-countersteer.cjs",
     "test:taipei-browser": "node tests/v58-taipei-browser.cjs",
     "test:traffic-ai": "node tests/v60-lane-intent.cjs",
-    "test:traffic-preview": "node tools/build-traffic-ai.cjs --check && node tests/v60-lane-intent.cjs && node tests/v60-traffic-preview.cjs"
+    "test:traffic-preview": "node tools/build-traffic-ai.cjs --check && node tests/v60-lane-intent.cjs && node tests/v60-traffic-preview.cjs",
+    "test:traffic-browser": "node tests/v60-traffic-browser.cjs"
   },
   "devDependencies": {
     "@napi-rs/canvas": "0.1.100",
