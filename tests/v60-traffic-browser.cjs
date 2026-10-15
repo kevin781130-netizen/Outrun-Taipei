@@ -154,6 +154,78 @@ async function newPage(browser,base,query,viewport,errors){
   result.viewports.push({mode:'V62 four-car stress',frames:17,protected:true});
   await merge.close();
 
+  // V63: long-running game engine on the REAL 3D Chromium scene.
+  // This is a fixed-tick endurance benchmark, NOT a wall-clock FPS assertion.
+  const endurance=await newPage(browser,base,'trafficAI=v60',desktop,result.errors);
+  const cdp=await endurance.context().newCDPSession(endurance);
+  await cdp.send('Performance.enable');
+  await cdp.send('HeapProfiler.enable');
+  const heapSize=async()=>{
+   await cdp.send('HeapProfiler.collectGarbage');
+   const metrics=(await cdp.send('Performance.getMetrics')).metrics;
+   const heap=metrics.find(m=>m.name==='JSHeapUsedSize')?.value;
+   assert(Number.isFinite(heap),'Chrome must expose post-GC JS heap');
+   return heap;
+  };
+  const runLongCycle=async(cycle)=>audit(endurance,`(()=>{
+   v34Mode='cruise';gameStarted=true;raceActive=true;paused=false;gameOver=false;
+   inRadioScreen=false;const all=STAGES.flat();
+   let ticks=0,recycles=0,maxCars=0;
+   const begin=performance.now();
+   for(const route of all){
+    const r=routeForId(route.id);
+    setStage(r.level,r.column,false);
+    raceActive=true;gameStarted=true;paused=false;gameOver=false;inRadioScreen=false;
+    collisionCooldown=100000;timeLeft=999999;playerZ=8000;speed=0;
+    const count=traffic.length;
+    if(!count)throw Error('empty route traffic '+route.id);
+    maxCars=Math.max(maxCars,count);
+    for(let t=0;t<120;t++){
+     if(t%40===0){
+      const car=traffic[(t/40)%count];
+      car.z=playerZ-2200;car.previousZ=car.z;
+      car.near=false;car.hitTimer=0;
+      car.v60Think=5;car.v60Cooldown=3;
+      car.v60PassActive=true;car.v60LastVeto='stale';
+      update(1/60);
+      if(car.v60Think!==0||car.v60Cooldown!==0||car.v60PassActive!==false||
+         car.v60LastVeto!==null)throw Error('recycle stale AI '+route.id);
+      recycles++;
+     }else update(1/60);
+     ticks++;
+     if(traffic.length!==count)throw Error('growing traffic array '+route.id);
+    }
+    render(0);
+    if(!Number.isFinite(score)||traffic.some(car=>![car.x,car.z,car.laneTarget,car.speed].every(Number.isFinite)))
+     throw Error('nonfinite race state '+route.id);
+   }
+   return {cycle:${cycle},ticks,recycles,maxCars,CPUUpdatesAndRenderMs:performance.now()-begin};
+  })()`);
+  // First full traversal populates normal route/render caches. Subsequent
+  // traversals must not accumulate long-lived AI or traffic allocations.
+  const warm=await runLongCycle(0);
+  const initialHeap=await heapSize();
+  const longStats=[];
+  const heapCheckpoints=[initialHeap];
+  for(let c=1;c<=3;c++){
+   const metrics=await runLongCycle(c);
+   longStats.push(metrics);
+   heapCheckpoints.push(await heapSize());
+   assert.equal(metrics.ticks,1800);
+   assert.equal(metrics.recycles,45);
+  }
+  const growth=Math.max(...heapCheckpoints.slice(1))-initialHeap;
+  // Generous allowance for JIT and route caches; reject major retained growth.
+  assert(growth<32*1024*1024,'V63 post-GC JS heap grew more than 32 MiB');
+  const longResult={mode:'V63 15-route WebGL endurance',warmup:warm,cycles:longStats,
+   heapBytesAfterGC:heapCheckpoints,heapPeakGrowthBytes:growth,
+   note:'Chromium software-rendered JS heap only; excludes GPU/RSS and real device FPS'};
+  result.endurance=longResult;
+  console.log('V63 endurance: 7200 fixed ticks across 15 Taipei routes, 180 forced recycling events; '+
+    'post-GC JS heap growth '+(growth/1048576).toFixed(2)+' MiB');
+  result.captures.push(await capture(endurance,'v63-longrun-final'));
+  await endurance.close();
+
   const safety=await newPage(browser,base,'trafficAI=v60',desktop,result.errors);
   await audit(safety,fixture('cruise',15000));
   await tick(safety);
