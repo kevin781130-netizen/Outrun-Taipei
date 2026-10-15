@@ -2838,6 +2838,10 @@ function stepTrafficAI60(car,index,dt,peers,trafficLimit){
         car.v60PassActive=true;car.v60LastVeto=null;
       }
     }
+    // Share same-frame target reservations with subsequent traffic in stable index order.
+    if(peers)for(const peer of peers)if(peer.id===index){
+      peer.passActive=!!car.v60PassActive;peer.laneTarget=car.laneTarget;break;
+    }
   }
   // Exponential damping is stable at 30, 60 and 120 simulation steps/second.
   car.x=lerp(car.x,car.laneTarget,1-Math.exp(-Math.max(0,dt)*1.15));
@@ -2857,7 +2861,8 @@ function stepTrafficAI60(car,index,dt,peers,trafficLimit){
     for(let i=0;i<traffic.length;i++){
       const car=traffic[i];
       if(trafficRoadEligible(car))v60Peers.push({
-        id:i,x:car.x,z:car.z,speed:car.speed,halfWidth:trafficHalfWidth(car)
+        id:i,x:car.x,z:car.z,speed:car.speed,halfWidth:trafficHalfWidth(car),
+        passActive:!!car.v60PassActive,laneTarget:car.laneTarget
       });
     }
   }

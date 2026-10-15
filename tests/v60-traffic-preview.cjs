@@ -77,6 +77,25 @@ ghost.run("setStage(...Object.values(routeForId('2B')),false);const a=traffic[0]
 ghost.run('update(1/60)');
 assert(ghost.run('traffic[0].laneTarget')<0,'expressway-excluded scooter cannot block legal pass');
 
+// V62: two racing vehicles may not target the same empty center lane.
+const multi=load(file,{search:'?trafficAI=v60'});setup(multi,'cruise');multi.run("const a=traffic[0],b=traffic[1],c=traffic[2],d=traffic[3];traffic=[a,b,c,d];const cfg=(car,x,z,v)=>{car.x=x;car.laneTarget=x;car.z=z;car.previousX=x;car.previousZ=z;car.speed=v;car.targetSpeed=v;car.hitTimer=0;car.near=false;car.v60PassActive=false;car.v60Think=0;car.v60Cooldown=0;};cfg(a,-.468,20000,190);cfg(b,.468,20400,190);cfg(c,-.468,24000,120);cfg(d,.468,24500,120);");
+multi.run('update(1/60)');
+assert.equal(multi.run('traffic[0].laneTarget'),0,'first vehicle reserves center');
+assert.equal(multi.run('traffic[1].laneTarget'),.468,'second vehicle must hold');
+assert.equal(multi.run('traffic[1].v60PassActive'),false);
+const repeated=load(file,{search:'?trafficAI=v60'});setup(repeated,'cruise');repeated.run("const a=traffic[0],b=traffic[1],c=traffic[2],d=traffic[3];traffic=[a,b,c,d];const cfg=(car,x,z,v)=>{car.x=x;car.laneTarget=x;car.z=z;car.previousX=x;car.previousZ=z;car.speed=v;car.targetSpeed=v;car.hitTimer=0;car.near=false;car.v60PassActive=false;car.v60Think=0;car.v60Cooldown=0;};cfg(a,-.468,20000,190);cfg(b,.468,20400,190);cfg(c,-.468,24000,120);cfg(d,.468,24500,120);");
+repeated.run('update(1/60)');
+for(let i=0;i<90;i++){multi.run('update(1/60)');repeated.run('update(1/60)');}
+assert.equal(multi.run('JSON.stringify(traffic.map(c=>[c.x,c.laneTarget,c.v60PassActive,c.v60Cooldown]))'),
+  repeated.run('JSON.stringify(traffic.map(c=>[c.x,c.laneTarget,c.v60PassActive,c.v60Cooldown]))'),
+  'same dense traffic initial state has deterministic replay');
+const recycle=load(file,{search:'?trafficAI=v60'});setup(recycle,'cruise');
+recycle.run("playerZ=50000;traffic[0].z=30000;traffic[0].previousZ=30000;traffic[0].v60PassActive=true;traffic[0].v60Cooldown=2;traffic[0].v60Think=2;");
+recycle.run('update(1/60)');
+assert.equal(recycle.run('traffic[0].v60PassActive'),false,'recycled car drops reservation');
+assert.equal(recycle.run('traffic[0].v60Cooldown'),0);
+assert.equal(recycle.run('traffic[0].v60Think'),0);
+
 const missing=load(file,{search:'?trafficAI=v60'});setup(missing,'cruise');
 missing.window.TaipeiTrafficAI=undefined;
 assert.equal(missing.run('trafficAI60Enabled()'),false,'missing bundle fails closed');

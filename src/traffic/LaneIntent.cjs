@@ -12,8 +12,12 @@ const ownValid=own=>own&&[own.x,own.z,own.speed,own.halfWidth].every(finite)&&ow
 const sameVehicle=(own,peer)=>peer===own||(own.id!=null&&peer.id!=null&&own.id===peer.id);
 const blocked=(target,from,peer,ownHalf,frontGap,rearGap,dz)=>{
   const margin=peer.halfWidth+ownHalf+RULES.lateralGap;
-  const nearTarget=Math.abs(peer.x-target)<=margin;
-  const nearPath=peer.x+margin>=Math.min(from,target)&&peer.x-margin<=Math.max(from,target);
+  // Reserve the entire ongoing lateral path, not merely current vehicle x.
+  const moving=peer.passActive===true&&finite(peer.laneTarget);
+  const peerMin=moving?Math.min(peer.x,peer.laneTarget):peer.x;
+  const peerMax=moving?Math.max(peer.x,peer.laneTarget):peer.x;
+  const nearTarget=target>=peerMin-margin&&target<=peerMax+margin;
+  const nearPath=peerMax+margin>=Math.min(from,target)&&peerMin-margin<=Math.max(from,target);
   if(nearPath&&Math.abs(dz)<950)return true;
   return nearTarget&&(dz>=0?dz<frontGap:-dz<rearGap);
 };
@@ -40,13 +44,14 @@ function inspectLanePath(input){
   if(finite(input.forkWarningZ)&&own.z>=input.forkWarningZ-RULES.forkBuffer)return deny('fork-approach');
   if(!Array.isArray(input.others))return deny('invalid-peers');
   for(const peer of input.others){
-    if(!peer||![peer.x,peer.z,peer.speed,peer.halfWidth].every(finite)||peer.halfWidth<=0)
-      return deny('invalid-peers');
+    if(!peer||![peer.x,peer.z,peer.speed,peer.halfWidth].every(finite)||peer.halfWidth<=0||
+      peer.passActive===true&&!finite(peer.laneTarget))return deny('invalid-peers');
     if(sameVehicle(own,peer))continue;
     const dz=peer.z-own.z;
-    if(dz>RULES.forwardLook||dz<-RULES.rearLook)continue;
     const front=RULES.frontGap+Math.max(0,own.speed-peer.speed)*RULES.speedToWorld*RULES.decisionHorizon;
     const rear=RULES.rearGap+Math.max(0,peer.speed-own.speed)*RULES.speedToWorld*RULES.decisionHorizon;
+    // Far closing vehicles can enter the unsafe gap within the decision horizon.
+    if(dz>Math.max(RULES.forwardLook,front)||-dz>Math.max(RULES.rearLook,rear))continue;
     if(blocked(target,own.x,peer,own.halfWidth,front,rear,dz))return deny('traffic-path-blocked');
   }
   return {safe:true,reason:'clear'};
@@ -68,8 +73,8 @@ function planLaneIntent(input){
   if(finite(input.forkWarningZ)&&own.z>=input.forkWarningZ-RULES.forkBuffer)return hold('fork-approach');
   if(!Array.isArray(input.others))return hold('invalid-peers');
   for(const peer of input.others){
-    if(!peer||![peer.x,peer.z,peer.speed,peer.halfWidth].every(finite)||peer.halfWidth<=0)
-      return hold('invalid-peers');
+    if(!peer||![peer.x,peer.z,peer.speed,peer.halfWidth].every(finite)||peer.halfWidth<=0||
+      peer.passActive===true&&!finite(peer.laneTarget))return hold('invalid-peers');
   }
   const road=input.corridors[0][0];
   const lanes=[road.center-road.half*.52,road.center,road.center+road.half*.52];
