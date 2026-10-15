@@ -15,3 +15,6 @@ The existing traffic mesh has a single rectangular chassis and glass roof, wheel
 - Existing 15 route / 27 landmark, V69 traffic animation/collision, and V68 CPU A/B regression stay mandatory.
 
 **Limitations:** visual geometry improvement is measurable, but beauty/art direction requires human screenshot review. CI software WebGL GPU is not representative of real phone FPS. No PR merge/publication authorization.
+
+### Capture reliability follow-up
+Because a programmatic WebGL draw may not be committed to the browser compositor before an immediate screenshot, the test now renders within the real native animation callback (the game loop remains disabled) and waits for the next presentation frame. A synthetic bright-cyan traffic-body color screenshot is used as a positive control: if even that color fails to change rendered pixels, the test fails as a capture defect rather than making claims about V70 styling. CI runs this focused gate first to avoid waiting for all long WebGL suites when inspecting a visual failure.

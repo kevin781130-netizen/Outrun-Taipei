@@ -48,7 +48,12 @@ async function different(a,b){
    const page=await browser.newPage({viewport:{width,height}});
    page.on('pageerror',e=>report.errors.push(e.message));
    page.on('console',m=>{if(m.type()==='error')report.errors.push(m.text());});
-   await page.addInitScript(()=>{window.requestAnimationFrame=()=>0;});
+   await page.addInitScript(()=>{
+    // Keep the app paused, but retain the real compositor frame callback for
+    // a test-owned draw/presentation fence.
+    window.__v70NativeRAF=window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame=()=>0;
+   });
    await page.goto('http://127.0.0.1:'+server.address().port+'/?trafficAI=v60',{waitUntil:'load'});
    await page.waitForFunction(()=>window.v56ThreeStatus?.().loaded,{timeout:20000});
    // Locate an actually visible near-field vehicle using the same Three.js
@@ -81,26 +86,42 @@ async function different(a,b){
    assert(meta.distance>0&&meta.distance<42,'car must be in V70 detail LOD range');
    if(route==='4B'||route==='5B')assert.equal(meta.deck,0,'mountain/coast cannot have an invented viaduct');
    const canvas=page.locator('#v56-full-3d-canvas');
-   const render=flag=>audit(page,`v56Scene.render({...window.__v70Frame,trafficVisual70:${flag}},0,canvas.width,canvas.height,graphicsQuality)`);
+   const render=(flag,color)=>page.evaluate(({flag,color})=>new Promise(resolve=>{
+    window.__v70NativeRAF(()=>{
+     const data=window.__v70Frame;
+     const frame={...data,trafficVisual70:flag,
+      traffic:color?[{...data.traffic[0],color}]:data.traffic};
+     const ok=v56Scene.render(frame,0,canvas.width,canvas.height,graphicsQuality);
+     window.__v70NativeRAF(()=>resolve(ok));
+    });
+   }),{flag,color});
    await render(false);await render(false);
    const baseline=await canvas.screenshot({type:'png',animations:'disabled'});
+   // Positive control: a deliberately different traffic body color MUST be
+   // measurable, otherwise we are comparing stale compositor frames.
+   await render(false,'#00ffff');
+   const control=await canvas.screenshot({type:'png',animations:'disabled'});
    await render(true);
    const enhanced=await canvas.screenshot({type:'png',animations:'disabled'});
    await render(false);
    const restored=await canvas.screenshot({type:'png',animations:'disabled'});
+   const colorTest=await different(baseline,control);
    const compare=await different(baseline,enhanced),reset=await different(baseline,restored);
    // Retain the actual evidence before enforcing quality thresholds.
-   for(const [kind,data] of [['legacy',baseline],['v70',enhanced],['restored',restored]]){
+   for(const [kind,data] of [['legacy',baseline],['color-control',control],['v70',enhanced],['restored',restored]]){
     const name=`v70-${route}-${width}-${kind}.png`;
     fs.writeFileSync(path.join(OUT,name),data);
     report.captures.push({file:name,bytes:data.length,sha256:hash(data)});
    }
    report.comparisons.push({route,archetype:meta.archetype,viewport:[width,height],
-    visibleAtSegments:placement.ahead,changedPixels:compare.changed,
-    affectedShare:compare.share,restoreDifferenceShare:reset.share});
+    visibleAtSegments:placement.ahead,colorControlPixels:colorTest.changed,
+    changedPixels:compare.changed,affectedShare:compare.share,
+    restoreDifferenceShare:reset.share});
    fs.writeFileSync(path.join(OUT,'manifest.json'),JSON.stringify(report,null,2));
    console.log('V70 '+route+' distance='+placement.ahead+
-    ' changed='+compare.changed+' share='+compare.share.toFixed(6)+' reset='+reset.share.toFixed(6));
+    ' colorControl='+colorTest.changed+' changed='+compare.changed+
+    ' share='+compare.share.toFixed(6)+' reset='+reset.share.toFixed(6));
+   assert(colorTest.changed>20,route+' sanity check: compositor must register changed car paint');
    // Geometry must be observably more detailed, yet affect only a small visible
    // car region, not change the road/camera/terrain or mutate simulation state.
    assert(compare.changed>15,route+' styling must visibly modify the real WebGL image');
