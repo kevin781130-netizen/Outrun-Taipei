@@ -4,10 +4,12 @@ const {createVehiclePose, updateVehiclePose} = require('./VehiclePoseBridge.cjs'
 const {createDrivingVisualSnapshot,updateDrivingVisualSnapshot} = require('./DrivingVisualSnapshot.cjs');
 const {createDriftVisualRig,updateDriftVisualRig} = require('./DriftVisualRig.cjs');
 const {createDrivingEffects}=require('./DrivingEffects.cjs');
+const {createCrashChase}=require('./CrashChase.cjs');
 const {createTaipeiLandmarks}=require('./TaipeiLandmarks.cjs');
 const {createRaceEnvironment}=require('./RaceEnvironment.cjs');
 const {createRaceWayfinding}=require('./RaceWayfinding.cjs');
 const {inLandmarkVista}=require('./ScenicVisibility.cjs');
+const {resolveGeographicFrame}=require('./RouteGeography.cjs');
 
 // Full WebGL road/world renderer. This is intentionally NOT a Canvas overlay.
 // World coordinates: +X right, +Y up, -Z forward. Camera is behind the car (+Z).
@@ -171,10 +173,13 @@ function createFull3DScene(THREE,canvas) {
  const treesMat=material(new THREE.MeshStandardMaterial({color:0x305548,roughness:1}));
  const polesMat=material(new THREE.MeshStandardMaterial({color:0xc1c3bd,metalness:.4,roughness:.55}));
  const buildings=new THREE.InstancedMesh(boxG,buildingMat,120);
+ buildings.name='Race_DistrictBuildings';
  const windows=new THREE.InstancedMesh(boxG,glassMat,120);
+ const crownG=geometry(new THREE.SphereGeometry(1,8,6));
  const trees=new THREE.InstancedMesh(coneG,treesMat,120);
+ const trunks=new THREE.InstancedMesh(boxG,material(new THREE.MeshStandardMaterial({color:0x69503a,roughness:1})),120);trunks.name='Race_BroadleafTrunks';
  const lights=new THREE.InstancedMesh(boxG,polesMat,50);
- for(const mesh of [buildings,windows,trees,lights]){
+ for(const mesh of [buildings,windows,trees,trunks,lights]){
   mesh.frustumCulled=false;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   scene.add(mesh);
@@ -226,13 +231,20 @@ function createFull3DScene(THREE,canvas) {
   try{return callback();}finally{Math.random=original;}
  }
 
+ const crashChase=with3DOnlyRandom(()=>createCrashChase(THREE,scene));
+ const crashOffset=new THREE.Vector3(),crashGround=new THREE.Vector3();
  const tyreMat=material(new THREE.MeshStandardMaterial({color:0x10141a,roughness:.96}));
  const rearMat=material(new THREE.MeshBasicMaterial({color:0xff385d}));
+ // V70: shared preview-only accents, no extra per-car textures/geometries.
+ const trafficLamp=material(new THREE.MeshBasicMaterial({color:0xe5f6ff}));
+ const trafficGrille=material(new THREE.MeshStandardMaterial({color:0x19242d,roughness:.85}));
  const trafficMeshes=[];
  for(let i=0;i<MAX_CARS;i++){
-  const group=new THREE.Group();
-  function part(g,m,s,p){
-   const mesh=new THREE.Mesh(g,m);mesh.scale.set(...s);mesh.position.set(...p);group.add(mesh);return mesh;
+  const group=new THREE.Group();group.userData.trafficIndex=i;
+  function part(g,m,s,p,parent=group,name=''){
+   const mesh=new THREE.Mesh(g,m);mesh.scale.set(...s);mesh.position.set(...p);
+   if(name)mesh.name=name;
+   parent.add(mesh);return mesh;
   }
   const individualPaint=material(new THREE.MeshStandardMaterial({color:0xe4bc39,metalness:.38,roughness:.4}));
   const chassis=part(boxG,individualPaint,[1.7,.46,3.6],[0,.57,0]);
@@ -242,14 +254,34 @@ function createFull3DScene(THREE,canvas) {
    part(boxG,tyreMat,[.24,.64,.72],[side*.88,.36,1.1]);
    part(boxG,rearMat,[.4,.12,.09],[side*.55,.65,1.82]);
   }
-  group.visible=false;scene.add(group);trafficMeshes.push({group,chassis,roof,lastColor:null});
+  // Original V60 cars and ranked cars keep their silhouette and draw calls.
+  // LOD: the extra seven meshes are rendered only for near V70 Cruise traffic.
+  const detail=new THREE.Group();detail.name='V70_TrafficDetails';detail.visible=false;
+  group.add(detail);
+  part(boxG,glassMat,[1.08,.045,.40],[0,1.03,-1.01],detail,'V70_Windshield');
+  for(const side of [-1,1]){
+   part(boxG,glassMat,[.038,.31,.88],[side*.654,1.01,-.14],detail,'V70_SideWindow');
+   part(boxG,trafficLamp,[.38,.10,.040],[side*.55,.66,-1.797],detail,'V70_Headlight');
+  }
+  part(boxG,trafficGrille,[.82,.12,.044],[0,.55,-1.804],detail,'V70_FrontGrille');
+  part(boxG,trafficGrille,[1.18,.075,.032],[0,.57,1.807],detail,'V70_RearBumperTrim');
+  group.visible=false;scene.add(group);
+  trafficMeshes.push({group,chassis,roof,detail,lastColor:null});
  }
  const lostHandler=e=>{e.preventDefault();lost=true;ready=false;canvas.style.visibility='hidden';};
  const restoredHandler=()=>{lost=false;ready=false;};
  canvas.addEventListener('webglcontextlost',lostHandler);
  canvas.addEventListener('webglcontextrestored',restoredHandler);
 
+ function placeTree(anchor,height,width,index,district){
+  if(district){
+   dummy.position.set(anchor.x,anchor.y+1.8,anchor.z);dummy.rotation.set(0,0,0);dummy.scale.set(.24,3.6,.24);dummy.updateMatrix();trunks.setMatrixAt(index,dummy.matrix);
+   dummy.position.set(anchor.x,anchor.y+3.7,anchor.z);dummy.scale.set(Math.min(2.5,Math.max(1.6,width*.45)),1.7,Math.min(2.5,Math.max(1.6,width*.45)));
+  }else{dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);dummy.rotation.set(0,0,0);dummy.scale.set(width,height,width);}
+  dummy.updateMatrix();trees.setMatrixAt(index,dummy.matrix);
+ }
  function paintWorld(frame,pts,quality){
+  trees.geometry=frame.geography?crownG:coneG;
   for(const r of roads)r.used=0;
   const corridors=frame.corridors||[];
   for(let i=-5;i<COUNT;i++){
@@ -298,18 +330,21 @@ function createFull3DScene(THREE,canvas) {
     // Scan the building footprint so widened forks keep their clear shoulder.
     const neighborhood=corridors.slice(Math.max(0,i-3),i+4).flat();
     const lateral=streetOffset(neighborhood,side,width,2+h*7);
+    const district=frame.geography?.[i];
+    if(district?.water&&district.water!=='none'&&district.water!=='distant-sea'&&side<0)continue;
     const landmarkZone=inLandmarkVista(frame.landmarks,absolute,side);
     if(landmarkZone)continue;
-    const anchor=point(c,lateral,-.15);
-    if(urban && frame.archetype!=='expressway'){
-      const height=7+h*23;
+    const drop=district?.elevated?(frame.deckHeights?.[i]||0)/260:0;
+    const anchor=point(c,lateral,-.15-drop);
+    if(district?district.urban:(urban && frame.archetype!=='expressway')){
+      const height=district?district.height*(.65+h*.7):7+h*23;
       dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
       dummy.rotation.set(0,-c.heading,0);
       dummy.scale.set(width,height,width*.8);
       dummy.updateMatrix();if(ib<120){buildings.setMatrixAt(ib,dummy.matrix);
-        swatch.setHex(palette[Math.floor(h*palette.length)]);buildings.setColorAt(ib,swatch);ib++;}
+        if(district)swatch.set(district.facade);else swatch.setHex(palette[Math.floor(h*palette.length)]);buildings.setColorAt(ib,swatch);ib++;}
       dummy.scale.set(width*.91,Math.max(1,height*.47),width*.04);
-      const facade=point(c,lateral, height*.63-.15);
+      const facade=point(c,lateral, height*.63-.15-drop);
       dummy.position.set(facade.x+Math.sin(c.heading)*width*.42,facade.y,facade.z+Math.cos(c.heading)*width*.42);
       dummy.updateMatrix();if(iw<120){windows.setMatrixAt(iw++,dummy.matrix);}
       if(quality!=='LOW'&&absolute%6===0){
@@ -321,11 +356,13 @@ function createFull3DScene(THREE,canvas) {
         dummy.scale.set(1.3,5.2,1);dummy.updateMatrix();signs[signIndex].setMatrixAt(n,dummy.matrix);signCounts[signIndex]++;
        }
       }
-    }else if(frame.archetype!=='expressway' && !(frame.archetype==='coastal'&&side<0)){
+    }else if(district?district.trees:(frame.archetype!=='expressway' && !(frame.archetype==='coastal'&&side<0))){
       const height=7+h*9;
-      dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
-      dummy.rotation.set(0,0,0);dummy.scale.set(2.7+h*2,height,2.7+h*2);
-      dummy.updateMatrix();if(it<120)trees.setMatrixAt(it++,dummy.matrix);
+      if(it<120)placeTree(anchor,height,2.7+h*2,it++,district);
+    }
+    if(district?.urban&&district.trees&&it<120&&absolute%6===0){
+      const tree=point(c,streetOffset(neighborhood,side,2.6,2),-.15-drop);
+      placeTree(tree,5.6,1.5,it++,district);
     }
     if(absolute%12===0&&il<50){
       const lamp=point(c,streetOffset(neighborhood,side,.18,.7),5.2);
@@ -335,7 +372,7 @@ function createFull3DScene(THREE,canvas) {
     }
    }
   }
-  const assignments=[[buildings,ib],[windows,iw],[trees,it],[lights,il],...signs.map((m,i)=>[m,signCounts[i]])];
+  const assignments=[[buildings,ib],[windows,iw],[trees,it],[trunks,frame.geography?it:0],[lights,il],...signs.map((m,i)=>[m,signCounts[i]])];
   for(const [m,count] of assignments){m.count=count;m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;}
  }
  function updateTraffic(frame,pts){
@@ -344,8 +381,11 @@ function createFull3DScene(THREE,canvas) {
    if(!item || item.eligible===false || !(item.distance>-2&&item.distance<COUNT-2)){mesh.group.visible=false;continue;}
    const road=sampleRoadPoint(pts,item.distance+(Number(frame.fraction)||0),(Number(item.x)||0)*HALF_WIDTH);
    mesh.group.visible=true;
+   mesh.detail.visible=frame.trafficVisual70===true&&item.distance>0&&item.distance<42;
    mesh.group.position.set(road.x,road.y+.05,road.z);
-   mesh.group.rotation.y=-road.heading;
+   // Preview-only road-relative heading. Never modifies gameplay physics.
+   const trafficYaw=Number.isFinite(item.turnYawRad)?clamp(item.turnYawRad,-.16,.16):0;
+   mesh.group.rotation.y=-road.heading+trafficYaw;
    mesh.group.scale.x=Number.isFinite(item.halfWidth)?Math.max(.1,item.halfWidth*16/1.7):1;
    const color=item.color||'#f3c21f';
    if(color!==mesh.lastColor){
@@ -389,12 +429,14 @@ function createFull3DScene(THREE,canvas) {
  }
  function prepareTrafficVisibility(frame,width=960,height=540){
   if(!active||lost||!ready)return [];
+  frame=resolveGeographicFrame(frame);
   const points=previewPoints(frame);updateTraffic(frame,points);
   return trafficVisibility(frame,points,width,height);
  }
  function render(frame,dt=0,width=960,height=540,quality='STANDARD'){
   if(!active||lost)return false;
   if(!frame?.curves?.length) return false;
+  frame=resolveGeographicFrame(frame);
   const points=previewPoints(frame);
   if(width!==lastW||height!==lastH){
    renderer.setSize(width,height,false);lastW=width;lastH=height;
@@ -430,7 +472,15 @@ function createFull3DScene(THREE,canvas) {
   car.root.rotation.set(roadPose.pitch,roadPose.yaw,0);
   car.root.position.set(driftRig.offsetX,.02,PLAYER_Z);
   car.root.scale.set(.92,.83,.92);
-  contactShadow.position.set(driftRig.offsetX,.049,PLAYER_Z);
+  const crashPose=crashChase.update(frame.crash,{y:.02,z:PLAYER_Z,pitch:roadPose.pitch,yaw:roadPose.yaw},width/height,quality);
+  if(crashPose){
+   crashOffset.set(crashPose.x,crashPose.y,crashPose.z).applyEuler(car.root.rotation);
+   crashGround.set(crashPose.x,0,crashPose.z).applyEuler(car.root.rotation);
+   car.root.position.set(crashOffset.x,.02+crashOffset.y,PLAYER_Z+crashOffset.z);
+   car.root.rotation.z=crashPose.roll;
+  }
+  contactShadow.position.set(crashPose?crashGround.x:car.root.position.x,.049+(crashPose?crashGround.y:0),crashPose?PLAYER_Z+crashGround.z:car.root.position.z);
+  contactShadow.material.opacity=crashPose?.y>0?.28/(1+crashPose.y):.28;
   contactShadow.rotation.set(-Math.PI/2+roadPose.pitch,0,roadPose.yaw+pose.yawRad);
   // Camera sits behind +Z and looks down -Z: the rear (taillights +Z)
   // ALWAYS faces the camera. Do not rotate the car 180 degrees.
@@ -446,10 +496,12 @@ function createFull3DScene(THREE,canvas) {
   glassMat.emissiveIntensity=frame.night?.7:.12;
   scene.background.setHex(frame.night?0x10213b:0xf4ae78);
   scene.fog.color.setHex(frame.night?0x233b58:0xd69b82);
+  if(frame.geography?.[0]?.ground)ground.material.color.set(frame.geography[0].ground);else ground.material.color.setHex(0x32484b);
   // A flat ground plane must never cover a descending road.
-  ground.position.y=Math.min(-.22,...points.map((p,i)=>p.y-.3-(frame.deckHeights?.[i]||0)/260));
+  ground.position.y=Math.min(-.22,...points.map((p,i)=>p.y-.3-(frame.deckHeights?.[i]||0)/260-(frame.geography?.[i]?.water==='distant-sea'?19:frame.geography?.[i]?.water&&frame.geography[i].water!=='none'?1:0)));
   trafficVisibility(frame,points,width,height);
   effects.update(frame,Math.max(0,dt),quality,camera,car);
+  if(frame.crash){const smoke=car.root.getObjectByName('V57_DriftSmoke');if(smoke)smoke.visible=false;}
   renderer.render(scene,camera);
   canvas.style.visibility='visible';ready=true;return true;
  }
@@ -457,7 +509,7 @@ function createFull3DScene(THREE,canvas) {
   if(!active)return;active=false;ready=false;
   canvas.removeEventListener('webglcontextlost',lostHandler);
   canvas.removeEventListener('webglcontextrestored',restoredHandler);
-  wayfinding.dispose();landmarks.dispose();environment.dispose();effects.dispose();car.dispose();for(const t of textures)t.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
+  crashChase.dispose();wayfinding.dispose();landmarks.dispose();environment.dispose();effects.dispose();car.dispose();for(const t of textures)t.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
   renderer.dispose();
  }
  return {render,dispose,prepareTrafficVisibility,get ready(){return ready&&!lost&&active},get contextLost(){return lost}};

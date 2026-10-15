@@ -1,4 +1,4 @@
-const fs=require('node:fs'),vm=require('node:vm');
+const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 // Real Skia Canvas; the minimal DOM below is for simulation and raster checks.
 // Browser input/layout/audio are covered separately by browser-smoke.cjs.
 const {createCanvas}=require(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES?process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES+'/@napi-rs/canvas':'@napi-rs/canvas');
@@ -10,7 +10,7 @@ class Element {
  setAttribute(k,v){this[k]=v} getAttribute(k){return this[k]} matches(){return false} setPointerCapture(){} releasePointerCapture(){}
  get innerHTML(){return this._html} set innerHTML(s){this._html=s}
 }
-function load(file,{navigator={}}={}){
+function load(file,{navigator={},search=""}={}){
  const html=fs.readFileSync(file,'utf8'),elements=new Map();
  const doc=new Element();doc.hidden=false;
  doc.getElementById=id=>{if(!elements.has(id)){const el=id==='gameCanvas'?createCanvas(960,540):id==='tacho-gauge'?createCanvas(172,104):id==='route-map'?createCanvas(436,216):id==='garage-preview'?createCanvas(640,150):new Element(id);el.style??={};el.addEventListener??=()=>{};elements.set(id,el)}return elements.get(id)};
@@ -20,8 +20,15 @@ function load(file,{navigator={}}={}){
  doc.getElementById('car-select').value='testarossa';
  const win=new Element(),storage=new Map();
  const context={window:win,document:doc,navigator,console,performance:{now:()=>1000},localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},requestAnimationFrame:()=>0,setInterval:()=>0,clearInterval:()=>{},setTimeout:()=>0,clearTimeout:()=>{},Math,Date};
- win.innerWidth=1280;win.innerHeight=800;win.devicePixelRatio=1;
+ win.location={search};win.innerWidth=1280;win.innerHeight=800;win.devicePixelRatio=1;
  vm.createContext(context);
+ // Mirror local browser script load order. Reject remote and escaping paths.
+ for(const match of html.matchAll(/<script\s+src="([^"]+)"\s*><\/script>/g)){
+   const relative=match[1];
+   if(!/^[A-Za-z0-9_./-]+\.js$/.test(relative)||relative.startsWith('/')||relative.split('/').includes('..'))throw Error('Unsafe test script path: '+relative);
+   const external=path.resolve(path.dirname(file),relative);
+   vm.runInContext(fs.readFileSync(external,'utf8'),context,{filename:external});
+ }
  let scripts=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n');
  scripts=scripts.replace('resetGame(); updateHUD(); drawRouteMap(); render(0);','window.__audit=code=>eval(code);resetGame(); updateHUD(); drawRouteMap(); render(0);');
  vm.runInContext(scripts,context,{filename:file});

@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "checkedOn": "2026-10-14",
+  "notImportedIntoRuntime": true,
+  "sources": [
+    {
+      "id": "gat-xinyi-data",
+      "repository": "POUND0423/GAT-Taiwan-Pound",
+      "commit": "f3f6789b30a6a50a106ba66c20947e46f5ff3151",
+      "codeLicense": "no general license; do not reuse code/materials",
+      "dataLicense": "ODbL-1.0",
+      "attribution": "© OpenStreetMap contributors; derived by POUND0423/GAT-Taiwan-Pound",
+      "licenseEvidence": "https://github.com/POUND0423/GAT-Taiwan-Pound/blob/f3f6789b30a6a50a106ba66c20947e46f5ff3151/ATTRIBUTION.md",
+      "role": "building footprint/height reference and schematic road visuals only",
+      "files": [
+        {
+          "path": "outputs/xinyi-walk/assets/city.json",
+          "gitBlob": "f50ae6c1b97eab9197ce4d3ef94eed86ca2c0c60",
+          "sha256": "c31644f13ae31f4229d46fbe3a28929f944abb7bab9a6c2454357f930abebb2b"
+        },
+        {
+          "path": "outputs/xinyi-walk/assets/roads.json",
+          "gitBlob": "7b6c483a849f0a81860c0aec940af7a68e2e3cac",
+          "sha256": "7d338e401dacc9308bd17091016fa7d6247cb7fa520a40ab744103a793ddc6d7"
+        }
+      ],
+      "limitations": [
+        "Original OSM acquisition date not recorded",
+        "Local x/z metres; WGS84 origin not included in JSON",
+        "Roads retain only kind and points; no OSM IDs, bridge/layer/access/oneway tags",
+        "Building heights include estimates and placeholders",
+        "Not a drivable routing/elevation source"
+      ]
+    },
+    {
+      "id": "mosaiq",
+      "repository": "TUMFTM/MOSAIQ-OpenStreetMap-to-Blender-Add-On",
+      "codeLicense": "Apache-2.0",
+      "dataLicense": "Input-dependent, OSM ODbL separately",
+      "role": "optional offline authoring tool; no Blender runtime dependency",
+      "state": "evaluated; not vendored"
+    },
+    {
+      "id": "tpe3d",
+      "repository": "sheethub/tpe3d",
+      "codeLicense": "README declares BSD; no separate license found at root",
+      "dataLicense": "README defers to Taipei data terms; exact dataset reuse pending",
+      "state": "hold data import until dataset rights resolved"
+    },
+    {
+      "id": "blosm",
+      "repository": "vvoovv/blosm",
+      "codeLicense": "README declares GPL",
+      "dataLicense": "depends on each source; Google/imagery rights not implied",
+      "state": "optional offline workflow; not vendored"
+    },
+    {
+      "id": "overture",
+      "repository": "OvertureMaps/data",
+      "codeLicense": "MIT",
+      "dataLicense": "Buildings and Transportation themes ODbL, not MIT",
+      "licenseEvidence": "https://docs.overturemaps.org/attribution/",
+      "state": "candidate geodata source; preserve per-feature sources"
+    },
+    {
+      "id": "sketchfab-101-low",
+      "url": "https://sketchfab.com/3d-models/taipei-101-3ad8ae3d456f425a9602166f35bf0d6e",
+      "reportedAuthor": "NanoRay",
+      "licenseStatus": "not verified from downloadable package",
+      "downloadStatus": "page fetch returned 403; no model imported",
+      "reportedTriangleCount": 2900,
+      "triangleCountStatus": "user-supplied, unverified"
+    },
+    {
+      "id": "sketchfab-101-high",
+      "url": "https://sketchfab.com/3d-models/taipei-101-68c35d4322ab4360a20feee6d8367526",
+      "licenseStatus": "not verified from downloadable package",
+      "downloadStatus": "page fetch returned 403; no model imported",
+      "reportedTriangleCount": 263200,
+      "triangleCountStatus": "user-supplied, unverified"
+    },
+    {
+      "id": "sketchfab-city",
+      "url": "https://sketchfab.com/3d-models/taipei-city-1deeae9f357a4c1cb9df461703006c65",
+      "reportedAuthor": "otaru",
+      "licenseStatus": "search metadata reports CC Attribution; package/texture terms unverified",
+      "downloadStatus": "page fetch returned 403; no model imported",
+      "reportedTriangleCount": 408300,
+      "triangleCountStatus": "user-supplied, unverified"
+    },
+    {
+      "id": "taipei-temple-index",
+      "url": "https://data.taipei/dataset/detail?id=d8718826-54cf-4cba-ba92-088b1658c7c6",
+      "role": "3.88 KB CSV index of model links",
+      "state": "not a GLB asset bundle; each linked asset needs license/format inspection"
+    }
+  ]
+}

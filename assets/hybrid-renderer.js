@@ -790,12 +790,17 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
   const material=mat(new T.MeshStandardMaterial({color,roughness:.95,side:T.DoubleSide}));
   const mesh=add(new T.Mesh(g,material));mesh.frustumCulled=false;return {mesh,a,used:0};
  }
- const land=ribbon(0x526c51),water=ribbon(0x337f99),walk=ribbon(0x9b9181),deck=ribbon(0x64727e,504);
- deck.mesh.name='Race_ExpresswayDeck';
+ const land=ribbon(0x526c51,504),water=ribbon(0x337f99),walk=ribbon(0x9b9181),deck=ribbon(0x64727e,504);
+ deck.mesh.name='Race_ExpresswayDeck';water.mesh.name='Race_GeographicWater';land.mesh.name='Race_GeographicLand';
  function quad(r,a,b,c,d){if(r.used+18>r.a.array.length)return;r.a.array.set([a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z,a.x,a.y,a.z,c.x,c.y,c.z,d.x,d.y,d.z],r.used);r.used+=18;}
  const cube=geo(new T.BoxGeometry(1,1,1)),hill=geo(new T.SphereGeometry(1,10,6));
  function pool(g,color,size){const m=add(new T.InstancedMesh(g,mat(new T.MeshStandardMaterial({color,roughness:.9})),size));m.frustumCulled=false;m.instanceMatrix.setUsage(T.DynamicDrawUsage);m.count=0;return m;}
  const rails=pool(cube,0xc3c7be,600),supports=pool(cube,0x77828a,100),hills=pool(hill,0x49705b,40);
+ const rocks=pool(hill,0x5f6260,64),teaRows=pool(cube,0x497745,160),houses=pool(cube,0xb18165,100),terraces=pool(cube,0x635e52,160),boats=pool(cube,0xe2e0cc,32),piers=pool(cube,0x8f7e63,32),waves=pool(cube,0xd6e9e7,64);
+ const roofs=pool(geo(new T.ConeGeometry(1,1,4)),0x8a4031,100);roofs.name='Race_SlopeRoofs';
+ const extras=[rocks,teaRows,houses,terraces,boats,piers,waves,roofs];
+ ['Rocks','TeaRows','SlopeHouses','Terraces','Boats','Piers','Waves'].forEach((name,i)=>extras[i].name='Race_'+name);
+ supports.name='Race_Supports';hills.name='Race_Hills';
  const markerGeo=geo(new T.PlaneGeometry(1,1));let tex=null;
  if(doc?.createElement){const c=doc.createElement('canvas');c.width=128;c.height=128;const ctx=c.getContext('2d');if(ctx){
   ctx.fillStyle='#f8d256';ctx.fillRect(0,0,128,128);ctx.fillStyle='#132632';ctx.beginPath();ctx.moveTo(28,15);ctx.lineTo(68,15);ctx.lineTo(104,64);ctx.lineTo(68,113);ctx.lineTo(28,113);ctx.lineTo(64,64);ctx.closePath();ctx.fill();
@@ -809,38 +814,72 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
  function update(frame,points,quality){
   if(disposed)return;
   for(const r of [land,water,walk,deck])r.used=0;
-  for(const m of [rails,supports,hills,arrows])m.count=0;
+  for(const m of [rails,supports,hills,arrows,...extras])m.count=0;
   const arch=frame.archetype,coast=arch==='coastal',highway=arch==='expressway',mountain=arch==='mountain';
-  land.mesh.material.color.set(frame.groundColor||'#526c51');
-  hills.material.color.set(frame.mountainColor||'#49705b');
-  water.mesh.material.color.setHex(frame.night?0x193d60:0x337f99);water.mesh.material.roughness=.38;
+  land.mesh.material.color.set(frame.geography?.[0]?.ground||frame.groundColor||'#526c51');
+  hills.material.color.set(frame.geography?.[0]?.hillColor||frame.geography?.[0]?.ground||frame.mountainColor||'#49705b');
+  const waterKind=frame.geography?.find(s=>s.water!=='none')?.water;
+  water.mesh.material.color.setHex(frame.night?0x193d60:({river:0x587f79,estuary:0x4e8d91,marina:0x447d9b,sea:0x287daa,'distant-sea':0x547e9a}[waterKind]||0x337f99));water.mesh.material.roughness=.38;
+  const kinds=new Set();water.mesh.userData.kinds=[];
   const lanesAt=i=>frame.corridors?.[Math.max(0,Math.min(125,i))]||[{center:0,half:1}];
   for(let i=0;i<points.length-1;i++){
    const absolute=(frame.segment||0)+i;
-   const lanes=lanesAt(i),next=lanesAt(i+1),height=(frame.deckHeights?.[i]||0)/260;
+   const lanes=lanesAt(i),next=lanesAt(i+1),district=frame.geography?.[i];
+   const isHigh=district?district.elevated:highway,kind=district?.water||(coast?'sea':'none');
+   const height=isHigh?(frame.deckHeights?.[i]||0)/260:0;
+   if(kind!=='none')kinds.add(kind);
    for(const side of [-1,1]){
     const a=offset(lanes,side,0,0),b=offset(next,side,0,0);
     const outer=side*180;
     const p=(index,x,y)=>{const p=sample(points,index,x);p.y+=y;return p;};
-    // Coastal water stays beyond the seawall. Expressway terrain sits below deck.
-    quad(coast&&side<0?water:land,p(i,a+side*1.8,-.25-height),p(i,a+outer,-.25-height),p(i+1,b+outer,-.25-height),p(i+1,b+side*1.8,-.25-height));
+    // Water type controls finite river banks, sheltered harbor or open sea.
+    if(district&&side<0&&kind!=='none'){
+     const far=kind==='river'?48:kind==='estuary'?120:kind==='marina'?38:700;
+     const near=kind==='distant-sea'?75:8,drop=kind==='distant-sea'?18:.65;
+     quad(land,p(i,a+side*1.8,-.25-height),p(i,a+side*near,(kind==='distant-sea'?-drop:-.25)-height),p(i+1,b+side*near,(kind==='distant-sea'?-drop:-.25)-height),p(i+1,b+side*1.8,-.25-height));
+     quad(water,p(i,a+side*near,-drop-height),p(i,a+side*far,-drop-height),p(i+1,b+side*far,-drop-height),p(i+1,b+side*near,-drop-height));
+     if(far<180)quad(land,p(i,a+side*far,-.25-height),p(i,a+side*180,-.25-height),p(i+1,b+side*180,-.25-height),p(i+1,b+side*far,-.25-height));
+    }else quad(!district&&coast&&side<0?water:land,p(i,a+side*1.8,-.25-height),p(i,a+outer,-.25-height),p(i+1,b+outer,-.25-height),p(i+1,b+side*1.8,-.25-height));
     quad(walk,p(i,a,-.03),p(i,a+side*1.8,-.03),p(i+1,b+side*1.8,-.03),p(i+1,b,-.03));
-    if(highway||coast||mountain){
+    if(district?(isHigh||kind!=='none'||district.hillSides.length>0):(highway||coast||mountain)){
      const here=sample(points,i,a+side*.8),there=sample(points,i+1,b+side*.8),mid={x:(here.x+there.x)/2,y:(here.y+there.y)/2+.57,z:(here.z+there.z)/2};
      const heading=Math.atan2(there.x-here.x,-(there.z-here.z));
      put(rails,mid,.16,.32,Math.hypot(there.x-here.x,there.z-here.z)+.08,heading);
      if(absolute%4===0)put(supports,{...here,y:here.y+.3},.15,.65,.15,heading);
     }
-    if(mountain&&absolute%12===0&&quality!=='LOW'&&!inLandmarkVista(frame.landmarks,absolute,side)){
+    if((district?district.hillSides.includes(side):mountain)&&absolute%12===0&&quality!=='LOW'&&!inLandmarkVista(frame.landmarks,absolute,side)){
      const p=sample(points,i,offset(lanes,side,22,16));p.y-=3;
      put(hills,p,12,8+(absolute%17),14,0);
+    }
+    if(district&&(!inLandmarkVista(frame.landmarks,absolute,side)||district.id==='tea')){
+     if(district.id==='jiufen'&&absolute%12===0){
+      for(let level=0;level<3;level++){
+       const place=sample(points,i,offset(lanes,side,8,6+level*7));place.y+=level*3.0;
+       const base=level*3.0+1.6;put(terraces,{...place,y:place.y-base/2},8,base,7,points[i].heading);
+       put(houses,{...place,y:place.y+1.4},5.6,2.8,4.6,points[i].heading);
+       put(roofs,{...place,y:place.y+3.35},4,1.1,3.5,points[i].heading-Math.PI/4);
+      }
+     }
+     if(district.id==='tea'&&absolute%8===0){
+      for(let row=0;row<5;row++){const at=sample(points,i,offset(lanes,side,9,5+row*2));at.y+=.3+row*.4;put(teaRows,at,9,.6,1.0,points[i].heading);const base=row*.4+.5;put(terraces,{...at,y:at.y-.3-base/2},9,base,2.0,points[i].heading);}
+     }
+     if((district.id==='coast'||district.id==='volcanic')&&absolute%8===0){
+      const at=sample(points,i,offset(lanes,side,2,3));put(rocks,{...at,y:at.y+.4},1.8,.9,2.0,points[i].heading);
+     }
+    }
+    if(district&&side<0&&absolute%12===0){
+     if(kind==='marina'){
+      const at=sample(points,i,a-19);at.y-=.45;put(boats,at,1.6,.4,4,points[i].heading);
+      const pier=sample(points,i,a-10);pier.y-=.2;put(piers,pier,9,.25,.8,points[i].heading);
+     }
+     if(kind==='sea')for(const distance of [15,35]){const at=sample(points,i,a-distance);at.y-=.58;put(waves,at,7,.045,.25,points[i].heading);}
     }
     if(Math.abs(frame.curves?.[i]||0)>1.35&&absolute%10===0&&Math.sign(frame.curves[i])===-side){
      const p=sample(points,i,offset(lanes,side,1.2,1.2));p.y+=1.9;
      put(arrows,p,1.3,1.3,1,points[i].heading,frame.curves[i]<0?Math.PI:0);
     }
    }
-   if(highway){
+   if(isHigh){
     for(let j=0;j<lanes.length;j++){
      const a=lanes[j],b=next[Math.min(j,next.length-1)];
      for(const side of [-1,1]){const x=(a.center+side*a.half)*8,y=(b.center+side*b.half)*8;
@@ -850,7 +889,8 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
    }
   }
   for(const r of [land,water,walk,deck]){r.mesh.geometry.setDrawRange(0,r.used/3);r.a.needsUpdate=true;}
-  for(const m of [rails,supports,hills,arrows])m.instanceMatrix.needsUpdate=true;
+  water.mesh.userData.kinds=Array.from(kinds);
+  for(const m of [rails,supports,hills,arrows,...extras])m.instanceMatrix.needsUpdate=true;
  }
  return {update,dispose(){if(disposed)return;disposed=true;for(const m of meshes)scene.remove(m);for(const g of geometries)g.dispose();for(const m of materials)m.dispose();for(const t of textures)t.dispose();}};
 }
@@ -899,6 +939,113 @@ function createRaceWayfinding(T,scene,sample,offset,doc){
 module.exports={createRaceWayfinding};
 
   },
+  "./CrashChase.cjs": function(require, module) {
+'use strict';
+// Original stylized occupants. Presentation reads the existing crash animation clock;
+// it never advances time, consumes gameplay randomness or writes physics state.
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const mix=(a,b,t)=>a+(b-a)*t;
+const ease=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
+function sampleCrashChase(anim,side=1,passenger=false){
+ const t=Math.max(0,Number(anim)||0),s=side<0?-1:1;
+ const car={x:0,y:0,z:0,roll:0};
+ if(t<.72){const u=t/.72;car.x=s*.9*u;car.roll=-s*Math.PI*2*u;car.y=Math.sin(u*Math.PI)*2.4+1-Math.cos(car.roll);}
+ else if(t<1.5){const u=ease((t-.72)/.78);car.x=s*mix(.9,2,u);car.z=-3*u;}
+ else if(t<3.85){const u=clamp((t-1.5)/2.35,0,1);car.x=s*(2+.2*u);car.z=-3-.4*u;}
+ else{const u=1-ease((t-3.85)/.25);car.x=s*2.2*u;car.z=-3.4*u;}
+ const tt=Math.max(0,t-(passenger?.12:0)),landing=-s*(passenger?1.9:1.2),seat=passenger?.34:-.34;
+ const runner={x:seat,y:0,z:.2,roll:0,scale:1,phase:'tumble',visible:tt>=.2&&tt<3.96};
+ if(tt<1.15){const u=clamp((tt-.2)/.95,0,1);runner.x=mix(seat,landing,ease(u));runner.y=Math.sin(u*Math.PI)*2.2;runner.z=mix(.2,1.3,ease(u));runner.roll=s*Math.PI*4*u;}
+ else if(tt<1.65){runner.x=landing;runner.z=1.3;runner.phase='dazed';}
+ else if(tt<3.6){const u=ease((tt-1.65)/1.95);runner.x=mix(landing,car.x+seat,u);runner.z=mix(1.3,car.z+.3,u);runner.phase='run';}
+ else{const u=clamp((tt-3.6)/.36,0,1);runner.x=car.x+seat;runner.z=car.z+.3;runner.y=.3*ease(u)+Math.sin(u*Math.PI)*1.0;runner.scale=1-ease(u);runner.phase='board';}
+ return {car,runner};
+}
+function createCrashChase(THREE,scene){
+ const root=new THREE.Group();root.name='V59_CrashChase';root.visible=false;scene.add(root);
+ const box=new THREE.BoxGeometry(1,1,1),ball=new THREE.SphereGeometry(1,10,8),star=new THREE.OctahedronGeometry(1,0);
+ const geometries=[box,ball,star],materials=[];
+ const mat=color=>{const m=new THREE.MeshStandardMaterial({color,roughness:.85,metalness:0});materials.push(m);return m;};
+ const skin=mat(0xf8c69f),cream=mat(0xfff1c5),pink=mat(0xf35a8a),blue=mat(0x426898),dark=mat(0x253b55),red=mat(0xc7334e),brown=mat(0x48322d),gold=mat(0xffd349),white=mat(0xfffbe8),ink=mat(0x152636),mouth=mat(0xa6344c);
+ const dustMat=new THREE.MeshBasicMaterial({color:0xdbc99b,transparent:true,opacity:.28,depthWrite:false});materials.push(dustMat);
+ function part(parent,g,m,size,pos){const mesh=new THREE.Mesh(g,m);mesh.scale.set(...size);mesh.position.set(...pos);parent.add(mesh);return mesh;}
+ function actor(passenger){
+  const pivot=new THREE.Group();pivot.name=passenger?'V59_Passenger':'V59_Driver';root.add(pivot);
+  const body=new THREE.Group();body.position.y=-1.1;pivot.add(body);
+  part(body,box,passenger?pink:cream,[.52,.58,.34],[0,1.13,0]);
+  const head=new THREE.Group();head.position.set(0,1.73,0);body.add(head);
+  part(head,ball,passenger?gold:brown,[.40,.41,.36],[0,.06,0]);
+  part(head,ball,skin,[.36,.35,.34],[0,-.01,.055]);
+  // Faces look back towards the chase camera while feet run down the road.
+  for(const x of [-.14,.14]){part(head,ball,white,[.105,.12,.055],[x,.055,.36]);part(head,ball,ink,[.043,.067,.025],[x,.055,.409]);}
+  part(head,ball,mouth,[.095,.12,.04],[0,-.17,.36]);
+  if(passenger)part(head,ball,gold,[.21,.17,.42],[.40,.08,-.12]);
+  const arms=[],legs=[];
+  for(const s of [-1,1]){
+   const arm=new THREE.Group();arm.position.set(s*.32,1.34,0);body.add(arm);arms.push(arm);
+   part(arm,box,skin,[.13,.43,.14],[0,-.19,0]);part(arm,ball,skin,[.11,.11,.11],[0,-.43,0]);
+   const leg=new THREE.Group();leg.position.set(s*.14,.86,0);body.add(leg);legs.push(leg);
+   part(leg,box,passenger?skin:blue,[.18,.70,.19],[0,-.35,0]);
+   part(leg,box,passenger?red:dark,[.26,.14,.40],[0,-.77,-.085]);
+   part(leg,box,white,[.27,.04,.41],[0,-.85,-.085]);
+  }
+  const stars=[];
+  for(let i=0;i<4;i++)stars.push(part(body,star,gold,[.09,.09,.09],[0,2.25,0]));
+  return {pivot,body,arms,legs,stars};
+ }
+ const actors=[actor(false),actor(true)];
+ const dust=new THREE.InstancedMesh(ball,dustMat,8);dust.name='V59_ChaseDust';dust.frustumCulled=false;dust.instanceMatrix.setUsage(THREE.DynamicDrawUsage);root.add(dust);
+ const dummy=new THREE.Object3D();let active=true;
+ function update(crash,anchor,aspect=16/9,quality='STANDARD'){
+  if(!active)return null;
+  root.visible=!!crash;if(!crash)return null;
+  const t=Math.max(0,Number(crash.anim)||0),side=crash.side<0?-1:1;
+  const layout=clamp(aspect/(16/9),.42,1);
+  const sampled=sampleCrashChase(t,side),car=sampled.car;
+  car.x*=layout;
+  root.position.set(0,anchor.y,anchor.z);root.rotation.set(anchor.pitch,anchor.yaw,0);
+  root.userData.anim=t;let count=0;
+  for(let i=0;i<2;i++){
+   const a=actors[i],p=sampleCrashChase(t,side,i===1).runner,wave=Math.sin(t*31+i*1.2),run=p.phase==='run';
+   a.pivot.visible=p.visible;a.pivot.position.set(p.x*layout,p.y+1.1,p.z);a.pivot.rotation.set(0,0,p.roll);a.pivot.scale.setScalar(p.scale);a.pivot.userData.phase=p.phase;
+   a.body.rotation.set(run?-.18:0,0,p.phase==='dazed'?Math.sin(t*15)*.04:0);
+   if(run)a.pivot.position.y+=Math.abs(wave)*.10;
+   for(let j=0;j<2;j++){const sign=j===0?-1:1;a.legs[j].rotation.x=run?sign*wave*1.05:0;a.arms[j].rotation.x=run?-sign*wave*1.1:-.45;}
+   for(let j=0;j<a.stars.length;j++){const star=a.stars[j],angle=t*7+j*Math.PI/2;star.visible=p.phase==='dazed';star.position.set(Math.cos(angle)*.55,2.25+Math.sin(angle)*.10,Math.sin(angle)*.35);}
+   if(run&&p.visible)for(let j=0;j<(quality==='LOW'?2:4);j++){
+    const u=((t*2+j*.23)%1+1)%1;dummy.position.set(p.x*layout+Math.sin(j*8+i)*.18,.07+u*.12,p.z+.3+u*.9);dummy.rotation.set(0,0,0);dummy.scale.set(.12+u*.15,.045+u*.05,.12+u*.15);dummy.updateMatrix();dust.setMatrixAt(count++,dummy.matrix);
+   }
+  }
+  dust.count=count;dust.visible=count>0;dust.instanceMatrix.needsUpdate=true;
+  return car;
+ }
+ function dispose(){if(!active)return;active=false;root.removeFromParent();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();}
+ return {root,update,dispose};
+}
+module.exports={sampleCrashChase,createCrashChase};
+
+  },
+  "./RouteGeography.cjs": function(require, module) {
+'use strict';
+const data=require('../../data/world-v59/scene-profiles.json');
+const styles={};
+for(const [id,s] of Object.entries(data.styles))styles[id]=Object.freeze({id,elevated:false,...s,hillSides:Object.freeze(s.hillSides)});
+function geographyAt(routeId,absolute,landmarks=[]){
+ const route=data.routes[routeId];if(!route)return null;
+ let index=0;
+ while(index<route.zones.length-1&&landmarks[index+1]&&absolute>=(landmarks[index].seg+landmarks[index+1].seg)/2)index++;
+ return styles[route.zones[index]];
+}
+function resolveGeographicFrame(frame){
+ if(frame?.geographyProfile!==data.profile||!data.routes[frame.routeId])return frame;
+ const geography=Array.from({length:126},(_,i)=>geographyAt(frame.routeId,(frame.segment||0)+i,frame.landmarks));
+ const elevated=frame.routeId==='2B';
+ return {...frame,geography,deckHeights:(frame.deckHeights||[]).map((h,i)=>geography[i]?.elevated?h:0),
+  landmarks:(frame.landmarks||[]).map(h=>({...h,groundDrop:elevated?h.groundDrop:0}))};
+}
+module.exports={geographyAt,resolveGeographicFrame,profileId:data.profile};
+
+  },
   "./Full3DScene.cjs": function(require, module) {
 'use strict';
 const {createVehicle3D} = require('./Vehicle3D.cjs');
@@ -906,10 +1053,12 @@ const {createVehiclePose, updateVehiclePose} = require('./VehiclePoseBridge.cjs'
 const {createDrivingVisualSnapshot,updateDrivingVisualSnapshot} = require('./DrivingVisualSnapshot.cjs');
 const {createDriftVisualRig,updateDriftVisualRig} = require('./DriftVisualRig.cjs');
 const {createDrivingEffects}=require('./DrivingEffects.cjs');
+const {createCrashChase}=require('./CrashChase.cjs');
 const {createTaipeiLandmarks}=require('./TaipeiLandmarks.cjs');
 const {createRaceEnvironment}=require('./RaceEnvironment.cjs');
 const {createRaceWayfinding}=require('./RaceWayfinding.cjs');
 const {inLandmarkVista}=require('./ScenicVisibility.cjs');
+const {resolveGeographicFrame}=require('./RouteGeography.cjs');
 
 // Full WebGL road/world renderer. This is intentionally NOT a Canvas overlay.
 // World coordinates: +X right, +Y up, -Z forward. Camera is behind the car (+Z).
@@ -1073,10 +1222,13 @@ function createFull3DScene(THREE,canvas) {
  const treesMat=material(new THREE.MeshStandardMaterial({color:0x305548,roughness:1}));
  const polesMat=material(new THREE.MeshStandardMaterial({color:0xc1c3bd,metalness:.4,roughness:.55}));
  const buildings=new THREE.InstancedMesh(boxG,buildingMat,120);
+ buildings.name='Race_DistrictBuildings';
  const windows=new THREE.InstancedMesh(boxG,glassMat,120);
+ const crownG=geometry(new THREE.SphereGeometry(1,8,6));
  const trees=new THREE.InstancedMesh(coneG,treesMat,120);
+ const trunks=new THREE.InstancedMesh(boxG,material(new THREE.MeshStandardMaterial({color:0x69503a,roughness:1})),120);trunks.name='Race_BroadleafTrunks';
  const lights=new THREE.InstancedMesh(boxG,polesMat,50);
- for(const mesh of [buildings,windows,trees,lights]){
+ for(const mesh of [buildings,windows,trees,trunks,lights]){
   mesh.frustumCulled=false;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   scene.add(mesh);
@@ -1128,13 +1280,20 @@ function createFull3DScene(THREE,canvas) {
   try{return callback();}finally{Math.random=original;}
  }
 
+ const crashChase=with3DOnlyRandom(()=>createCrashChase(THREE,scene));
+ const crashOffset=new THREE.Vector3(),crashGround=new THREE.Vector3();
  const tyreMat=material(new THREE.MeshStandardMaterial({color:0x10141a,roughness:.96}));
  const rearMat=material(new THREE.MeshBasicMaterial({color:0xff385d}));
+ // V70: shared preview-only accents, no extra per-car textures/geometries.
+ const trafficLamp=material(new THREE.MeshBasicMaterial({color:0xe5f6ff}));
+ const trafficGrille=material(new THREE.MeshStandardMaterial({color:0x19242d,roughness:.85}));
  const trafficMeshes=[];
  for(let i=0;i<MAX_CARS;i++){
-  const group=new THREE.Group();
-  function part(g,m,s,p){
-   const mesh=new THREE.Mesh(g,m);mesh.scale.set(...s);mesh.position.set(...p);group.add(mesh);return mesh;
+  const group=new THREE.Group();group.userData.trafficIndex=i;
+  function part(g,m,s,p,parent=group,name=''){
+   const mesh=new THREE.Mesh(g,m);mesh.scale.set(...s);mesh.position.set(...p);
+   if(name)mesh.name=name;
+   parent.add(mesh);return mesh;
   }
   const individualPaint=material(new THREE.MeshStandardMaterial({color:0xe4bc39,metalness:.38,roughness:.4}));
   const chassis=part(boxG,individualPaint,[1.7,.46,3.6],[0,.57,0]);
@@ -1144,14 +1303,34 @@ function createFull3DScene(THREE,canvas) {
    part(boxG,tyreMat,[.24,.64,.72],[side*.88,.36,1.1]);
    part(boxG,rearMat,[.4,.12,.09],[side*.55,.65,1.82]);
   }
-  group.visible=false;scene.add(group);trafficMeshes.push({group,chassis,roof,lastColor:null});
+  // Original V60 cars and ranked cars keep their silhouette and draw calls.
+  // LOD: the extra seven meshes are rendered only for near V70 Cruise traffic.
+  const detail=new THREE.Group();detail.name='V70_TrafficDetails';detail.visible=false;
+  group.add(detail);
+  part(boxG,glassMat,[1.08,.045,.40],[0,1.03,-1.01],detail,'V70_Windshield');
+  for(const side of [-1,1]){
+   part(boxG,glassMat,[.038,.31,.88],[side*.654,1.01,-.14],detail,'V70_SideWindow');
+   part(boxG,trafficLamp,[.38,.10,.040],[side*.55,.66,-1.797],detail,'V70_Headlight');
+  }
+  part(boxG,trafficGrille,[.82,.12,.044],[0,.55,-1.804],detail,'V70_FrontGrille');
+  part(boxG,trafficGrille,[1.18,.075,.032],[0,.57,1.807],detail,'V70_RearBumperTrim');
+  group.visible=false;scene.add(group);
+  trafficMeshes.push({group,chassis,roof,detail,lastColor:null});
  }
  const lostHandler=e=>{e.preventDefault();lost=true;ready=false;canvas.style.visibility='hidden';};
  const restoredHandler=()=>{lost=false;ready=false;};
  canvas.addEventListener('webglcontextlost',lostHandler);
  canvas.addEventListener('webglcontextrestored',restoredHandler);
 
+ function placeTree(anchor,height,width,index,district){
+  if(district){
+   dummy.position.set(anchor.x,anchor.y+1.8,anchor.z);dummy.rotation.set(0,0,0);dummy.scale.set(.24,3.6,.24);dummy.updateMatrix();trunks.setMatrixAt(index,dummy.matrix);
+   dummy.position.set(anchor.x,anchor.y+3.7,anchor.z);dummy.scale.set(Math.min(2.5,Math.max(1.6,width*.45)),1.7,Math.min(2.5,Math.max(1.6,width*.45)));
+  }else{dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);dummy.rotation.set(0,0,0);dummy.scale.set(width,height,width);}
+  dummy.updateMatrix();trees.setMatrixAt(index,dummy.matrix);
+ }
  function paintWorld(frame,pts,quality){
+  trees.geometry=frame.geography?crownG:coneG;
   for(const r of roads)r.used=0;
   const corridors=frame.corridors||[];
   for(let i=-5;i<COUNT;i++){
@@ -1200,18 +1379,21 @@ function createFull3DScene(THREE,canvas) {
     // Scan the building footprint so widened forks keep their clear shoulder.
     const neighborhood=corridors.slice(Math.max(0,i-3),i+4).flat();
     const lateral=streetOffset(neighborhood,side,width,2+h*7);
+    const district=frame.geography?.[i];
+    if(district?.water&&district.water!=='none'&&district.water!=='distant-sea'&&side<0)continue;
     const landmarkZone=inLandmarkVista(frame.landmarks,absolute,side);
     if(landmarkZone)continue;
-    const anchor=point(c,lateral,-.15);
-    if(urban && frame.archetype!=='expressway'){
-      const height=7+h*23;
+    const drop=district?.elevated?(frame.deckHeights?.[i]||0)/260:0;
+    const anchor=point(c,lateral,-.15-drop);
+    if(district?district.urban:(urban && frame.archetype!=='expressway')){
+      const height=district?district.height*(.65+h*.7):7+h*23;
       dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
       dummy.rotation.set(0,-c.heading,0);
       dummy.scale.set(width,height,width*.8);
       dummy.updateMatrix();if(ib<120){buildings.setMatrixAt(ib,dummy.matrix);
-        swatch.setHex(palette[Math.floor(h*palette.length)]);buildings.setColorAt(ib,swatch);ib++;}
+        if(district)swatch.set(district.facade);else swatch.setHex(palette[Math.floor(h*palette.length)]);buildings.setColorAt(ib,swatch);ib++;}
       dummy.scale.set(width*.91,Math.max(1,height*.47),width*.04);
-      const facade=point(c,lateral, height*.63-.15);
+      const facade=point(c,lateral, height*.63-.15-drop);
       dummy.position.set(facade.x+Math.sin(c.heading)*width*.42,facade.y,facade.z+Math.cos(c.heading)*width*.42);
       dummy.updateMatrix();if(iw<120){windows.setMatrixAt(iw++,dummy.matrix);}
       if(quality!=='LOW'&&absolute%6===0){
@@ -1223,11 +1405,13 @@ function createFull3DScene(THREE,canvas) {
         dummy.scale.set(1.3,5.2,1);dummy.updateMatrix();signs[signIndex].setMatrixAt(n,dummy.matrix);signCounts[signIndex]++;
        }
       }
-    }else if(frame.archetype!=='expressway' && !(frame.archetype==='coastal'&&side<0)){
+    }else if(district?district.trees:(frame.archetype!=='expressway' && !(frame.archetype==='coastal'&&side<0))){
       const height=7+h*9;
-      dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
-      dummy.rotation.set(0,0,0);dummy.scale.set(2.7+h*2,height,2.7+h*2);
-      dummy.updateMatrix();if(it<120)trees.setMatrixAt(it++,dummy.matrix);
+      if(it<120)placeTree(anchor,height,2.7+h*2,it++,district);
+    }
+    if(district?.urban&&district.trees&&it<120&&absolute%6===0){
+      const tree=point(c,streetOffset(neighborhood,side,2.6,2),-.15-drop);
+      placeTree(tree,5.6,1.5,it++,district);
     }
     if(absolute%12===0&&il<50){
       const lamp=point(c,streetOffset(neighborhood,side,.18,.7),5.2);
@@ -1237,7 +1421,7 @@ function createFull3DScene(THREE,canvas) {
     }
    }
   }
-  const assignments=[[buildings,ib],[windows,iw],[trees,it],[lights,il],...signs.map((m,i)=>[m,signCounts[i]])];
+  const assignments=[[buildings,ib],[windows,iw],[trees,it],[trunks,frame.geography?it:0],[lights,il],...signs.map((m,i)=>[m,signCounts[i]])];
   for(const [m,count] of assignments){m.count=count;m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;}
  }
  function updateTraffic(frame,pts){
@@ -1246,8 +1430,11 @@ function createFull3DScene(THREE,canvas) {
    if(!item || item.eligible===false || !(item.distance>-2&&item.distance<COUNT-2)){mesh.group.visible=false;continue;}
    const road=sampleRoadPoint(pts,item.distance+(Number(frame.fraction)||0),(Number(item.x)||0)*HALF_WIDTH);
    mesh.group.visible=true;
+   mesh.detail.visible=frame.trafficVisual70===true&&item.distance>0&&item.distance<42;
    mesh.group.position.set(road.x,road.y+.05,road.z);
-   mesh.group.rotation.y=-road.heading;
+   // Preview-only road-relative heading. Never modifies gameplay physics.
+   const trafficYaw=Number.isFinite(item.turnYawRad)?clamp(item.turnYawRad,-.16,.16):0;
+   mesh.group.rotation.y=-road.heading+trafficYaw;
    mesh.group.scale.x=Number.isFinite(item.halfWidth)?Math.max(.1,item.halfWidth*16/1.7):1;
    const color=item.color||'#f3c21f';
    if(color!==mesh.lastColor){
@@ -1291,12 +1478,14 @@ function createFull3DScene(THREE,canvas) {
  }
  function prepareTrafficVisibility(frame,width=960,height=540){
   if(!active||lost||!ready)return [];
+  frame=resolveGeographicFrame(frame);
   const points=previewPoints(frame);updateTraffic(frame,points);
   return trafficVisibility(frame,points,width,height);
  }
  function render(frame,dt=0,width=960,height=540,quality='STANDARD'){
   if(!active||lost)return false;
   if(!frame?.curves?.length) return false;
+  frame=resolveGeographicFrame(frame);
   const points=previewPoints(frame);
   if(width!==lastW||height!==lastH){
    renderer.setSize(width,height,false);lastW=width;lastH=height;
@@ -1332,7 +1521,15 @@ function createFull3DScene(THREE,canvas) {
   car.root.rotation.set(roadPose.pitch,roadPose.yaw,0);
   car.root.position.set(driftRig.offsetX,.02,PLAYER_Z);
   car.root.scale.set(.92,.83,.92);
-  contactShadow.position.set(driftRig.offsetX,.049,PLAYER_Z);
+  const crashPose=crashChase.update(frame.crash,{y:.02,z:PLAYER_Z,pitch:roadPose.pitch,yaw:roadPose.yaw},width/height,quality);
+  if(crashPose){
+   crashOffset.set(crashPose.x,crashPose.y,crashPose.z).applyEuler(car.root.rotation);
+   crashGround.set(crashPose.x,0,crashPose.z).applyEuler(car.root.rotation);
+   car.root.position.set(crashOffset.x,.02+crashOffset.y,PLAYER_Z+crashOffset.z);
+   car.root.rotation.z=crashPose.roll;
+  }
+  contactShadow.position.set(crashPose?crashGround.x:car.root.position.x,.049+(crashPose?crashGround.y:0),crashPose?PLAYER_Z+crashGround.z:car.root.position.z);
+  contactShadow.material.opacity=crashPose?.y>0?.28/(1+crashPose.y):.28;
   contactShadow.rotation.set(-Math.PI/2+roadPose.pitch,0,roadPose.yaw+pose.yawRad);
   // Camera sits behind +Z and looks down -Z: the rear (taillights +Z)
   // ALWAYS faces the camera. Do not rotate the car 180 degrees.
@@ -1348,10 +1545,12 @@ function createFull3DScene(THREE,canvas) {
   glassMat.emissiveIntensity=frame.night?.7:.12;
   scene.background.setHex(frame.night?0x10213b:0xf4ae78);
   scene.fog.color.setHex(frame.night?0x233b58:0xd69b82);
+  if(frame.geography?.[0]?.ground)ground.material.color.set(frame.geography[0].ground);else ground.material.color.setHex(0x32484b);
   // A flat ground plane must never cover a descending road.
-  ground.position.y=Math.min(-.22,...points.map((p,i)=>p.y-.3-(frame.deckHeights?.[i]||0)/260));
+  ground.position.y=Math.min(-.22,...points.map((p,i)=>p.y-.3-(frame.deckHeights?.[i]||0)/260-(frame.geography?.[i]?.water==='distant-sea'?19:frame.geography?.[i]?.water&&frame.geography[i].water!=='none'?1:0)));
   trafficVisibility(frame,points,width,height);
   effects.update(frame,Math.max(0,dt),quality,camera,car);
+  if(frame.crash){const smoke=car.root.getObjectByName('V57_DriftSmoke');if(smoke)smoke.visible=false;}
   renderer.render(scene,camera);
   canvas.style.visibility='visible';ready=true;return true;
  }
@@ -1359,14 +1558,338 @@ function createFull3DScene(THREE,canvas) {
   if(!active)return;active=false;ready=false;
   canvas.removeEventListener('webglcontextlost',lostHandler);
   canvas.removeEventListener('webglcontextrestored',restoredHandler);
-  wayfinding.dispose();landmarks.dispose();environment.dispose();effects.dispose();car.dispose();for(const t of textures)t.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
+  crashChase.dispose();wayfinding.dispose();landmarks.dispose();environment.dispose();effects.dispose();car.dispose();for(const t of textures)t.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
   renderer.dispose();
  }
  return {render,dispose,prepareTrafficVisibility,get ready(){return ready&&!lost&&active},get contextLost(){return lost}};
 }
 module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,createChaseRig,updateChaseRig,streetOffset,TAIPEI_SIGNS};
 
+  },
+  "../../data/world-v59/scene-profiles.json": function(require, module) {module.exports = {
+  "schemaVersion": 1,
+  "profile": "taipei-v59-environment-1",
+  "status": "geographic scene classification; NOT surveyed route geometry",
+  "zoneBasis": "Original 2D landmark order; midpoint scene boundaries are authored, not real road coordinates.",
+  "roadGeometry": "Original arcade curves, hills, forks and collision corridors are preserved.",
+  "structurePolicy": "Only 2B represents a known named viaduct corridor. 4C stays ground until actual Huandong spans are georeferenced. Footbridges are landmarks only.",
+  "waterSidePolicy": "Left-side staging is artistic, not a verified travel direction or bank orientation.",
+  "sources": {
+    "civic-structure": "https://atis.taipei.gov.tw/aspx/speed/speedN.aspx?ddlRoadType=2&lang=zh-Hant-TW",
+    "avenue": "https://www.gov.taipei/News_Content.aspx?n=F0DDAF49B89E9413&s=0C17427C384D0198&sms=72544237BBE4C5F6",
+    "guandu": "https://www.travel.taipei/zh-tw/attraction/details/191",
+    "estuary": "https://newtaipei.travel/zh-tw/attractions/detail/111403",
+    "coast": "https://www.northguan-nsa.gov.tw/user/article.aspx?Lang=1&SNo=03002475",
+    "jiufen": "https://newtaipei.travel/zh-tw/attractions/detail/109990",
+    "tea": "https://www.taiwan.net.tw/m1.aspx?id=2891&sno=0001016"
+  },
+  "styles": {
+    "civic": {
+      "urban": true,
+      "height": 10,
+      "trees": true,
+      "hillSides": [],
+      "water": "none",
+      "facade": "#b99383",
+      "ground": "#786e5d"
+    },
+    "avenue": {
+      "urban": true,
+      "height": 12,
+      "trees": true,
+      "hillSides": [
+        1
+      ],
+      "water": "none",
+      "facade": "#b8b5a3",
+      "ground": "#607144"
+    },
+    "foothill": {
+      "urban": true,
+      "height": 7,
+      "trees": true,
+      "hillSides": [
+        1
+      ],
+      "water": "none",
+      "facade": "#ad9d82",
+      "ground": "#536c3b"
+    },
+    "digital": {
+      "urban": true,
+      "height": 21,
+      "trees": false,
+      "hillSides": [],
+      "water": "none",
+      "elevated": true,
+      "facade": "#6e91a6",
+      "ground": "#79756c"
+    },
+    "river": {
+      "urban": true,
+      "height": 7,
+      "trees": true,
+      "hillSides": [
+        1
+      ],
+      "water": "river",
+      "facade": "#ba9b7d",
+      "ground": "#61734d"
+    },
+    "spring": {
+      "urban": true,
+      "height": 6,
+      "trees": true,
+      "hillSides": [
+        -1,
+        1
+      ],
+      "water": "none",
+      "facade": "#bda583",
+      "ground": "#5e7047"
+    },
+    "dazhi": {
+      "urban": true,
+      "height": 22,
+      "trees": true,
+      "hillSides": [],
+      "water": "none",
+      "facade": "#829daa",
+      "ground": "#777767"
+    },
+    "cultural": {
+      "urban": true,
+      "height": 10,
+      "trees": true,
+      "hillSides": [],
+      "water": "none",
+      "facade": "#af7562",
+      "ground": "#81765e"
+    },
+    "historic": {
+      "urban": true,
+      "height": 7,
+      "trees": true,
+      "hillSides": [
+        1
+      ],
+      "water": "estuary",
+      "facade": "#ba826d",
+      "ground": "#73805a"
+    },
+    "volcanic": {
+      "urban": false,
+      "height": 0,
+      "trees": false,
+      "hillSides": [
+        -1,
+        1
+      ],
+      "water": "none",
+      "facade": "#7a8069",
+      "ground": "#747563"
+    },
+    "grassland": {
+      "urban": false,
+      "height": 0,
+      "trees": false,
+      "hillSides": [
+        -1,
+        1
+      ],
+      "water": "none",
+      "facade": "#7e9870",
+      "ground": "#728648"
+    },
+    "market": {
+      "urban": true,
+      "height": 8,
+      "trees": false,
+      "hillSides": [],
+      "water": "none",
+      "facade": "#bd8a71",
+      "ground": "#80715d"
+    },
+    "office": {
+      "urban": true,
+      "height": 24,
+      "trees": true,
+      "hillSides": [],
+      "water": "none",
+      "facade": "#7c9fad",
+      "ground": "#777e71"
+    },
+    "village": {
+      "urban": true,
+      "height": 5,
+      "trees": true,
+      "hillSides": [],
+      "water": "none",
+      "facade": "#a67364",
+      "ground": "#85745d"
+    },
+    "xinyi": {
+      "urban": true,
+      "height": 32,
+      "trees": true,
+      "hillSides": [],
+      "water": "none",
+      "facade": "#7294a7",
+      "ground": "#777c70"
+    },
+    "marina": {
+      "urban": true,
+      "height": 5,
+      "trees": true,
+      "hillSides": [],
+      "water": "marina",
+      "facade": "#e0c8a0",
+      "ground": "#93856e"
+    },
+    "coast": {
+      "urban": false,
+      "height": 0,
+      "trees": false,
+      "hillSides": [
+        1
+      ],
+      "water": "sea",
+      "facade": "#697c72",
+      "ground": "#7e795f"
+    },
+    "jiufen": {
+      "urban": false,
+      "height": 6,
+      "trees": false,
+      "hillSides": [
+        -1,
+        1
+      ],
+      "water": "distant-sea",
+      "facade": "#a36a54",
+      "ground": "#765c42",
+      "hillColor": "#4f6b3c"
+    },
+    "tea": {
+      "urban": false,
+      "height": 5,
+      "trees": true,
+      "hillSides": [
+        -1,
+        1
+      ],
+      "water": "none",
+      "facade": "#9c8968",
+      "ground": "#637d3d",
+      "hillColor": "#4c7137"
+    }
+  },
+  "routes": {
+    "1A": {
+      "zones": [
+        "civic",
+        "civic",
+        "civic"
+      ],
+      "bridgeEvidence": null
+    },
+    "2A": {
+      "zones": [
+        "avenue",
+        "foothill"
+      ],
+      "bridgeEvidence": null
+    },
+    "2B": {
+      "zones": [
+        "digital"
+      ],
+      "bridgeEvidence": "named-civic-corridor"
+    },
+    "3A": {
+      "zones": [
+        "river",
+        "spring"
+      ],
+      "bridgeEvidence": null
+    },
+    "3B": {
+      "zones": [
+        "dazhi",
+        "foothill"
+      ],
+      "bridgeEvidence": null
+    },
+    "3C": {
+      "zones": [
+        "cultural",
+        "cultural"
+      ],
+      "bridgeEvidence": null
+    },
+    "4A": {
+      "zones": [
+        "historic",
+        "historic"
+      ],
+      "bridgeEvidence": null
+    },
+    "4B": {
+      "zones": [
+        "volcanic",
+        "grassland"
+      ],
+      "bridgeEvidence": null
+    },
+    "4C": {
+      "zones": [
+        "market",
+        "office",
+        "river"
+      ],
+      "bridgeEvidence": null
+    },
+    "4D": {
+      "zones": [
+        "village",
+        "xinyi"
+      ],
+      "bridgeEvidence": null
+    },
+    "5A": {
+      "zones": [
+        "marina"
+      ],
+      "bridgeEvidence": null
+    },
+    "5B": {
+      "zones": [
+        "coast"
+      ],
+      "bridgeEvidence": null
+    },
+    "5C": {
+      "zones": [
+        "jiufen"
+      ],
+      "bridgeEvidence": null
+    },
+    "5D": {
+      "zones": [
+        "xinyi"
+      ],
+      "bridgeEvidence": null
+    },
+    "5E": {
+      "zones": [
+        "tea",
+        "tea"
+      ],
+      "bridgeEvidence": null
+    }
   }
+}
+;}
 };
 const cache = Object.create(null);
 function load(id) {

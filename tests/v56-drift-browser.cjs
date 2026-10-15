@@ -8,7 +8,7 @@ const marker='resetGame(); updateHUD(); drawRouteMap(); render(0);';
 assert.equal(html.split(marker).length,2,'unique game bootstrap marker');
 assert(!html.includes('__v56TestEval'),'test hook must not ship');
 const testHtml=html.replace(marker,'window.__v56TestEval=code=>eval(code);'+marker);
-const assets={'/assets/vendor/three-r149.min.js':'assets/vendor/three-r149.min.js','/assets/hybrid-renderer.js':'assets/hybrid-renderer.js'};
+const assets={'/assets/vendor/three-r149.min.js':'assets/vendor/three-r149.min.js','/assets/hybrid-renderer.js':'assets/hybrid-renderer.js','/assets/traffic-lane-intent.js':'assets/traffic-lane-intent.js','/assets/perf-diagnostics.js':'assets/perf-diagnostics.js'};
 const server=http.createServer((req,res)=>{
  const route=new URL(req.url,'http://127.0.0.1').pathname;
  if(route==='/'||route==='/index.html'){
@@ -73,7 +73,7 @@ async function main(){
   const options={headless:true,args:['--enable-webgl','--enable-unsafe-swiftshader','--use-angle=swiftshader']};
   if(process.env.CHROMIUM_PATH)options.executablePath=process.env.CHROMIUM_PATH;
   browser=await chromium.launch(options);
-  const page=await browser.newPage({viewport:{width:1280,height:800}});
+  let page=await browser.newPage({viewport:{width:1280,height:800}});
   page.on('pageerror',err=>result.pageErrors.push(err.message));
   await page.addInitScript(()=>{window.requestAnimationFrame=()=>0;});
   await page.goto('http://127.0.0.1:'+server.address().port+'/',{waitUntil:'load'});
@@ -126,6 +126,75 @@ async function main(){
   assert((await physics(page)).nitro>boosted.nitro,'nitro must charge during boost + drift');
   await page.screenshot({path:path.join(out,'boost.png')});await release(page);
   result.checks.push('boost + charge + exhaust flames while drifting');
+  // Release the previous WebGL page before allocating the opt-in scene on software GPU CI.
+  await page.close();
+  page=await browser.newPage({viewport:{width:1280,height:800}});
+  page.on('pageerror',err=>result.pageErrors.push(err.message));
+  await page.addInitScript(()=>{window.requestAnimationFrame=()=>0;});
+  // Exercise the real opt-in URL, keyboard events and GPU front-wheel/body separation.
+  await page.goto('http://127.0.0.1:'+server.address().port+'/?handling=v59',{waitUntil:'load'});
+  await page.waitForFunction(()=>window.v56ThreeStatus?.().loaded,{timeout:20000});
+  assert.equal(await audit(page,'handlingProfile59'),true);
+  for(const side of [-1,1]){
+   await audit(page,"v34Mode='cruise';selectedRoute=routeForId('1A');resetGame();gameStarted=true;raceActive=true;paused=false;gameOver=false;inRadioScreen=false;traffic=[];collisionCooldown=100;timeLeft=9999;playerX=0;playerZ=180*SEGMENT_LENGTH;speed=175;currentGear='HIGH';driveGear='D';motionDirection=1;roadGrip=1;overlay.classList.add('hidden');for(const s of segments)s.curve="+(side*.8));
+   await page.keyboard.down('KeyW');await page.keyboard.down(side===1?'ArrowRight':'ArrowLeft');await page.keyboard.down('ShiftLeft');
+   await tick(page,18);await page.keyboard.up('ShiftLeft');await page.keyboard.up(side===1?'ArrowRight':'ArrowLeft');
+   await page.keyboard.down(side===1?'ArrowLeft':'ArrowRight');
+   const states=await tick(page,90),balanced=await physics(page);
+   assert(states.every(s=>s!=='recover')&&balanced.isDrifting,'V59 keyboard throttle + countersteer sustains 1.5s');
+   assert(Math.sign(balanced.driftAngle)===side&&balanced.driftChargeRate>0,'body heading retains slide direction and charges');
+   // Observe the actual rendered vehicle after rendering, rather than reconstructing a pose in test code.
+   const pose=await page.evaluate(()=>{
+    let car;const original=window.THREE.Object3D.prototype.updateMatrixWorld;
+    window.THREE.Object3D.prototype.updateMatrixWorld=function(force){const r=original.call(this,force);if(this.name==='V55_OriginalArcadeVehicle')car=this;return r;};
+    try{window.__v56TestEval('render(0)');}finally{window.THREE.Object3D.prototype.updateMatrixWorld=original;}
+    return {body:car?.children.find(x=>x.isGroup)?.rotation.y,front:car?.getObjectByName('front-left-steer')?.rotation.y};
+   });
+   assert(Number.isFinite(pose.body)&&Number.isFinite(pose.front)&&pose.body*pose.front<0,'front wheels countersteer against rendered body yaw');
+   const shot=path.join(out,'v59-counter-'+side+'.png');
+   // Read real WebGL pixels immediately after render; avoid compositor screenshot waits
+   // on a page whose animation clock is intentionally frozen by this deterministic test.
+   const png=await page.evaluate(()=>{window.__v56TestEval('render(0)');return document.getElementById('v56-full-3d-canvas').toDataURL('image/png');});
+   fs.writeFileSync(shot,Buffer.from(png.split(',')[1],'base64'));
+   assert(fs.statSync(shot).size>5000,'nonempty rendered V59 countersteer screenshot');
+   await page.keyboard.up('KeyW');await tick(page,42);
+   assert(!(await physics(page)).isDrifting,'V59 lifted countersteer recovers');
+   await release(page);
+  }
+  result.checks.push('V59 opt-in URL: both keyboard countersteer holds, rendered front wheels vs body, lift recovery');
+  // Crash presentation uses authoritative update() time; tests never assign the animation phase.
+  for(const mobile of [false,true]){
+   await page.setViewportSize(mobile?{width:390,height:844}:{width:1280,height:800});
+   for(const side of [-1,1]){
+    await audit(page,"v34Mode='cruise';selectedRoute=routeForId('1A');resetGame();gameStarted=true;raceActive=true;paused=false;gameOver=false;inRadioScreen=false;traffic=[];collisionCooldown=0;timeLeft=9999;playerX="+(-side*.1)+";playerZ=180*SEGMENT_LENGTH;speed=175;overlay.classList.add('hidden');triggerCrash(null,null,true);");
+    const initial=await audit(page,'({count:crashCount,duration:crashSequence.duration})');
+    for(const [target,phase] of [[.6,'tumble'],[1.35,'dazed'],[2.4,'run'],[3.78,'board']]){
+     await audit(page,'while(crashSequence&&crashSequence.anim<'+target+')update(1/60);');
+     const captured=await page.evaluate(()=>{
+      let root,car;const original=window.THREE.Object3D.prototype.updateMatrixWorld;
+      window.THREE.Object3D.prototype.updateMatrixWorld=function(force){const r=original.call(this,force);if(this.name==='V59_CrashChase')root=this;if(this.name==='V55_OriginalArcadeVehicle')car=this;return r;};
+      const before=window.__v56TestEval('JSON.stringify([crashSequence,crashCount,score,raceElapsed,playerX,playerZ,speed])');
+      try{window.__v56TestEval('render(0)');}finally{window.THREE.Object3D.prototype.updateMatrixWorld=original;}
+      const png=document.getElementById('v56-full-3d-canvas').toDataURL('image/png');
+      const unchanged=before===window.__v56TestEval('JSON.stringify([crashSequence,crashCount,score,raceElapsed,playerX,playerZ,speed])');
+      return {png,unchanged,visible:root?.visible,actors:['V59_Driver','V59_Passenger'].map(name=>{const a=root?.getObjectByName(name);return {visible:a?.visible,phase:a?.userData.phase,x:a?.position.x,y:a?.position.y,z:a?.position.z};}),roll:car?.rotation.z};
+     });
+     assert(captured.visible&&captured.unchanged,'rendered crash actors never mutate gameplay');
+     assert(captured.actors.every(a=>a.visible),'both original occupants are visible');
+     assert.equal(captured.actors[0].phase,phase);
+     if(phase==='tumble')assert(Math.abs(captured.roll)>.2,'actual car tumbles');
+     const shot=path.join(out,'v59-crash-'+(mobile?'mobile':'desktop')+'-'+side+'-'+phase+'.png');
+     fs.writeFileSync(shot,Buffer.from(captured.png.split(',')[1],'base64'));assert(fs.statSync(shot).size>5000);
+     // A paused update and repeated rendering must leave the authoritative clock unchanged.
+     assert(await audit(page,'(()=>{paused=true;const t=crashSequence.anim;update(1/60);render(0);paused=false;return crashSequence.anim===t;})()'));
+    }
+    await audit(page,'while(crashSequence)update(1/60);render(0);');
+    assert.equal(await audit(page,'crashCount'),initial.count,'no second collision penalty');
+    assert.equal(await audit(page,'speed'),118,'original recovery speed');
+    assert.equal(initial.duration,2.9,'original crash duration');
+   }
+  }
+  result.checks.push('V59 crash: 16 real-clock WebGL captures, left/right, desktop/mobile, 4 phases, pause + recovery + no render-side penalties');
   assert.deepEqual(result.pageErrors,[],'no JS page errors');
   result.status='passed';
   console.log('DRIFT-05 Chromium WebGL: '+result.checks.join('; '));

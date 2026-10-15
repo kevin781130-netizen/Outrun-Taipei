@@ -1,0 +1,79 @@
+{
+  "status": "reference-data-validated; not runtime integrated",
+  "upstreamRepository": "POUND0423/GAT-Taiwan-Pound",
+  "upstreamCommit": "f3f6789b30a6a50a106ba66c20947e46f5ff3151",
+  "license": "ODbL-1.0",
+  "attribution": "© OpenStreetMap contributors; derived by POUND0423/GAT-Taiwan-Pound",
+  "receipts": [
+    {
+      "path": "outputs/xinyi-walk/assets/city.json",
+      "bytes": 6676531,
+      "sha256": "c31644f13ae31f4229d46fbe3a28929f944abb7bab9a6c2454357f930abebb2b",
+      "gitBlob": "f50ae6c1b97eab9197ce4d3ef94eed86ca2c0c60"
+    },
+    {
+      "path": "outputs/xinyi-walk/assets/roads.json",
+      "bytes": 225394,
+      "sha256": "7d338e401dacc9308bd17091016fa7d6247cb7fa520a40ab744103a793ddc6d7",
+      "gitBlob": "7b6c483a849f0a81860c0aec940af7a68e2e3cac"
+    }
+  ],
+  "measured": {
+    "buildingElements": 1166,
+    "footprintRings": 1166,
+    "roadGeometrySegments": 3356,
+    "localBoundsMetres": [
+      -854.8518754059332,
+      -469.79286414571106,
+      854.8518754061079,
+      469.79286414477974
+    ],
+    "roadKinds": {
+      "cycleway": 42,
+      "footway": 1930,
+      "path": 98,
+      "pedestrian": 64,
+      "residential": 286,
+      "secondary": 236,
+      "service": 509,
+      "tertiary": 162,
+      "unclassified": 29
+    },
+    "heightMethods": {
+      "Estimated: OSM levels x 3 m": 706,
+      "OSM height tag": 109,
+      "OSM height tag; photo-reference approximate stepped silhouette": 1,
+      "Unknown height: 6 m display placeholder": 350
+    }
+  },
+  "upstreamReportedStats": {
+    "building_elements": 1166,
+    "road_ways": 925,
+    "green_areas": 413,
+    "height_tag": 110,
+    "floor_estimate": 706,
+    "placeholder": 350,
+    "parent_footprints": 34,
+    "floor_classes": [
+      397,
+      204,
+      140,
+      55,
+      15,
+      355
+    ],
+    "extent_m": [
+      1709.480860415788,
+      939.5857282909565
+    ]
+  },
+  "limitations": [
+    "Original OSM acquisition date not recorded",
+    "Local x/z metres; WGS84 origin not included in JSON",
+    "Roads retain only kind and points; no OSM IDs, bridge/layer/access/oneway tags",
+    "Building heights include estimates and placeholders",
+    "Not a drivable routing/elevation source"
+  ],
+  "runtimeSafeToLoadAsRaceCourse": false,
+  "note": "Reference geometry is usable for offline scenery work. It is not enough to infer road access, bridges, routing, acquisition date or WGS84 origin."
+}

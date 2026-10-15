@@ -1,0 +1,237 @@
+{
+  "schemaVersion": 1,
+  "baselineCommit": "77b8d72beb23e9d1a06b2db2c4e5618e32857d60",
+  "status": "research baseline, not a verified routing database",
+  "rules": {
+    "structure": "Use per-way bridge/tunnel/embankment evidence and measured terrain. layer is relative order, not metres. Unknown is not automatically elevated.",
+    "driveability": "Check motor_vehicle/access/oneway and physical road class. Exclude pedestrian bridges, stairways and gondola cables.",
+    "water": "River, estuary and open sea are distinct; no generic blue-water plane on every mountain route.",
+    "connections": "Retain compressed links as explicitly fictional transitions until real road connectivity is verified.",
+    "geometry": "Local x/z reference data without a WGS84 origin cannot be advertised as georeferenced."
+  },
+  "sources": [
+    "https://wiki.openstreetmap.org/wiki/Key:bridge",
+    "https://wiki.openstreetmap.org/wiki/Key:layer",
+    "https://wiki.openstreetmap.org/wiki/Key:motor_vehicle",
+    "https://newtaipei.travel/zh-tw/attractions/detail/111403",
+    "https://newtaipei.travel/zh-tw/Attractions/Detail/109990",
+    "https://www.northguan-nsa.gov.tw/user/article.aspx?Lang=1&SNo=04002855",
+    "https://travel.taipei/zh-tw/news/details/61660"
+  ],
+  "routes": [
+    {
+      "id": "1A",
+      "label": "府城街區",
+      "proposedTerrain": "civic-ground",
+      "waterContext": "none",
+      "structureIntent": "ground streets",
+      "candidateCorridors": [
+        "凱達格蘭大道",
+        "重慶南路",
+        "中山南路"
+      ],
+      "identity": "紅磚府城、景福門、總統府、廣場；保留道路實際可駕駛範圍",
+      "geometryStatus": "not-surveyed; no OSM way IDs imported",
+      "runtimeApplied": false
+    },
+    {
+      "id": "2A",
+      "label": "中山北路／圓山",
+      "proposedTerrain": "tree-lined-urban-foothill",
+      "waterContext": "river-context",
+      "structureIntent": "ground with verified bridge spans only",
+      "candidateCorridors": [
+        "中山北路",
+        "劍潭／圓山周邊"
+      ],
+      "identity": "林蔭城市大道與山側飯店；不是全段高山公路",
+      "geometryStatus": "not-surveyed; no OSM way IDs imported",
+      "runtimeApplied": false
+    },
+    {
+      "id": "2B",
+      "label": "市民大道／光華",
+      "proposedTerrain": "civic-viaduct",
+      "waterContext": "none",
+      "structureIntent": "mixed ground and verified viaduct",
+      "candidateCorridors": [
+        "市民大道高架道路",
+        "光華商圈周邊地面道路"
+      ],
+      "identity": "高架橋面、橋柱、下層街廓；光華商場不能浮在橋面",
+      "geometryStatus": "not-surveyed; no OSM way IDs imported",
+      "runtimeApplied": false
+    },
+    {
+      "id": "3A",
+      "label": "北投／關渡",
+      "proposedTerrain": "hot-spring-to-river",
+      "waterContext": "river",
+      "structureIntent": "ground plus verified river crossing only",
+      "candidateCorridors": [
+        "北投溫泉區車行道路",
+        "關渡水岸車行道路"
+      ],
+      "identity": "溫泉谷地轉河岸；關渡是河流，不是海濱；兩區分開轉場",
+      "geometryStatus": "not-surveyed; no OSM way IDs imported",
+      "runtimeApplied": false
+    },
+    {
+      "id": "3B",
+      "label": "大直／故宮",
+      "proposedTerrain": "urban-to-foothill",
+      "waterContext": "river-context",
+      "structureIntent": "ground unless span evidence",
+      "candidateCorridors": [
+        "大直地面道路",
+        "至善路二段"
+      ],
+      "identity": "美麗華都市街區轉故宮山麓；不能整段畫成荒山",
+      "geometryStatus": "not-surveyed; no OSM way IDs imported",
+      "runtimeApplied": false
+    },
+    {
+      "id": "3C",
+      "label": "松菸／大巨蛋",
+      "proposedTerrain": "sports-cultural-urban",
+      "waterContext": "none",
+      "structureIntent": "ground",
+      "candidateCorridors": [
+        "忠孝東路",
+        "光復南路",
+        "市民大道地面道路"
+      ],
+      "identity": "低橢圓穹頂、園區紅磚煙囪與綠地；不是高架道路",
+      "geometryStatus": "not-surveyed; no OSM way IDs imported",
+      "runtimeApplied": false
+    },
+    {
+      "id": "4A",
+      "label": "淡水老街／紅毛城",
+      "proposedTerrain": "historic-riverfront",
+      "waterContext": "river-estuary",
+      "structureIntent": "ground",
+      "candidateCorridors": [
+        "淡水中正路",
+        "中正東路周邊車行道路"
+      ],
+      "identity": "河岸老街、渡船頭、紅毛城；不把行人老街直接變成高速道路",
+      "geometryStatus": "not-surveyed; no OSM way IDs imported",
+      "runtimeApplied": false
+    },
+    {
+      "id": "4B",
+      "label": "陽明山",
+      "proposedTerrain": "volcanic-mountain-grassland",
+      "waterContext": "none",
+      "structureIntent": "terrain-following ground",
+      "candidateCorridors": [
+        "陽金公路",
+        "冷水坑／擎天崗聯絡車行道路"
+      ],
+      "identity": "小油坑硫氣、火山岩與草原；遊客步道不是賽車路",
+      "geometryStatus": "not-surveyed; no OSM way IDs imported",
+      "runtimeApplied": false
+    },
+    {
+      "id": "4C",
+      "label": "內湖／環東／饒河",
+      "proposedTerrain": "tech-to-river-viaduct",
+      "waterContext": "river",
+      "structureIntent": "mixed; classify every segment",
+      "candidateCorridors": [
+        "內湖科技園區地面道路",
+        "環東大道",
+        "饒河周邊車行道路"
+      ],
+      "identity": "科技辦公區、基隆河與真正高架段；彩虹橋僅為人行視覺地標",
+      "geometryStatus": "not-surveyed; no OSM way IDs imported",
+      "runtimeApplied": false
+    },
+    {
+      "id": "4D",
+      "label": "信義商圈",
+      "proposedTerrain": "xinyi-commercial-ground",
+      "waterContext": "none",
+      "structureIntent": "ground",
+      "candidateCorridors": [
+        "松仁路",
+        "松智路",
+        "信義路五段"
+      ],
+      "identity": "玻璃商辦、街角廣場、四四南村；地面城市街廓",
+      "geometryStatus": "not-surveyed; no OSM way IDs imported",
+      "runtimeApplied": false
+    },
+    {
+      "id": "5A",
+      "label": "漁人碼頭",
+      "proposedTerrain": "marina-estuary",
+      "waterContext": "estuary-sea-mouth",
+      "structureIntent": "ground and explicitly verified bridge only",
+      "candidateCorridors": [
+        "觀海路",
+        "漁人碼頭周邊車行道路"
+      ],
+      "identity": "港池、遊艇、情人橋、河口遠景；情人橋不給汽車開",
+      "geometryStatus": "not-surveyed; no OSM way IDs imported",
+      "runtimeApplied": false
+    },
+    {
+      "id": "5B",
+      "label": "富貴角",
+      "proposedTerrain": "rocky-open-coast",
+      "waterContext": "sea",
+      "structureIntent": "terrain-following coastal ground",
+      "candidateCorridors": [
+        "北海岸台2線車行道路"
+      ],
+      "identity": "北海岸岩岸、海面與黑白燈塔；燈塔步道僅視覺",
+      "geometryStatus": "not-surveyed; no OSM way IDs imported",
+      "runtimeApplied": false
+    },
+    {
+      "id": "5C",
+      "label": "九份",
+      "proposedTerrain": "steep-mountain-town",
+      "waterContext": "distant-sea",
+      "structureIntent": "terrain-following mountain ground",
+      "candidateCorridors": [
+        "基山街周邊車行道路",
+        "汽車路／瑞金公路待核對連接"
+      ],
+      "identity": "沿坡屋群、石階、茶樓、燈籠、遠海；不讓車開進石階",
+      "geometryStatus": "not-surveyed; no OSM way IDs imported",
+      "runtimeApplied": false
+    },
+    {
+      "id": "5D",
+      "label": "台北101",
+      "proposedTerrain": "xinyi-landmark-ground",
+      "waterContext": "none",
+      "structureIntent": "ground",
+      "candidateCorridors": [
+        "信義路五段",
+        "市府路",
+        "松智路"
+      ],
+      "identity": "101 精緻地標、裙樓、都市路口與夜景；不是無水面的大橋",
+      "geometryStatus": "not-surveyed; no OSM way IDs imported",
+      "runtimeApplied": false
+    },
+    {
+      "id": "5E",
+      "label": "貓空",
+      "proposedTerrain": "tea-hill-gondola",
+      "waterContext": "none",
+      "structureIntent": "terrain-following mountain ground",
+      "candidateCorridors": [
+        "指南路三段",
+        "茶園周邊車行道路"
+      ],
+      "identity": "層疊茶園、山坡茶館、盆地夜景；纜車不是可行駛道路",
+      "geometryStatus": "not-surveyed; no OSM way IDs imported",
+      "runtimeApplied": false
+    }
+  ]
+}
