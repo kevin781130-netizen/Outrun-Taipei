@@ -91,7 +91,7 @@ const median=values=>{const xs=values.slice().sort((a,b)=>a-b),middle=xs.length>
       window.requestAnimationFrame=()=>0;let seed=681;
       Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
     });
-    await page.goto(base+'/'+variant,{waitUntil:'load'});
+    await page.goto(base+'/'+variant+'?trafficAI=v60',{waitUntil:'load'});
     await page.waitForFunction(()=>window.v56ThreeStatus?.().loaded,{timeout:20000});
     const evaluate=(code)=>page.evaluate(str=>window.__v68Audit(str),code);
     await evaluate(scriptFixture);
