@@ -620,6 +620,7 @@ body{background:radial-gradient(ellipse at 50% 20%,#152a41,#050c14 65%);}
 
 </style>
 <script src="assets/traffic-lane-intent.js"></script>
+<script src="assets/perf-diagnostics.js"></script>
 <script>
 (() => {
 'use strict';
@@ -6843,8 +6844,48 @@ function drawGrandHotelPalace(x,y,s){
   ctx.restore();
 }
 
+// V64 opt-in only; no persistent tracking, telemetry upload or gameplay changes.
+const v64PerfRequested=/(?:^|[?&])perf=v64(?:&|$)/.test(window.location?.search||'');
+let v64Probe=null,v64Panel=null,v64Stats=null,v64HudTicks=0;
+function v64PerfStart(){
+ if(v64Probe||!v64PerfRequested||v34Mode!=='cruise'||typeof window.TaipeiPerf64?.createFrameProbe!=='function')return;
+ v64Probe=window.TaipeiPerf64.createFrameProbe();
+ const panel=document.createElement('div');panel.id='v64-perf-panel';
+ panel.style.cssText='position:fixed;right:8px;bottom:8px;z-index:50;display:flex;align-items:center;gap:7px;flex-wrap:wrap;max-width:min(98vw,420px);padding:7px 9px;border:1px solid #47677a;border-radius:8px;color:#e9f7ff;background:#091724e8;font:12px system-ui;pointer-events:auto';
+ const status=document.createElement('span');status.id='v64-perf-stats';
+ status.textContent='V64 診斷：正在取樣';panel.appendChild(status);v64Stats=status;
+ const makeButton=(label,fn)=>{const b=document.createElement('button');b.textContent=label;b.type='button';b.style.cssText='border:1px solid #7195ae;background:#20364a;color:white;border-radius:5px;padding:4px 7px;cursor:pointer';b.addEventListener('click',fn);panel.appendChild(b);return b;};
+ makeButton('匯出 JSON',()=>{
+  if(!v64Probe||v34Mode!=='cruise')return;
+  const report=v64Probe.snapshot({route:currentNode.id,quality:graphicsQuality,viewportWidth:window.innerWidth,viewportHeight:window.innerHeight});
+  const blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json'});
+  const objectUrl=URL.createObjectURL(blob),anchor=document.createElement('a');
+  anchor.href=objectUrl;anchor.download='taipei-v64-diagnostics.json';
+  document.body.appendChild(anchor);anchor.click();anchor.remove();
+  setTimeout(()=>URL.revokeObjectURL(objectUrl),1000);
+ });
+ makeButton('重設數據',()=>{v64Probe?.reset();v64HudTicks=0;status.textContent='V64 診斷：已重設';});
+ document.body.appendChild(panel);v64Panel=panel;
+ window.v64PerfReport=()=>v64Probe?.snapshot({route:currentNode.id,quality:graphicsQuality,viewportWidth:window.innerWidth,viewportHeight:window.innerHeight})||null;
+}
+function v64PerfStop(){
+ if(v64Panel){v64Panel.remove();v64Panel=null;v64Stats=null;}
+ v64Probe=null;v64HudTicks=0;delete window.v64PerfReport;
+}
+function v64PerfLabel(){
+ if(!v64Probe||!v64Stats)return;
+ const stats=window.v64PerfReport();
+ v64Stats.textContent='V64 · '+(stats.framesPerSecond??'--')+' FPS · P95 '+(stats.frameP95Ms??'--')+' ms · 卡頓 '+stats.jankCount;
+}
+
 let accumulator = 0;
 function loop(now){
+  if(v64PerfRequested){
+   if(v34Mode==='cruise')v64PerfStart();
+   else if(v64Probe)v64PerfStop();
+  }
+  const v64Start=v64Probe?performance.now():0;
+  let v64RenderStart=0,v64Steps=0;
   const dt = Math.min(0.25, Math.max(0, (now - lastTime) / 1000));
   lastTime = now;
   pollGamepads();
@@ -6852,11 +6893,22 @@ function loop(now){
     accumulator += dt;
     while(accumulator >= 1/60){
       update(1/60); accumulator -= 1/60;
+      if(v64Probe)v64Steps++;
       if(gameOver){ accumulator = 0; break; }
     }
+    if(v64Probe)v64RenderStart=performance.now();
     render(dt);
   } else {
-    accumulator = 0; updateAudio(); render(dt);
+    accumulator = 0; updateAudio();
+    if(v64Probe)v64RenderStart=performance.now();
+    render(dt);
+  }
+  if(v64Probe){
+    v64Probe.record({timestampMs:now,updateMs:v64RenderStart-v64Start,
+      renderMs:performance.now()-v64RenderStart,steps:v64Steps,
+      route:currentNode.id,paused:!gameStarted||paused||gameOver||inRadioScreen,
+      hidden:!!document.hidden,heapBytes:performance.memory?.usedJSHeapSize??null});
+    if(++v64HudTicks%30===0)v64PerfLabel();
   }
   requestAnimationFrame(loop);
 }

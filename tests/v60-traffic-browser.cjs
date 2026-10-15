@@ -226,6 +226,40 @@ async function newPage(browser,base,query,viewport,errors){
   result.captures.push(await capture(endurance,'v63-longrun-final'));
   await endurance.close();
 
+  // V64: no monitoring in Arcade; opt-in Cruise exposes bounded, downloadable data.
+  const perfArcade=await newPage(browser,base,'perf=v64',desktop,result.errors);
+  await audit(perfArcade,fixture('arcade'));
+  await audit(perfArcade,'loop(lastTime+17)');
+  assert.equal(await perfArcade.locator('#v64-perf-panel').count(),0,'ranked mode never displays probe');
+  assert.equal(await perfArcade.evaluate(()=>typeof window.v64PerfReport),'undefined','ranked mode never exports diagnostics');
+  await perfArcade.close();
+  const perfPage=await newPage(browser,base,'perf=v64',desktop,result.errors);
+  await audit(perfPage,fixture('cruise'));
+  await audit(perfPage,'for(let k=0;k<150;k++)loop(lastTime+16.7)');
+  assert.equal(await perfPage.locator('#v64-perf-panel').count(),1,'probe controls appear only in opt-in cruise');
+  const report=await perfPage.evaluate(()=>window.v64PerfReport());
+  assert.equal(report.schema,'taipei.v64.frame-diagnostics.1');
+  assert(report.sampleCount>=120&&report.sampleCount<=360);
+  assert(report.framesPerSecond>55&&report.framesPerSecond<65,'real requestAnimationFrame timestamps');
+  assert.equal(report.deviceInfo,'not-collected');
+  assert(!JSON.stringify(report).includes('Mozilla/'),'browser fingerprint excluded');
+  await perfPage.getByRole('button',{name:'重設數據'}).click();
+  assert.equal(await perfPage.evaluate(()=>window.v64PerfReport().sampleCount),0,'HUD reset clears diagnostics only');
+  await audit(perfPage,'for(let k=0;k<30;k++)loop(lastTime+16.7)');
+  const downloadEvent=perfPage.waitForEvent('download');
+  await perfPage.getByRole('button',{name:'匯出 JSON'}).click();
+  const diagnosticFile=await downloadEvent;
+  assert.equal(diagnosticFile.suggestedFilename(),'taipei-v64-diagnostics.json');
+  const downloadPath=await diagnosticFile.path();
+  const data=JSON.parse(fs.readFileSync(downloadPath,'utf8'));
+  assert.equal(data.schema,'taipei.v64.frame-diagnostics.1');
+  fs.writeFileSync(path.join(OUT,'v64-perf-sample.json'),JSON.stringify(data,null,2));
+  await audit(perfPage,"v34Mode='arcade';loop(lastTime+16.7)");
+  assert.equal(await perfPage.locator('#v64-perf-panel').count(),0,'mode switch removes probe');
+  assert.equal(await perfPage.evaluate(()=>typeof window.v64PerfReport),'undefined');
+  await perfPage.close();
+  result.viewports.push({mode:'V64 opt-in performance monitor',frames:180,download:true,rankedIsolated:true});
+
   const safety=await newPage(browser,base,'trafficAI=v60',desktop,result.errors);
   await audit(safety,fixture('cruise',15000));
   await tick(safety);
