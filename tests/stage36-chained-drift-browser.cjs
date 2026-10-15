@@ -32,7 +32,9 @@ async function main(){
   const snapshot=()=>run('({active:isDrifting,dir:driftDirection,yaw:driftAngle,slip:slipAngle,visualYaw:v51DriftVisualYaw(),state:driftState,clean:cleanDriftTime,charge:driftChargeRate,stock:nitroStock})');
   const tick=n=>run('(()=>{const states=[];for(let i=0;i<'+n+';i++){update(1/60);states.push({active:isDrifting,state:driftState});}render(0);return states;})()');
   assert(await run('handlingProfile59&&v59Chain2&&bestRecordKey().endsWith(":H59.2")'));
-  assert((await page.evaluate(()=>window.v56ThreeStatus())).ready,'real WebGL game must be ready');
+  // The shipped scene becomes ready after the first render (rAF is disabled here).
+  await run('render(0)');
+  assert((await page.evaluate(()=>window.v56ThreeStatus())).ready,'real WebGL game must be ready after first render');
   for(const side of [1,-1]){
    await run("v34Mode='cruise';selectedRoute=routeForId('1A');resetGame();gameStarted=true;raceActive=true;paused=false;gameOver=false;inRadioScreen=false;traffic=[];collisionCooldown=100;timeLeft=9999;playerX=0;playerZ=180*SEGMENT_LENGTH;speed=175;currentGear='HIGH';driveGear='D';motionDirection=1;roadGrip=1;overlay.classList.add('hidden');for(const s of segments)s.curve="+(side*.8));
    const first=side===1?'ArrowRight':'ArrowLeft',second=side===1?'ArrowLeft':'ArrowRight';
