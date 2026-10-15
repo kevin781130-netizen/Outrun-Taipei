@@ -9,6 +9,13 @@ const src=fs.readFileSync(path.join(ROOT,'index.html'),'utf8');
 const anchor='resetGame(); updateHUD(); drawRouteMap(); render(0);';
 assert.equal(src.split(anchor).length,2);
 const injected=src.replace(anchor,'window.__v70VisualAudit=code=>eval(code);'+anchor);
+// Test-only WebGL buffer preservation for exact after-render pixel readback.
+// Do NOT change the deployed Three.js bundle or game's GPU memory behavior.
+const built=fs.readFileSync(path.join(ROOT,'assets/hybrid-renderer.js'),'utf8');
+const contextAnchor="new THREE.WebGLRenderer({canvas,alpha:false,antialias:true,powerPreference:'high-performance'})";
+assert.equal(built.split(contextAnchor).length,2,'one pinned WebGL renderer construction');
+const readableRenderer=built.replace(contextAnchor,
+ "new THREE.WebGLRenderer({canvas,alpha:false,antialias:true,preserveDrawingBuffer:true,powerPreference:'high-performance'})");
 const assets=new Set(['/assets/vendor/three-r149.min.js','/assets/hybrid-renderer.js',
  '/assets/traffic-lane-intent.js','/assets/perf-diagnostics.js']);
 const server=http.createServer((req,res)=>{
@@ -16,6 +23,7 @@ const server=http.createServer((req,res)=>{
  if(url.pathname==='/'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});res.end(injected);return;}
  if(!assets.has(url.pathname)){res.writeHead(404);res.end('not found');return;}
  res.writeHead(200,{'Content-Type':'application/javascript'});
+ if(url.pathname==='/assets/hybrid-renderer.js'){res.end(readableRenderer);return;}
  fs.createReadStream(path.join(ROOT,url.pathname.slice(1))).pipe(res);
 });
 const audit=(page,script)=>page.evaluate(code=>window.__v70VisualAudit(code),script);
@@ -48,12 +56,7 @@ async function different(a,b){
    const page=await browser.newPage({viewport:{width,height}});
    page.on('pageerror',e=>report.errors.push(e.message));
    page.on('console',m=>{if(m.type()==='error')report.errors.push(m.text());});
-   await page.addInitScript(()=>{
-    // Keep the app paused, but retain the real compositor frame callback for
-    // a test-owned draw/presentation fence.
-    window.__v70NativeRAF=window.requestAnimationFrame.bind(window);
-    window.requestAnimationFrame=()=>0;
-   });
+   await page.addInitScript(()=>{window.requestAnimationFrame=()=>0;});
    await page.goto('http://127.0.0.1:'+server.address().port+'/?trafficAI=v60',{waitUntil:'load'});
    await page.waitForFunction(()=>window.v56ThreeStatus?.().loaded,{timeout:20000});
    // Locate an actually visible near-field vehicle using the same Three.js
@@ -86,15 +89,12 @@ async function different(a,b){
    assert(meta.distance>0&&meta.distance<42,'car must be in V70 detail LOD range');
    if(route==='4B'||route==='5B')assert.equal(meta.deck,0,'mountain/coast cannot have an invented viaduct');
    const canvas=page.locator('#v56-full-3d-canvas');
-   const render=(flag,color)=>page.evaluate(({flag,color})=>new Promise(resolve=>{
-    window.__v70NativeRAF(()=>{
-     const data=window.__v70Frame;
-     const frame={...data,trafficVisual70:flag,
-      traffic:color?[{...data.traffic[0],color}]:data.traffic};
-     const ok=v56Scene.render(frame,0,canvas.width,canvas.height,graphicsQuality);
-     window.__v70NativeRAF(()=>resolve(ok));
-    });
-   }),{flag,color});
+   const render=(flag,color)=>page.evaluate(({flag,color})=>{
+    const data=window.__v70Frame;
+    const frame={...data,trafficVisual70:flag,
+     traffic:color?[{...data.traffic[0],color}]:data.traffic};
+    return v56Scene.render(frame,0,canvas.width,canvas.height,graphicsQuality);
+   },{flag,color});
    await render(false);await render(false);
    const baseline=await canvas.screenshot({type:'png',animations:'disabled'});
    // Positive control: a deliberately different traffic body color MUST be
