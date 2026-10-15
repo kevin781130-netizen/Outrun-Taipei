@@ -4498,6 +4498,7 @@ function v57SceneFrame(){
     segment:first,
     fraction:(visualPlayerZ%SEGMENT_LENGTH)/SEGMENT_LENGTH,
     playerX,traffic:traffic3D,carColor:currentCar.color,
+    trafficVisual70:trafficAI60Enabled(),
     driving:v56DrivingFrame,
     crash:handlingProfile59&&crashSequence?{anim:crashSequence.anim??0,side:crashSequence.side}:null,
     archetype:currentNode.archetype,seed:currentNode.seed,

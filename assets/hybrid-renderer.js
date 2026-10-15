@@ -1284,11 +1284,16 @@ function createFull3DScene(THREE,canvas) {
  const crashOffset=new THREE.Vector3(),crashGround=new THREE.Vector3();
  const tyreMat=material(new THREE.MeshStandardMaterial({color:0x10141a,roughness:.96}));
  const rearMat=material(new THREE.MeshBasicMaterial({color:0xff385d}));
+ // V70: shared preview-only accents, no extra per-car textures/geometries.
+ const trafficLamp=material(new THREE.MeshBasicMaterial({color:0xe5f6ff}));
+ const trafficGrille=material(new THREE.MeshStandardMaterial({color:0x19242d,roughness:.85}));
  const trafficMeshes=[];
  for(let i=0;i<MAX_CARS;i++){
   const group=new THREE.Group();group.userData.trafficIndex=i;
-  function part(g,m,s,p){
-   const mesh=new THREE.Mesh(g,m);mesh.scale.set(...s);mesh.position.set(...p);group.add(mesh);return mesh;
+  function part(g,m,s,p,parent=group,name=''){
+   const mesh=new THREE.Mesh(g,m);mesh.scale.set(...s);mesh.position.set(...p);
+   if(name)mesh.name=name;
+   parent.add(mesh);return mesh;
   }
   const individualPaint=material(new THREE.MeshStandardMaterial({color:0xe4bc39,metalness:.38,roughness:.4}));
   const chassis=part(boxG,individualPaint,[1.7,.46,3.6],[0,.57,0]);
@@ -1298,7 +1303,19 @@ function createFull3DScene(THREE,canvas) {
    part(boxG,tyreMat,[.24,.64,.72],[side*.88,.36,1.1]);
    part(boxG,rearMat,[.4,.12,.09],[side*.55,.65,1.82]);
   }
-  group.visible=false;scene.add(group);trafficMeshes.push({group,chassis,roof,lastColor:null});
+  // Original V60 cars and ranked cars keep their silhouette and draw calls.
+  // LOD: the extra seven meshes are rendered only for near V70 Cruise traffic.
+  const detail=new THREE.Group();detail.name='V70_TrafficDetails';detail.visible=false;
+  group.add(detail);
+  part(boxG,glassMat,[1.08,.045,.40],[0,1.03,-1.01],detail,'V70_Windshield');
+  for(const side of [-1,1]){
+   part(boxG,glassMat,[.038,.31,.88],[side*.654,1.01,-.14],detail,'V70_SideWindow');
+   part(boxG,trafficLamp,[.38,.10,.040],[side*.55,.66,-1.797],detail,'V70_Headlight');
+  }
+  part(boxG,trafficGrille,[.82,.12,.044],[0,.55,-1.804],detail,'V70_FrontGrille');
+  part(boxG,trafficGrille,[1.18,.075,.032],[0,.57,1.807],detail,'V70_RearBumperTrim');
+  group.visible=false;scene.add(group);
+  trafficMeshes.push({group,chassis,roof,detail,lastColor:null});
  }
  const lostHandler=e=>{e.preventDefault();lost=true;ready=false;canvas.style.visibility='hidden';};
  const restoredHandler=()=>{lost=false;ready=false;};
@@ -1413,6 +1430,7 @@ function createFull3DScene(THREE,canvas) {
    if(!item || item.eligible===false || !(item.distance>-2&&item.distance<COUNT-2)){mesh.group.visible=false;continue;}
    const road=sampleRoadPoint(pts,item.distance+(Number(frame.fraction)||0),(Number(item.x)||0)*HALF_WIDTH);
    mesh.group.visible=true;
+   mesh.detail.visible=frame.trafficVisual70===true&&item.distance>0&&item.distance<42;
    mesh.group.position.set(road.x,road.y+.05,road.z);
    // Preview-only road-relative heading. Never modifies gameplay physics.
    const trafficYaw=Number.isFinite(item.turnYawRad)?clamp(item.turnYawRad,-.16,.16):0;

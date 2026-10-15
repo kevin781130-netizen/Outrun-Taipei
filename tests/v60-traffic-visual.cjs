@@ -38,5 +38,21 @@ assert.equal(car.rotation.y,0,'invalid preview angle must fall back to road head
 assert.equal(world.render(frame,1/60,960,540,'STANDARD'),true);
 assert.equal(car.rotation.y,initial,'default render stays unchanged after opt-in rendering');
 assert.equal(JSON.stringify(frame),snap,'presentation must not mutate game state');
+// V70 verifies shared near-field visuals do not leak to ranked/default or
+// distant cars. These are real Three.js groups, only the GPU is mocked.
+const details=car.getObjectByName('V70_TrafficDetails');
+assert(details&&details.isGroup,'V70 mesh group attached to original traffic car');
+assert.equal(details.children.length,7,'exactly seven shared-material detailing meshes');
+assert.equal(details.visible,false,'default/ranked renderer must hide all V70 accents');
+const preview={...frame,trafficVisual70:true};
+assert.equal(world.render(preview,1/60,960,540,'STANDARD'),true);
+assert.equal(details.visible,true,'only near preview vehicle receives styling');
+const baselineYaw=car.rotation.y;
+assert.equal(world.render({...preview,traffic:[{...traffic,distance:65}]},1/60,960,540,'STANDARD'),true);
+assert.equal(details.visible,false,'far preview traffic must cull accent draw calls');
+assert.equal(world.render(frame,1/60,960,540,'STANDARD'),true);
+assert.equal(details.visible,false,'switching preview off restores the original visuals');
+assert.equal(car.rotation.y,baselineYaw,'visual styling never alters vehicle yaw');
+assert.equal(JSON.stringify(frame),snap,'no frame or collision state changes from styling');
 world.dispose();
 console.log('V60 traffic visual: 3D mirrored heading, clamp, invalid fallback, stable mesh, default parity (GPU mocked)');
