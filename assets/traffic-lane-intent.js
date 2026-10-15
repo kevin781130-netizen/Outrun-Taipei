@@ -117,6 +117,18 @@ function planLaneIntent(input){
   }
   return hold('adjacent-lanes-blocked');
 }
-module.exports={RULES,planLaneIntent,inspectLanePath};
+
+// V67: bounded, stable arbitration for simultaneous candidates, independent of
+// the array slot a car occupies. Waiting cars receive priority over newcomers;
+// position determines first contention, with slot ID only as an exact tie-break.
+function orderLaneRequests(requests){
+  if(!Array.isArray(requests))return [];
+  const queue=requests.filter(r=>r&&Number.isInteger(r.id)&&r.id>=0&&
+    [r.x,r.z,r.speed].every(finite)&&r.speed>=0);
+  const wait=r=>finite(r.wait)?Math.max(0,Math.min(8,Math.floor(r.wait))):0;
+  queue.sort((a,b)=>wait(b)-wait(a)||a.z-b.z||a.x-b.x||b.speed-a.speed||a.id-b.id);
+  return queue.map(r=>r.id);
+}
+module.exports={RULES,planLaneIntent,inspectLanePath,orderLaneRequests};
 root.TaipeiTrafficAI=Object.freeze(module.exports);
 })(window);

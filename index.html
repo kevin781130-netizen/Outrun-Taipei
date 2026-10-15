@@ -2655,24 +2655,55 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden){ clearInp
 
 // Only consulted by explicitly requested single-player cruise simulations.
 // Existing road corridors and traffic collision eligibility remain authoritative.
-function stepTrafficAI60(car,index,dt,peers,trafficLimit){
+// V67: share the exact safety inputs between arbitration and in-frame execution.
+function trafficIntentInput60(car,index,peers,trafficLimit,cooldown){
+  const seg=Math.max(0,Math.min(segments.length-1,Math.floor(car.z/SEGMENT_LENGTH)));
+  const previewEnd=Math.min(segments.length-1,seg+12);
+  return {
+    allow:car.z>0&&car.z<Math.min(trafficLimit,(FORK_WARN-65)*SEGMENT_LENGTH)&&!car.near&&car.hitTimer<=0,
+    self:{id:index,x:car.x,z:car.z,speed:car.speed,halfWidth:trafficHalfWidth(car),
+      laneTarget:car.laneTarget,lastCenterSide:car.v66LastCenterSide||0},
+    others:peers,
+    corridors:[roadCorridors(seg),roadCorridors(previewEnd)],
+    player:{z:playerZ+PLAYER_DEPTH},
+    forkWarningZ:FORK_WARN*SEGMENT_LENGTH,
+    cooldown
+  };
+}
+
+// Collect only ready, idle candidates, then reserve lanes by position and
+// bounded waiting age. No gameplay writes and no RNG in this prepass.
+function planTrafficQueue67(peers,trafficLimit,dt){
+  const plans=new Map();
+  if(!peers)return plans;
+  const candidates=[];
+  for(const peer of peers){
+    const car=traffic[peer.id];
+    if(!car||car.v60PassActive||!(car.v60Think<=dt||car.v60Think==null)||
+      Math.abs(car.x-car.laneTarget)>=.14)continue;
+    candidates.push({id:peer.id,x:car.x,z:car.z,speed:car.speed,wait:car.v67WaitRounds||0});
+  }
+  for(const id of window.TaipeiTrafficAI.orderLaneRequests(candidates)){
+    const car=traffic[id];
+    const input=trafficIntentInput60(car,id,peers,trafficLimit,Math.max(0,(car.v60Cooldown||0)-dt));
+    const intent=window.TaipeiTrafficAI.planLaneIntent(input);
+    plans.set(id,intent);
+    if(intent.action==='change'){
+      // Future peer decisions see the winner's complete reserved lateral path.
+      const peer=peers.find(item=>item.id===id);
+      if(peer){peer.passActive=true;peer.laneTarget=intent.target;}
+    }
+  }
+  return plans;
+}
+
+function stepTrafficAI60(car,index,dt,peers,trafficLimit,prepared){
   car.v60Think=Math.max(0,(car.v60Think||0)-dt);
   car.v60Cooldown=Math.max(0,(car.v60Cooldown||0)-dt);
   const moving=!!car.v60PassActive;
   if(car.v60Think<=0&&(moving||Math.abs(car.x-car.laneTarget)<.14)){
     car.v60Think=moving?.16:.4;
-    const seg=Math.max(0,Math.min(segments.length-1,Math.floor(car.z/SEGMENT_LENGTH)));
-    const previewEnd=Math.min(segments.length-1,seg+12);
-    const input={
-      allow:car.z>0&&car.z<Math.min(trafficLimit,(FORK_WARN-65)*SEGMENT_LENGTH)&&!car.near&&car.hitTimer<=0,
-      self:{id:index,x:car.x,z:car.z,speed:car.speed,halfWidth:trafficHalfWidth(car),
-        laneTarget:car.laneTarget,lastCenterSide:car.v66LastCenterSide||0},
-      others:peers,
-      corridors:[roadCorridors(seg),roadCorridors(previewEnd)],
-      player:{z:playerZ+PLAYER_DEPTH},
-      forkWarningZ:FORK_WARN*SEGMENT_LENGTH,
-      cooldown:car.v60Cooldown
-    };
+    const input=trafficIntentInput60(car,index,peers,trafficLimit,car.v60Cooldown);
     if(moving){
       // New traffic entering the target lane can veto an in-progress maneuver.
       // Stop lateral movement; never snap the vehicle or rewrite its longitudinal speed.
@@ -2684,14 +2715,21 @@ function stepTrafficAI60(car,index,dt,peers,trafficLimit){
         car.v60LastVeto=check.reason;
       }
     }else{
-      const intent=window.TaipeiTrafficAI.planLaneIntent(input);
-      if(intent.action==='change'){
+      const intent=prepared?.get(index)||{action:'hold',reason:'not-scheduled'};
+      // Validate the planned lane against the current, unmodified traffic
+      // snapshot. This remains a safety check even for a priority winner.
+      const valid=intent.action==='change'&&
+        window.TaipeiTrafficAI.inspectLanePath({...input,target:intent.target}).safe;
+      if(valid){
+        car.v67WaitRounds=0;
         car.v66PassOrigin=car.x;
         car.v66PassWasCenter=Math.abs(car.x-input.corridors[0][0].center)<.14;
         car.laneTarget=intent.target;car.v60Cooldown=intent.cooldown;
         // The first ongoing hazard check starts in .16s, not the idle .4s.
         car.v60Think=.16;
         car.v60PassActive=true;car.v60LastVeto=null;
+      }else if(intent.reason==='adjacent-lanes-blocked'){
+        car.v67WaitRounds=Math.min(8,(car.v67WaitRounds||0)+1);
       }
     }
     // Share same-frame target reservations with subsequent traffic in stable index order.
@@ -2882,8 +2920,9 @@ function update(dt){
       });
     }
   }
-  // Traffic updates
+  // Traffic updates; only opt-in Cruise uses position-based arbitration.
   const trafficLimit = (FORK_WARN - 28) * SEGMENT_LENGTH;
+  const v67Plans=v60NeedsDecision?planTrafficQueue67(v60Peers,trafficLimit,dt):null;
   for(let index=0;index<traffic.length;index++){
     const car=traffic[index];
     car.hitTimer = Math.max(0, car.hitTimer - dt);
@@ -2893,7 +2932,7 @@ function update(dt){
     car.previousX=car.x;car.previousZ=car.z;
     car.z += car.speed * WORLD_SPEED * dt;
     if(v60Preview){
-      stepTrafficAI60(car,index,dt,v60Peers,trafficLimit);
+      stepTrafficAI60(car,index,dt,v60Peers,trafficLimit,v67Plans);
     }else{
       // The untouched legacy path remains the default and ranked behavior.
       car.x += Math.sin((simulationTime * 1000) / 1500 + car.phase) * 0.025 * dt;
@@ -2909,7 +2948,7 @@ function update(dt){
       if(v60Preview){
         car.v60Think=0;car.v60Cooldown=0;car.v60PassActive=false;car.v60LastVeto=null;
         car.v66PassOrigin=null;car.v66PassWasCenter=false;
-        car.v66LastCenterSide=0;car.v66CompletedPasses=0;
+        car.v66LastCenterSide=0;car.v66CompletedPasses=0;car.v67WaitRounds=0;
       }
     }
     if(dz > 2600) car.near = false;

@@ -120,6 +120,22 @@ assert.equal(rejected.run('traffic[0].v66CompletedPasses||0'),0,'abort never cou
 assert.equal(rejected.run('traffic[0].v66LastCenterSide||0'),0,'abort never updates preference');
 assert.equal(rejected.run('traffic[0].v66PassOrigin'),null);
 
+// V67: priority is attached to road position, not array slot. Reverse the
+// same four traffic objects and verify the same physical winner (z=20000).
+const reversed=load(file,{search:'?trafficAI=v60'});setup(reversed,'cruise');
+reversed.run("const a=traffic[0],b=traffic[1],c={...a},d={...b};traffic=[b,d,a,c];const cfg=(car,x,z,v)=>{car.x=x;car.laneTarget=x;car.z=z;car.previousX=x;car.previousZ=z;car.speed=v;car.targetSpeed=v;car.hitTimer=0;car.near=false;car.v60PassActive=false;car.v60Think=0;car.v60Cooldown=0;car.v67WaitRounds=0;};cfg(a,-.468,20000,190);cfg(b,.468,20400,190);cfg(c,-.468,24000,120);cfg(d,.468,24500,120);");
+reversed.run('update(1/60)');
+assert.equal(reversed.run('traffic[2].laneTarget'),0,'physical z=20000 car wins after array reversal');
+assert.equal(reversed.run('traffic[0].laneTarget'),.468,'later z=20400 car holds despite index zero');
+assert.equal(reversed.run('traffic[0].v67WaitRounds'),1,'blocked contender ages safely');
+const aged=load(file,{search:'?trafficAI=v60'});setup(aged,'cruise');
+aged.run("const a=traffic[0],b=traffic[1],c={...a},d={...b};traffic=[a,b,c,d];const cfg=(car,x,z,v,w)=>{car.x=x;car.laneTarget=x;car.z=z;car.previousX=x;car.previousZ=z;car.speed=v;car.targetSpeed=v;car.hitTimer=0;car.near=false;car.v60PassActive=false;car.v60Think=0;car.v60Cooldown=0;car.v67WaitRounds=w;};cfg(a,-.468,20000,190,0);cfg(b,.468,20400,190,3);cfg(c,-.468,24000,120,0);cfg(d,.468,24500,120,0);");
+aged.run('update(1/60)');
+assert.equal(aged.run('traffic[1].laneTarget'),0,'older waiting contender goes first');
+assert.equal(aged.run('traffic[0].laneTarget'),-.468,'newcomer yields to older request');
+assert.equal(aged.run('traffic[1].v67WaitRounds'),0,'successful reservation resets age');
+assert.equal(aged.run('traffic[0].v67WaitRounds'),1,'loser gains next-round priority');
+
 const missing=load(file,{search:'?trafficAI=v60'});setup(missing,'cruise');
 missing.window.TaipeiTrafficAI=undefined;
 assert.equal(missing.run('trafficAI60Enabled()'),false,'missing bundle fails closed');

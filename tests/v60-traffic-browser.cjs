@@ -277,6 +277,20 @@ async function newPage(browser,base,query,viewport,errors){
   await natural.close();
   result.viewports.push({mode:'V66 completed-pass safe alternation',frames:3,passed:true});
 
+  // V67: real browser runtime must not award a conflicting center lane to
+  // array slot zero if the other car has waited longer.
+  const fair=await newPage(browser,base,'trafficAI=v60',desktop,result.errors);
+  await audit(fair,fixture('cruise'));
+  await audit(fair,"const a=traffic[0],b=traffic[1],c={...a},d={...b};traffic=[a,b,c,d];const cfg=(car,x,z,v,w)=>{car.x=x;car.laneTarget=x;car.z=z;car.previousX=x;car.previousZ=z;car.speed=v;car.targetSpeed=v;car.hitTimer=0;car.near=false;car.v60PassActive=false;car.v60Think=0;car.v60Cooldown=0;car.v67WaitRounds=w;};cfg(a,-.468,20000,190,0);cfg(b,.468,20400,190,3);cfg(c,-.468,24000,120,0);cfg(d,.468,24500,120,0);");
+  await tick(fair,1);
+  const priority=await audit(fair,'({a:traffic[0].laneTarget,b:traffic[1].laneTarget,waitA:traffic[0].v67WaitRounds,waitB:traffic[1].v67WaitRounds})');
+  assert.equal(priority.a,-.468);
+  assert.equal(priority.b,0);
+  assert.equal(priority.waitA,1);
+  assert.equal(priority.waitB,0);
+  result.viewports.push({mode:'V67 queued car priority',frames:1,fair:true});
+  await fair.close();
+
   const safety=await newPage(browser,base,'trafficAI=v60',desktop,result.errors);
   await audit(safety,fixture('cruise',15000));
   await tick(safety);
