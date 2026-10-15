@@ -132,7 +132,7 @@ async function newPage(browser,base,query,viewport,errors){
   assert.equal(await audit(safety,'crashCount'),1,'actual update generates one collision');
   await audit(safety,[
     'crashSequence=null;collisionCooldown=0;crashCount=0;speed=0;',
-    'traffic[0].x=9;traffic[0].laneTarget=9;traffic[0].previousX=9;',
+    'traffic[0].x=9;traffic[0].laneTarget=9;traffic[0].previousX=9;traffic[0].near=false;traffic[0].hitTimer=0;',
     'v57PrepareTrafficVisibility();'
   ].join(''));
   const ghost=await audit(safety,'({visible:!!traffic[0].screenBox,eligible:trafficRoadEligible(traffic[0])})');
