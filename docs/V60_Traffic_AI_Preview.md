@@ -42,7 +42,7 @@ Included regression gates:
 - Parsed / compiled the current 444 KB inline JavaScript runtime in V8: passed.
 - Compared browser asset exactly with source-generated content, evaluated browser module: passed.
 - Ran V60 pure planner assertions in a V8 evaluator: passed.
-- Executed the V60 integration test against the **real inline game logic** with a stub 2D canvas / simulated DOM: passed before the final snapshot-allocation optimization; the optimization still requires a post-change rerun.
+- Executed the V60 integration test against the **real inline game logic** with a stub 2D canvas / simulated DOM: passed **after** the final snapshot-allocation optimization (90 default/ranked comparison frames plus opt-in, cooldown, proximity, fallback and record tests).
 
 **Not completed / not claimed:** Full local Node `npm test` (the local Node/container runtime was unavailable), Chromium/Playwright, Unity compilation, real GPU traffic rendering, mobile FPS, deployment provenance and human-driving feel. No assertion of a production-ready AI driver is made until those gates pass.
 
