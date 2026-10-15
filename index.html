@@ -619,6 +619,7 @@ body{background:radial-gradient(ellipse at 50% 20%,#152a41,#050c14 65%);}
 @media(max-height:500px) and (min-width:600px){#radio-actions{inset:5px;padding:10px 14px;gap:7px;}.radio-header h2{font-size:16px;}.radio-kicker{font-size:8px;}.radio-display{padding:8px 12px;}#radio-choice{font-size:23px;margin:3px 0;}.radio-dial{margin-top:6px;height:7px;}.radio-preset{padding:7px 10px!important;gap:2px;}.radio-preset strong{font-size:12px;}.radio-preset small{display:none;}#radio-drive{padding:9px 24px!important;font-size:13px;}}
 
 </style>
+<script src="assets/traffic-lane-intent.js"></script>
 <script>
 (() => {
 'use strict';
@@ -2802,24 +2803,60 @@ function update(dt){
     playerZ = FINISH_LINE * SEGMENT_LENGTH; finishGame(true); return;
   }
 
+// Only consulted by explicitly requested single-player cruise simulations.
+// Existing road corridors and traffic collision eligibility remain authoritative.
+function stepTrafficAI60(car,index,dt,peers,trafficLimit){
+  car.v60Think=Math.max(0,(car.v60Think||0)-dt);
+  car.v60Cooldown=Math.max(0,(car.v60Cooldown||0)-dt);
+  if(car.v60Think<=0&&Math.abs(car.x-car.laneTarget)<.14){
+    car.v60Think=.4;
+    const seg=Math.max(0,Math.min(segments.length-1,Math.floor(car.z/SEGMENT_LENGTH)));
+    const previewEnd=Math.min(segments.length-1,seg+12);
+    const intent=window.TaipeiTrafficAI.planLaneIntent({
+      allow:car.z>0&&car.z<Math.min(trafficLimit,(FORK_WARN-65)*SEGMENT_LENGTH)&&!car.near&&car.hitTimer<=0,
+      self:{...peers[index],x:car.x,z:car.z,speed:car.speed,laneTarget:car.laneTarget},
+      others:peers.filter(peer=>peer.id!==index),
+      corridors:[roadCorridors(seg),roadCorridors(previewEnd)],
+      player:{z:playerZ+PLAYER_DEPTH},
+      forkWarningZ:FORK_WARN*SEGMENT_LENGTH,
+      cooldown:car.v60Cooldown
+    });
+    if(intent.action==='change'){car.laneTarget=intent.target;car.v60Cooldown=intent.cooldown;}
+  }
+  // This preview only moves the original traffic x toward a safe lane intent.
+  // Position projection, road validity, collision, scoring, and speed are unchanged.
+  car.x=lerp(car.x,car.laneTarget,Math.min(1,dt*1.15));
+}
+
+  // V60 original clean-room preview. Build a single pre-update snapshot so
+  // vehicle decisions never depend on array iteration or a partially updated car.
+  const v60Preview=trafficAI60Enabled();
+  const v60Peers=v60Preview?traffic.map((car,id)=>({id,x:car.x,z:car.z,speed:car.speed,halfWidth:trafficHalfWidth(car)})):null;
   // Traffic updates
   const trafficLimit = (FORK_WARN - 28) * SEGMENT_LENGTH;
-  for(const car of traffic){
+  for(let index=0;index<traffic.length;index++){
+    const car=traffic[index];
     car.hitTimer = Math.max(0, car.hitTimer - dt);
     if(car.targetSpeed && car.speed < car.targetSpeed){
       car.speed += 45 * dt;
     }
     car.previousX=car.x;car.previousZ=car.z;
     car.z += car.speed * WORLD_SPEED * dt;
-    car.x += Math.sin((simulationTime * 1000) / 1500 + car.phase) * 0.025 * dt;
-    car.laneTarget=Math.sin(simulationTime*.13+car.phase)*.58*roadFactor();
-    car.x = lerp(car.x, car.laneTarget, dt * 0.18);
+    if(v60Preview){
+      stepTrafficAI60(car,index,dt,v60Peers,trafficLimit);
+    }else{
+      // The untouched legacy path remains the default and ranked behavior.
+      car.x += Math.sin((simulationTime * 1000) / 1500 + car.phase) * 0.025 * dt;
+      car.laneTarget=Math.sin(simulationTime*.13+car.phase)*.58*roadFactor();
+      car.x = lerp(car.x, car.laneTarget, dt * 0.18);
+    }
 
     const dz = car.z - playerZ;
     if(dz < -1800 && playerZ + 24000 < trafficLimit){
       car.z=Math.min(playerZ+seededRange(22000,56000),trafficLimit);
       car.x=seededRange(-.65,.65)*roadFactor();car.laneTarget=seededRange(-.60,.60)*roadFactor();
       car.previousX=car.x;car.previousZ=car.z;car.near = false; car.screenBox = null; car.cp = null;
+      if(v60Preview){car.v60Think=0;car.v60Cooldown=0;}
     }
     if(dz > 2600) car.near = false;
   }
@@ -4877,6 +4914,11 @@ function v52OverspeedPush(speedNow,curve){
 const V59_HANDLING=Object.freeze({id:'v59-countersteer-1',recordSuffix:':H59.1'});
 const handlingProfile59=/(?:^|[?&])handling=v59(?:&|$)/.test(window.location?.search||'');
 if(handlingProfile59)document.title+=' · V59 反打測試';
+// AI traffic is intentionally only available in cruise preview. Ranked modes stay unchanged.
+const trafficAI60Requested=/(?:^|[?&])trafficAI=v60(?:&|$)/.test(window.location?.search||'');
+if(trafficAI60Requested)document.title+=' · V60 車流試玩（巡航限定）';
+function trafficAI60Enabled(){return trafficAI60Requested&&v34Mode==='cruise'&&typeof window.TaipeiTrafficAI?.planLaneIntent==='function';}
+function trafficAI60RecordSuffix(){return trafficAI60Enabled()?':AI60':'';}
 let v59LiftTime=0;
 function handlingRecordSuffix59(){return handlingProfile59?V59_HANDLING.recordSuffix:'';}
 function stepHandlingDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
@@ -5119,7 +5161,7 @@ function drawSlideTrails(){
  ctx.restore();
 }
 
-function bestRecordKey(id=currentNode.id){return `${id}:${autoGear?'AT':'MT'}:${dipSettings.difficulty}:${COMPETITION.version}${handlingRecordSuffix59()}`;}
+function bestRecordKey(id=currentNode.id){return `${id}:${autoGear?'AT':'MT'}:${dipSettings.difficulty}:${COMPETITION.version}${handlingRecordSuffix59()}${trafficAI60RecordSuffix()}`;}
 function arcadeBoardKey(){return `${autoGear?'AT':'MT'}:${dipSettings.difficulty}:${dipSettings.time}:${COMPETITION.version}${handlingRecordSuffix59()}`;}
 
 // Street identity persists across the entire segment, instead of vanishing after the opening.
@@ -6420,7 +6462,7 @@ document.getElementById('atlas-drive').addEventListener('click',()=>{
 function soloFinishIndex(){return stageLevel===4?FINISH_LINE:STAGE_END-70;}
 function soloLength(l,c){const r=routeLayout(l,c);return (l===4?r.FINISH_LINE:r.STAGE_END-70)*SEGMENT_LENGTH/WORLD_SPEED/3.6;}
 function getBestTime(){return bestTimes[bestRecordKey()]?bestTimes[bestRecordKey()].toFixed(2)+' s':'—';}
-function recordReward(cleared){driverStats.runs++;if(cleared)driverStats.clears++;driverStats.style+=Math.floor(totalStyle);persistV39();}
+function recordReward(cleared){if(trafficAI60Enabled())return;driverStats.runs++;if(cleared)driverStats.clears++;driverStats.style+=Math.floor(totalStyle);persistV39();}
 function finishSolo(cleared){
   bankStyle();raceActive=false;gameOver=true;boosting=false;isDrifting=false;crashSequence=null;clearInputs();carSelect.disabled=false;
   const k=bestRecordKey(),old=bestTimes[k];let newBest=false;
