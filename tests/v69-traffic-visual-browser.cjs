@@ -132,13 +132,13 @@ function checkCar(s,label){
    await page.close();
   }
   // Actual Taipei mountain identity, hillside heights and zero invented decks.
-  for(const [route,night] of [['4B',false],['5D',true]]){
+  for(const [route,night] of [['4B',false],['5B',true]]){
    const page=await startPage(browser,origin,'trafficAI=v60',desktop,report.errors);
    await audit(page,setup(route,'cruise',night));
    const initial=await audit(page,snapshot);
    assert.equal(initial.route,route,'selected geography identity');
    assert(initial.archetype==='mountain'||initial.archetype==='coastal',
-    '4B / 5D visual QA must be terrain/coast routes, not urban');
+    '4B / 5B visual QA must be terrain/coast routes, not urban');
    assert.equal(initial.deckMax,0,'no unsupported highway on mountain/coastline');
    const record={name:'terrain-'+route,route,archetype:initial.archetype,samples:[]};
    for(let tick=0;tick<=30;tick++){
