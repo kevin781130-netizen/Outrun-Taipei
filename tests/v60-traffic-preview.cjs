@@ -96,6 +96,30 @@ assert.equal(recycle.run('traffic[0].v60PassActive'),false,'recycled car drops r
 assert.equal(recycle.run('traffic[0].v60Cooldown'),0);
 assert.equal(recycle.run('traffic[0].v60Think'),0);
 
+// V66: completing a center-origin maneuver records its side and adds a grace
+// period. Aborted passes must not count as successes or change the next side.
+const done=load(file,{search:'?trafficAI=v60'});setup(done,'cruise');
+done.run('update(1/60)');
+assert.equal(done.run('traffic[0].v60Think<=.16'),true,'first hazard recheck is in .16s');
+done.run('traffic[0].x=traffic[0].laneTarget+.029;traffic[0].v60Think=.2;traffic[0].v60Cooldown=0;');
+done.run('update(1/60)');
+assert.equal(done.run('traffic[0].v60PassActive'),false,'pass naturally completed');
+assert.equal(done.run('traffic[0].v66CompletedPasses'),1);
+assert.equal(done.run('traffic[0].v66LastCenterSide'),-1);
+assert(done.run('traffic[0].v60Cooldown')>=2,'successful pass has settle grace');
+// Replay a new center-lane slow-leader encounter: choose the opposite side.
+done.run('traffic[0].x=0;traffic[0].laneTarget=0;traffic[0].v60Cooldown=0;traffic[0].v60Think=0;');
+done.run('update(1/60)');
+assert(done.run('traffic[0].laneTarget')>0,'next independent center-lane choice alternates right');
+const rejected=load(file,{search:'?trafficAI=v60'});setup(rejected,'cruise');
+rejected.run('update(1/60)');
+rejected.run("traffic[1].x=traffic[0].laneTarget;traffic[1].laneTarget=traffic[1].x;traffic[1].z=traffic[0].z+1000;traffic[1].speed=190;traffic[1].targetSpeed=190;");
+for(let i=0;i<30;i++)rejected.run('update(1/60)');
+assert.equal(rejected.run('traffic[0].v60PassActive'),false);
+assert.equal(rejected.run('traffic[0].v66CompletedPasses||0'),0,'abort never counts as pass');
+assert.equal(rejected.run('traffic[0].v66LastCenterSide||0'),0,'abort never updates preference');
+assert.equal(rejected.run('traffic[0].v66PassOrigin'),null);
+
 const missing=load(file,{search:'?trafficAI=v60'});setup(missing,'cruise');
 missing.window.TaipeiTrafficAI=undefined;
 assert.equal(missing.run('trafficAI60Enabled()'),false,'missing bundle fails closed');

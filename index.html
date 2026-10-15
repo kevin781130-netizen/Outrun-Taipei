@@ -2665,7 +2665,8 @@ function stepTrafficAI60(car,index,dt,peers,trafficLimit){
     const previewEnd=Math.min(segments.length-1,seg+12);
     const input={
       allow:car.z>0&&car.z<Math.min(trafficLimit,(FORK_WARN-65)*SEGMENT_LENGTH)&&!car.near&&car.hitTimer<=0,
-      self:{id:index,x:car.x,z:car.z,speed:car.speed,halfWidth:trafficHalfWidth(car),laneTarget:car.laneTarget},
+      self:{id:index,x:car.x,z:car.z,speed:car.speed,halfWidth:trafficHalfWidth(car),
+        laneTarget:car.laneTarget,lastCenterSide:car.v66LastCenterSide||0},
       others:peers,
       corridors:[roadCorridors(seg),roadCorridors(previewEnd)],
       player:{z:playerZ+PLAYER_DEPTH},
@@ -2678,13 +2679,18 @@ function stepTrafficAI60(car,index,dt,peers,trafficLimit){
       const check=window.TaipeiTrafficAI.inspectLanePath({...input,target:car.laneTarget});
       if(!check.safe){
         car.laneTarget=car.x;car.v60PassActive=false;
+        car.v66PassOrigin=null;car.v66PassWasCenter=false;
         car.v60Cooldown=Math.max(car.v60Cooldown,1.2);
         car.v60LastVeto=check.reason;
       }
     }else{
       const intent=window.TaipeiTrafficAI.planLaneIntent(input);
       if(intent.action==='change'){
+        car.v66PassOrigin=car.x;
+        car.v66PassWasCenter=Math.abs(car.x-input.corridors[0][0].center)<.14;
         car.laneTarget=intent.target;car.v60Cooldown=intent.cooldown;
+        // The first ongoing hazard check starts in .16s, not the idle .4s.
+        car.v60Think=.16;
         car.v60PassActive=true;car.v60LastVeto=null;
       }
     }
@@ -2695,7 +2701,15 @@ function stepTrafficAI60(car,index,dt,peers,trafficLimit){
   }
   // Exponential damping is stable at 30, 60 and 120 simulation steps/second.
   car.x=lerp(car.x,car.laneTarget,1-Math.exp(-Math.max(0,dt)*1.15));
-  if(car.v60PassActive&&Math.abs(car.x-car.laneTarget)<.03)car.v60PassActive=false;
+  if(car.v60PassActive&&Math.abs(car.x-car.laneTarget)<.03){
+    car.v60PassActive=false;
+    if(car.v66PassWasCenter&&Number.isFinite(car.v66PassOrigin)){
+      car.v66LastCenterSide=Math.sign(car.laneTarget-car.v66PassOrigin);
+    }
+    car.v66CompletedPasses=Math.min(65535,(car.v66CompletedPasses||0)+1);
+    car.v66PassOrigin=null;car.v66PassWasCenter=false;
+    car.v60Cooldown=Math.max(car.v60Cooldown,window.TaipeiTrafficAI.RULES.settleSeconds);
+  }
 }
 
 
@@ -2892,7 +2906,11 @@ function update(dt){
       car.z=Math.min(playerZ+seededRange(22000,56000),trafficLimit);
       car.x=seededRange(-.65,.65)*roadFactor();car.laneTarget=seededRange(-.60,.60)*roadFactor();
       car.previousX=car.x;car.previousZ=car.z;car.near = false; car.screenBox = null; car.cp = null;
-      if(v60Preview){car.v60Think=0;car.v60Cooldown=0;car.v60PassActive=false;car.v60LastVeto=null;}
+      if(v60Preview){
+        car.v60Think=0;car.v60Cooldown=0;car.v60PassActive=false;car.v60LastVeto=null;
+        car.v66PassOrigin=null;car.v66PassWasCenter=false;
+        car.v66LastCenterSide=0;car.v66CompletedPasses=0;
+      }
     }
     if(dz > 2600) car.near = false;
   }

@@ -261,6 +261,22 @@ async function newPage(browser,base,query,viewport,errors){
   await perfPage.close();
   result.viewports.push({mode:'V64 opt-in performance monitor',frames:180,download:true,rankedIsolated:true});
 
+  // V66 check on the actual Chromium runtime (not an isolated math-only test).
+  const natural=await newPage(browser,base,'trafficAI=v60',desktop,result.errors);
+  await audit(natural,fixture('cruise'));
+  await tick(natural);
+  assert.equal(await audit(natural,'traffic[0].v60PassActive'),true);
+  await audit(natural,'traffic[0].x=traffic[0].laneTarget+.029;traffic[0].v60Think=.2;traffic[0].v60Cooldown=0;');
+  await tick(natural);
+  const completed=await audit(natural,'({passes:traffic[0].v66CompletedPasses,last:traffic[0].v66LastCenterSide,settle:traffic[0].v60Cooldown})');
+  assert.equal(completed.passes,1);assert.equal(completed.last,-1);
+  assert(completed.settle>=2,'browser post-pass settle');
+  await audit(natural,'traffic[0].x=0;traffic[0].laneTarget=0;traffic[0].v60Cooldown=0;traffic[0].v60Think=0;');
+  await tick(natural);
+  assert(await audit(natural,'traffic[0].laneTarget')>0,'browser alternate safe center direction');
+  await natural.close();
+  result.viewports.push({mode:'V66 completed-pass safe alternation',frames:3,passed:true});
+
   const safety=await newPage(browser,base,'trafficAI=v60',desktop,result.errors);
   await audit(safety,fixture('cruise',15000));
   await tick(safety);

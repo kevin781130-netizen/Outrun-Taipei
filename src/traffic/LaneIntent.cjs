@@ -4,7 +4,7 @@
 const RULES=Object.freeze({
   speedToWorld:18,closingKph:14,forwardLook:6500,rearLook:4000,
   decisionHorizon:2.5,frontGap:1300,rearGap:1300,lateralGap:.07,
-  roadMargin:.04,forkBuffer:4200,playerBuffer:8000,cooldownSeconds:3.2
+  roadMargin:.04,forkBuffer:4200,playerBuffer:8000,cooldownSeconds:3.2,settleSeconds:2.0
 });
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const number=(x,fallback)=>finite(x)?x:fallback;
@@ -96,11 +96,20 @@ function planLaneIntent(input){
     }
   }
   if(!leader||own.speed-leader.speed<RULES.closingKph)return hold('no-slow-leader');
+  // V66: alternate only the preference when BOTH adjacent lanes are clear.
+  // Safety always wins; one available path must never be rejected for fairness.
+  const candidates=[];
   for(const i of [current-1,current+1]){
     if(i<0||i>=lanes.length||!legal[i])continue;
     const target=lanes[i];
-    const safety=inspectLanePath({...input,target});
-    if(safety.safe)return {action:'change',target,reason:'safe-pass',cooldown:RULES.cooldownSeconds};
+    if(inspectLanePath({...input,target}).safe)candidates.push({index:i,target});
+  }
+  if(candidates.length){
+    // Remember a completed departure from the center lane, not a failed
+    // attempt or the return from an outside lane. No RNG, no ID bias.
+    const prefersRight=current===1&&own.lastCenterSide===-1;
+    const chosen=prefersRight&&candidates.length===2?candidates[1]:candidates[0];
+    return {action:'change',target:chosen.target,reason:'safe-pass',cooldown:RULES.cooldownSeconds};
   }
   return hold('adjacent-lanes-blocked');
 }
