@@ -6691,11 +6691,18 @@ function finishStageTransition(){
   const oldArt=v40Art();
   stageBlendPalette={sky:[...oldArt.sky],ground:[...oldArt.ground]};
   stageVisualBlend=1;
+  // The opt-in countersteer profile carries vehicle inertia across a district boundary.
+  // Only stage-local scenery, road data and traffic change: a route selection is not a crash.
+  // Keep the legacy profile's original reset for physics replay and leaderboard isolation.
+  const carryHandling=handlingProfile59;
+  const gripBeforeSwitch=roadGrip;
   playerX+=remainingCenter*roadFactor();
   distanceOffset+=STAGE_SWITCH*SEGMENT_LENGTH;
   setStage(tr.nextLevel,tr.nextColumn,false,tr.choice==='left'?'LEFT FLOW':'RIGHT FLOW',tr.choice,true);
   playerZ=Math.max(0,remainder);
-  playerX=clamp(playerX,-drivableHalf()*.85,drivableHalf()*.85);resetDrivingState();
+  playerX=clamp(playerX,-drivableHalf()*.85,drivableHalf()*.85);
+  if(carryHandling)roadGrip=gripBeforeSwitch;
+  else resetDrivingState();
   styleMessage('DISTRICT FLOW',tr.next.name+' · KEEP IT MOVING');
 }
 
