@@ -36,6 +36,11 @@ assert(cruise.run('traffic[0].laneTarget')<-.15,'slow lead car triggers safe int
 assert(cruise.run('traffic[0].v60Cooldown')>3,'cooldown stored only in opt-in preview');
 assert.equal(cruiseLegacy.run('traffic[0].v60Cooldown===undefined'),true);
 assert.equal(cruise.run('traffic[0].speed'),cruiseLegacy.run('traffic[0].speed'),'AI must not boost traffic');
+const previewVisual=cruise.run('v57SceneFrame().traffic[0].turnYawRad');
+assert(Number.isFinite(previewVisual)&&previewVisual>0&&previewVisual<=.16,
+  'opt-in lateral movement supplies bounded positive visual yaw without physics edits');
+assert.equal(cruiseLegacy.run("Object.hasOwn(v57SceneFrame().traffic[0],'turnYawRad')"),false,
+  'ordinary renderer receives no AI yaw property');
 for(let i=0;i<180;i++)cruise.run('update(1/60)');
 assert(cruise.run('traffic[0].x')<-.15,'traffic moves gradually into chosen lane');
 assert.equal(cruise.run('crashCount'),0,'no collision in distant controlled fixture');
