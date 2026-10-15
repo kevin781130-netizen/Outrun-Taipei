@@ -4957,6 +4957,7 @@ function seededRange(a,b){trafficSeed=(Math.imul(1664525,trafficSeed)+1013904223
 function resetDrivingState(){
  nitroPressPending=false;
  helperWasHeld=false;helperPulse=0;counterTime=0;neutralTime=0;draftLevel=0;v59LiftTime=0;
+ v59ChainHold=0;v59ChainPreparing=false;v59ChainBlend=1;
  driftRearmBlocked=false;driftState='grip';brakeHoldTime=0;brakeLoss=0;driftAge=0;driftCooldown=0;
  brakeEntry=0;brakeWasHeld=false;brakeVisual=0;driftAngle=0;yawRate=0;slipAngle=0;coastWindow=0;previousGas=false;
  isDrifting=false;driftDirection=0;cleanDriftTime=0;exitBoost=0;momentBoostWindow=0;momentBoostArmed=false;boostKick=0;shiftCutTimer=0;shiftPunch=0;lateralVelocity=0;slideTrails=[];chassisRoll=0;chassisPitch=0;visualLoad=0;
@@ -5027,20 +5028,23 @@ function v52OverspeedPush(speedNow,curve){
 // Select before race startup with ?handling=v59; no mid-race profile switches.
 const V59_HANDLING=Object.freeze({id:'v59-countersteer-1',recordSuffix:':H59.1'});
 const handlingProfile59=/(?:^|[?&])handling=v59(?:&|$)/.test(window.location?.search||'');
-if(handlingProfile59)document.title+=' · V59 反打測試';
+// Explicit opt-in avoids changing old V59 feel or historical records.
+const v59Chain2=handlingProfile59&&/(?:^|[?&])drift=chain2(?:&|$)/.test(window.location?.search||'');
+const V59_CHAIN2=Object.freeze({recordSuffix:':H59.2',counterHold:.11,yawGate:5.8,slipGate:3.8,blendSeconds:.19});
+if(handlingProfile59)document.title+=v59Chain2?' · V59 CHAIN2 連續反甩測試':' · V59 反打測試';
 // AI traffic is intentionally only available in cruise preview. Ranked modes stay unchanged.
 const trafficAI60Requested=/(?:^|[?&])trafficAI=v60(?:&|$)/.test(window.location?.search||'');
 if(trafficAI60Requested)document.title+=' · V60 車流試玩（巡航限定）';
 function trafficAI60Enabled(){return trafficAI60Requested&&v34Mode==='cruise'&&typeof window.TaipeiTrafficAI?.planLaneIntent==='function';}
 function trafficAI60RecordSuffix(){return trafficAI60Enabled()?':AI60':'';}
-let v59LiftTime=0;
-function handlingRecordSuffix59(){return handlingProfile59?V59_HANDLING.recordSuffix:'';}
+let v59LiftTime=0,v59ChainHold=0,v59ChainPreparing=false,v59ChainBlend=1;
+function handlingRecordSuffix59(){return !handlingProfile59?'':v59Chain2?V59_CHAIN2.recordSuffix:V59_HANDLING.recordSuffix;}
 function stepHandlingDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
  if(handlingProfile59)stepCountersteerDrift59(dt,brakeHeld,accelHeld,steerTarget,curve);
  else stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve);
 }
 function stepCountersteerDrift59(dt,brakeHeld,accelHeld,steerTarget,curve){
- if(!isDrifting)v59LiftTime=0;
+ if(!isDrifting){v59LiftTime=0;v59ChainHold=0;v59ChainPreparing=false;v59ChainBlend=1;}
  const helper=inputHeld('ShiftLeft')||inputHeld('ShiftRight')||gamepadInput.drift;
  if(helper&&!helperWasHeld&&!isDrifting&&speed>DRIFT51.entryMinSpeed&&driveGear==='D'&&motionDirection===1){helperPulse=.085;brakeEntry=.78;}
  helperWasHeld=helper;helperPulse=Math.max(0,helperPulse-dt);
@@ -5070,14 +5074,32 @@ function stepCountersteerDrift59(dt,brakeHeld,accelHeld,steerTarget,curve){
  const liftEntry=coastWindow>0&&Math.abs(curve)>.28&&Math.abs(curve)<2.55&&sign===Math.sign(curve)&&speed>100;
  if(driveGear==='D'&&motionDirection===1&&!isDrifting&&!driftRearmBlocked&&sign&&Math.abs(steer)>.10&&speed>DRIFT51.entryMinSpeed&&roadGrip>.8&&(brakeEntry>0||liftEntry)){
   isDrifting=true;driftDirection=sign;driftState='entry';driftAge=0;cleanDriftTime=0;counterTime=0;neutralTime=0;brakeEntry=0;coastWindow=0;
+  v59ChainHold=0;v59ChainPreparing=false;v59ChainBlend=1;
   styleMessage('V59 DRIFT','補油反打維持滑移 · 回正或放油收尾');
  }
  let targetYaw,targetSlip=0;
  if(isDrifting){
   driftAge+=dt;
-  const counter=sign!==0&&sign!==driftDirection,neutral=sign===0;
+  let counter=sign!==0&&sign!==driftDirection;
+  const neutral=sign===0;
   counterTime=counter?counterTime+dt:Math.max(0,counterTime-dt*3);
   neutralTime=neutral?neutralTime+dt:0;
+  // Sustained strong countersteer requests a new slide; brief/analog input only trims it.
+  // Change direction near zero yaw and slip, without resetting vehicle momentum.
+  const strongOpposite=v59Chain2&&counter&&Math.abs(steerTarget)>=.85&&accelHeld&&
+    !brakeHeld&&speed>90&&roadGrip>.8&&driftAge>.14&&driftState!=='recover';
+  if(strongOpposite)v59ChainHold+=dt;
+  else if(v59Chain2){
+    v59ChainHold=Math.max(0,v59ChainHold-dt*5);
+    v59ChainPreparing=false;
+  }
+  if(strongOpposite&&v59ChainHold>=V59_CHAIN2.counterHold)v59ChainPreparing=true;
+  if(v59ChainPreparing&&strongOpposite&&
+     Math.abs(driftAngle)<=V59_CHAIN2.yawGate&&Math.abs(slipAngle)<=V59_CHAIN2.slipGate){
+    driftDirection=sign;counter=false;counterTime=0;
+    v59ChainHold=0;v59ChainPreparing=false;v59ChainBlend=0;
+  }
+  if(v59Chain2&&v59ChainBlend<1)v59ChainBlend=Math.min(1,v59ChainBlend+dt/V59_CHAIN2.blendSeconds);
 
   // Independent V59 model: throttle balances countersteer instead of a timer ending the slide.
   // Lift and neutral steering deliberately recover; counter input alone never flips the slide.
@@ -5103,8 +5125,9 @@ function stepCountersteerDrift59(dt,brakeHeld,accelHeld,steerTarget,curve){
    const correction=clamp(-steer*driftDirection,0,1);
    const yawTrim=counter?lerp(1,.52,correction):neutral?.78:1;
    const slipTrim=counter?lerp(1,.66,correction):neutral?.78:1;
-   targetYaw=driftDirection*yawFull*entryEase*yawTrim;
-   targetSlip=driftDirection*slipFull*entryEase*slipTrim;
+   const chainScale=v59ChainPreparing?0:(v59Chain2?v59ChainBlend:1);
+   targetYaw=driftDirection*yawFull*entryEase*yawTrim*chainScale;
+   targetSlip=driftDirection*slipFull*entryEase*slipTrim*chainScale;
   }
  }else{
   targetYaw=steer*(5.5+ratio*4.5);
