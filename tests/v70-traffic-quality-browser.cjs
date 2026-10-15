@@ -51,15 +51,29 @@ async function different(a,b){
    await page.addInitScript(()=>{window.requestAnimationFrame=()=>0;});
    await page.goto('http://127.0.0.1:'+server.address().port+'/?trafficAI=v60',{waitUntil:'load'});
    await page.waitForFunction(()=>window.v56ThreeStatus?.().loaded,{timeout:20000});
-   await audit(page,`(()=>{
+   // Locate an actually visible near-field vehicle using the same Three.js
+   // occlusion/projected-body query that authorizes game collisions. Merely
+   // having an eligible road position does not mean the body is on screen.
+   const placement=await audit(page,`(()=>{
      v34Mode='cruise';setStage(...Object.values(routeForId('${route}')),false);
      gameStarted=true;raceActive=true;paused=false;gameOver=false;inRadioScreen=false;
      playerX=0;playerZ=1000;speed=0;timeLeft=999999;collisionCooldown=999999;
      const c=traffic[0];traffic=[c];c.x=0;c.laneTarget=0;
-     c.z=playerZ+PLAYER_DEPTH+18*SEGMENT_LENGTH;c.previousX=0;c.previousZ=c.z;
      c.speed=0;c.targetSpeed=0;c.near=false;c.hitTimer=0;
-     window.__v70Frame=v57SceneFrame();
+     for(const ahead of [6,8,10,12,15,18,24,30]){
+       c.z=playerZ+PLAYER_DEPTH+ahead*SEGMENT_LENGTH;
+       c.previousX=c.x;c.previousZ=c.z;
+       const frame=v57SceneFrame();
+       v56Scene.render(frame,0,canvas.width,canvas.height,graphicsQuality);
+       const visible=v56Scene.prepareTrafficVisibility(frame,W,H);
+       if(visible.some(box=>box.sourceIndex===0)){
+         window.__v70Frame=frame;
+         return {ahead,boxes:visible.length};
+       }
+     }
+     return {ahead:null,boxes:0};
    })()`);
+   assert(placement.ahead!==null,route+' must place a visible 3D body before comparing pixels');
    const meta=await audit(page,`({route:currentNode.id,archetype:currentNode.archetype,
       flag:window.__v70Frame.trafficVisual70,eligible:window.__v70Frame.traffic[0].eligible,
       distance:window.__v70Frame.traffic[0].distance,deck:Math.max(...window.__v70Frame.deckHeights)})`);
@@ -75,18 +89,23 @@ async function different(a,b){
    await render(false);
    const restored=await canvas.screenshot({type:'png',animations:'disabled'});
    const compare=await different(baseline,enhanced),reset=await different(baseline,restored);
-   // Geometry must be observably more detailed, yet affect only a small visible
-   // car region, not change the road/camera/terrain or mutate simulation state.
-   assert(compare.changed>15,route+' styling must visibly modify the real WebGL image');
-   assert(compare.share<.08,route+' details must not repaint the whole scene');
-   assert(reset.share<.005,route+' opting out restores almost exactly baseline pixels');
+   // Retain the actual evidence before enforcing quality thresholds.
    for(const [kind,data] of [['legacy',baseline],['v70',enhanced],['restored',restored]]){
     const name=`v70-${route}-${width}-${kind}.png`;
     fs.writeFileSync(path.join(OUT,name),data);
     report.captures.push({file:name,bytes:data.length,sha256:hash(data)});
    }
    report.comparisons.push({route,archetype:meta.archetype,viewport:[width,height],
-    changedPixels:compare.changed,affectedShare:compare.share,restoreDifferenceShare:reset.share});
+    visibleAtSegments:placement.ahead,changedPixels:compare.changed,
+    affectedShare:compare.share,restoreDifferenceShare:reset.share});
+   fs.writeFileSync(path.join(OUT,'manifest.json'),JSON.stringify(report,null,2));
+   console.log('V70 '+route+' distance='+placement.ahead+
+    ' changed='+compare.changed+' share='+compare.share.toFixed(6)+' reset='+reset.share.toFixed(6));
+   // Geometry must be observably more detailed, yet affect only a small visible
+   // car region, not change the road/camera/terrain or mutate simulation state.
+   assert(compare.changed>15,route+' styling must visibly modify the real WebGL image');
+   assert(compare.share<.08,route+' details must not repaint the whole scene');
+   assert(reset.share<.005,route+' opting out restores almost exactly baseline pixels');
    await page.close();
   }
   assert.deepEqual(report.errors,[],'no JavaScript or browser errors');
