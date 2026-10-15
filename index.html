@@ -2676,11 +2676,12 @@ function trafficIntentInput60(car,index,peers,trafficLimit,cooldown){
 function planTrafficQueue67(peers,trafficLimit,dt){
   const plans=new Map();
   if(!peers)return plans;
-  const candidates=[];
+  const candidates=[],peerById=[];
   for(const peer of peers){
+    peerById[peer.id]=peer;
     const car=traffic[peer.id];
     if(!car||car.v60PassActive||!(car.v60Think<=dt||car.v60Think==null)||
-      Math.abs(car.x-car.laneTarget)>=.14)continue;
+      Math.abs(car.x-car.laneTarget)>=.14||((car.v60Cooldown||0)>dt))continue;
     candidates.push({id:peer.id,x:car.x,z:car.z,speed:car.speed,wait:car.v67WaitRounds||0});
   }
   for(const id of window.TaipeiTrafficAI.orderLaneRequests(candidates)){
@@ -2690,7 +2691,7 @@ function planTrafficQueue67(peers,trafficLimit,dt){
     plans.set(id,intent);
     if(intent.action==='change'){
       // Future peer decisions see the winner's complete reserved lateral path.
-      const peer=peers.find(item=>item.id===id);
+      const peer=peerById[id];
       if(peer){peer.passActive=true;peer.laneTarget=intent.target;}
     }
   }
