@@ -2831,7 +2831,8 @@ function stepTrafficAI60(car,index,dt,peers,trafficLimit){
   // V60 original clean-room preview. Build a single pre-update snapshot so
   // vehicle decisions never depend on array iteration or a partially updated car.
   const v60Preview=trafficAI60Enabled();
-  const v60Peers=v60Preview?traffic.map((car,id)=>({id,x:car.x,z:car.z,speed:car.speed,halfWidth:trafficHalfWidth(car)})):null;
+  const v60NeedsDecision=v60Preview&&traffic.some(car=>(car.v60Think||0)<=dt&&Math.abs(car.x-car.laneTarget)<.14);
+  const v60Peers=v60NeedsDecision?traffic.map((car,id)=>({id,x:car.x,z:car.z,speed:car.speed,halfWidth:trafficHalfWidth(car)})):null;
   // Traffic updates
   const trafficLimit = (FORK_WARN - 28) * SEGMENT_LENGTH;
   for(let index=0;index<traffic.length;index++){
