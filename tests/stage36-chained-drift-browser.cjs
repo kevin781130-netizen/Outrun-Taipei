@@ -59,6 +59,32 @@ async function main(){
    await page.keyboard.up(first);await page.keyboard.up('KeyW');
    report.checks.push(side>0?'right-left-right keyboard + WebGL':'left-right-left keyboard + WebGL');
   }
+  // CHAIN3 uses a separate URL. Verify the real browser presents no gear
+  // actions while keeping Taipei WebGL, keyboard steering and custom nitro.
+  const kart=await browser.newPage({viewport:{width:1280,height:800}});
+  kart.on('pageerror',e=>report.errors.push('CHAIN3 '+e.message));
+  await kart.addInitScript(()=>{window.requestAnimationFrame=()=>0;});
+  await kart.goto('http://127.0.0.1:'+server.address().port+'/?handling=v59&drift=chain3');
+  await kart.waitForFunction(()=>window.v56ThreeStatus?.().loaded,{timeout:20000});
+  const ka=expr=>kart.evaluate(s=>window.__chainTestEval(s),expr);
+  assert(await ka('v59Arcade3&&v59Chain2&&bestRecordKey().endsWith(":H59.3")'));
+  assert(await kart.locator('#btn-drive').evaluate(el=>getComputedStyle(el).display==='none'));
+  assert(await kart.locator('#btn-gear').evaluate(el=>getComputedStyle(el).display==='none'));
+  await ka('render(0)');
+  assert((await kart.evaluate(()=>window.v56ThreeStatus())).ready,'CHAIN3 Taipei WebGL active');
+  await ka("v34Mode='cruise';selectedRoute=routeForId('1A');resetGame();gameStarted=true;raceActive=true;paused=false;gameOver=false;inRadioScreen=false;traffic=[];collisionCooldown=100;timeLeft=9999;playerZ=180*SEGMENT_LENGTH;speed=182;currentGear='HIGH';roadGrip=1");
+  await kart.keyboard.down('KeyW');await kart.keyboard.down('ArrowRight');await kart.keyboard.down('ShiftLeft');
+  await ka('for(let i=0;i<25;i++)update(1/60)');
+  const early=await ka('({active:isDrifting,driftDirection,charge:driftChargeRate,nitro,gear:currentGear})');
+  assert(early.active&&early.driftDirection===1&&early.charge>0,'CHAIN3 must enter real drift and charge');
+  await kart.keyboard.up('ShiftLeft');
+  await ka('for(let i=0;i<50;i++)update(1/60)');
+  const held=await ka('({x:playerX,charge:driftChargeRate,nitro,gear:currentGear,speed})');
+  assert(held.nitro>early.nitro,'CHAIN3 must charge during held slide');
+  assert.equal(held.gear,'HIGH','gearless handling cannot change gear');
+  await kart.keyboard.up('ArrowRight');await kart.keyboard.up('KeyW');
+  report.checks.push('CHAIN3 gearless UI + WebGL + held-slide charging');
+  await kart.close();
   assert.deepEqual(report.errors,[],'no browser page errors');
   report.status='passed';
   console.log('CHAIN2 Chromium PASS: '+report.checks.join('; '));
