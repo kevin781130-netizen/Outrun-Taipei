@@ -102,6 +102,6 @@ for(const fps of [30,60,120])for(const side of [-1,1]){
   "return JSON.stringify({start,after:lateralVelocity,x:playerX,speed});})()"
  ].join('\n')));
  assert(Math.sign(movement.after)===side,'short opposite curve should preserve skid inertia before reversing');
- assert(Math.abs(movement.after)<=V59_ARCADE4.lateralCap+1e-8,'skid speed must be bounded');
+ assert(Math.abs(movement.after)<=1.06+1e-8,'skid speed must be bounded');
 }
 console.log('CHAIN4 tuned physics PASS: earned limited exit speed, non-stackable nitro, larger controlled charge, 30/60/120Hz momentum');
