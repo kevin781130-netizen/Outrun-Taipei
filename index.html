@@ -4995,7 +4995,7 @@ function seededRange(a,b){trafficSeed=(Math.imul(1664525,trafficSeed)+1013904223
 function resetDrivingState(){
  nitroPressPending=false;
  helperWasHeld=false;helperPulse=0;counterTime=0;neutralTime=0;draftLevel=0;v59LiftTime=0;
- v59ChainHold=0;v59ChainPreparing=false;v59ChainBlend=1;v59Arcade4PeakSlip=0;v59Arcade4ExitTimer=0;v59Arcade5Steer=0;v59Arcade5CornerLoad=0;
+ v59ChainHold=0;v59ChainPreparing=false;v59ChainBlend=1;v59Arcade4PeakSlip=0;v59Arcade4ExitTimer=0;v59Arcade5Steer=0;v59Arcade5CornerLoad=0;v59Arcade6Regrip=0;
  driftRearmBlocked=false;driftState='grip';brakeHoldTime=0;brakeLoss=0;driftAge=0;driftCooldown=0;
  brakeEntry=0;brakeWasHeld=false;brakeVisual=0;driftAngle=0;yawRate=0;slipAngle=0;coastWindow=0;previousGas=false;
  isDrifting=false;driftDirection=0;cleanDriftTime=0;exitBoost=0;momentBoostWindow=0;momentBoostArmed=false;boostKick=0;shiftCutTimer=0;shiftPunch=0;lateralVelocity=0;slideTrails=[];chassisRoll=0;chassisPitch=0;visualLoad=0;
@@ -5067,7 +5067,8 @@ function v52OverspeedPush(speedNow,curve){
 const V59_HANDLING=Object.freeze({id:'v59-countersteer-1',recordSuffix:':H59.1'});
 const handlingProfile59=/(?:^|[?&])handling=v59(?:&|$)/.test(window.location?.search||'');
 // Explicit opt-in avoids changing old V59 feel or historical records.
-const v59Arcade5=handlingProfile59&&/(?:^|[?&])drift=chain5(?:&|$)/.test(window.location?.search||'');
+const v59Arcade6=handlingProfile59&&/(?:^|[?&])drift=chain6(?:&|$)/.test(window.location?.search||'');
+const v59Arcade5=handlingProfile59&&(/(?:^|[?&])drift=chain5(?:&|$)/.test(window.location?.search||'')||v59Arcade6);
 const v59Arcade4=handlingProfile59&&(/(?:^|[?&])drift=chain4(?:&|$)/.test(window.location?.search||'')||v59Arcade5);
 const v59Arcade3=handlingProfile59&&(/(?:^|[?&])drift=chain3(?:&|$)/.test(window.location?.search||'')||v59Arcade4);
 const v59Chain2=handlingProfile59&&(/(?:^|[?&])drift=chain2(?:&|$)/.test(window.location?.search||'')||v59Arcade3);
@@ -5099,7 +5100,15 @@ const V59_ARCADE5=Object.freeze({
  cornerPush:.28,cornerAuthorityLoss:.25,cornerDragExtra:.90,
  exitSeconds:.42,exitForce:21
 });
-if(handlingProfile59)document.title+=v59Arcade5?' · CHAIN5 街機反打與壓彎試玩':v59Arcade4?' · CHAIN4 慣性卡漂／出彎回速試玩':v59Arcade3?' · CHAIN3 卡漂集氣試玩':v59Chain2?' · V59 CHAIN2 連續反甩測試':' · V59 反打測試';
+// CHAIN6 is an independent Taipei test profile: wheel regrip has a short
+// physical settling period after slide exit, but cannot bypass lane bounds.
+const V59_ARCADE6=Object.freeze({
+ recordSuffix:':H59.6',regripSeconds:.29,regripResponse:3.8,
+ regripAuthority:.12,regripMinimumSpeed:90,
+ chargeRampStart:.06,chargeRampSeconds:.30,chargeRampFloor:.35,
+ handoffChargePenalty:.84
+});
+if(handlingProfile59)document.title+=v59Arcade6?' · CHAIN6 出彎回正／持續卡漂試玩':v59Arcade5?' · CHAIN5 街機反打與壓彎試玩':v59Arcade4?' · CHAIN4 慣性卡漂／出彎回速試玩':v59Arcade3?' · CHAIN3 卡漂集氣試玩':v59Chain2?' · V59 CHAIN2 連續反甩測試':' · V59 反打測試';
 // AI traffic is intentionally only available in cruise preview. Ranked modes stay unchanged.
 const trafficAI60Requested=/(?:^|[?&])trafficAI=v60(?:&|$)/.test(window.location?.search||'');
 if(trafficAI60Requested)document.title+=' · V60 車流試玩（巡航限定）';
@@ -5107,7 +5116,15 @@ function trafficAI60Enabled(){return trafficAI60Requested&&v34Mode==='cruise'&&t
 function trafficAI60RecordSuffix(){return trafficAI60Enabled()?':AI60':'';}
 let v59LiftTime=0,v59ChainHold=0,v59ChainPreparing=false,v59ChainBlend=1;
 let v59Arcade4PeakSlip=0,v59Arcade4ExitTimer=0;
-let v59Arcade5Steer=0,v59Arcade5CornerLoad=0;
+let v59Arcade5Steer=0,v59Arcade5CornerLoad=0,v59Arcade6Regrip=0;
+function v59Arcade6Charge(slip,speedNow,curve,age,preparing){
+ const ready=clamp((age-V59_ARCADE6.chargeRampStart)/V59_ARCADE6.chargeRampSeconds,0,1);
+ const ramp=V59_ARCADE6.chargeRampFloor+(1-V59_ARCADE6.chargeRampFloor)*ready;
+ // No duplicate bonus during a left/right handoff. Mini-slides still gain,
+ // sustained physical slides earn more through the existing angle-based rule.
+ return v59Arcade4Charge(slip,speedNow,curve,age,preparing)*ramp*
+   (preparing?V59_ARCADE6.handoffChargePenalty:1);
+}
 function v59Arcade5Intent(raw,dt){
  const entered=Math.abs(v59Arcade5Steer)>=V59_ARCADE5.steerExit;
  const threshold=entered?V59_ARCADE5.steerExit:V59_ARCADE5.steerEnter;
@@ -5120,7 +5137,7 @@ function v59Arcade5Pressure(speedNow,curve){
  if(Math.abs(curve)<.30)return 0;
  return clamp((speedNow-v59Arcade3CornerSafe(curve))/V59_ARCADE5.cornerPressRange,0,1)*clamp(Math.abs(curve)/2,0,1);
 }
-function handlingRecordSuffix59(){return !handlingProfile59?'':v59Arcade5?V59_ARCADE5.recordSuffix:v59Arcade4?V59_ARCADE4.recordSuffix:v59Arcade3?V59_ARCADE3.recordSuffix:v59Chain2?V59_CHAIN2.recordSuffix:V59_HANDLING.recordSuffix;}
+function handlingRecordSuffix59(){return !handlingProfile59?'':v59Arcade6?V59_ARCADE6.recordSuffix:v59Arcade5?V59_ARCADE5.recordSuffix:v59Arcade4?V59_ARCADE4.recordSuffix:v59Arcade3?V59_ARCADE3.recordSuffix:v59Chain2?V59_CHAIN2.recordSuffix:V59_HANDLING.recordSuffix;}
 function stepHandlingDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
  if(handlingProfile59)stepCountersteerDrift59(dt,brakeHeld,accelHeld,v59Arcade5?v59Arcade5Intent(steerTarget,dt):steerTarget,curve);
  else stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve);
