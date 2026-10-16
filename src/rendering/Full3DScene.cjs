@@ -199,6 +199,7 @@ function createFull3DScene(THREE,canvas) {
  const doc=canvas.ownerDocument||(typeof document!=='undefined'?document:null);
  const wayfinding=createRaceWayfinding(THREE,scene,sampleRoadPoint,streetOffset,doc);
  const landmarks=createTaipeiLandmarks(THREE,scene,sampleRoadPoint,streetOffset);
+ let routeWarmFrames=0;
  const environment=createRaceEnvironment(THREE,scene,sampleRoadPoint,streetOffset,doc);
  const signs=TAIPEI_SIGNS.map((text,i)=>{
   const texture=createSignTexture(THREE,text,SIGN_COLORS[i],doc);if(texture)textures.push(texture);
@@ -503,6 +504,10 @@ function createFull3DScene(THREE,canvas) {
   effects.update(frame,Math.max(0,dt),quality,camera,car);
   if(frame.crash){const smoke=car.root.getObjectByName('V57_DriftSmoke');if(smoke)smoke.visible=false;}
   renderer.render(scene,camera);
+  // Warm at most one next-route low-poly asset every eight frames.
+  // Scene switching should not compile every landmark at the same instant.
+  if(frame.nextRouteId && (++routeWarmFrames%8)===0)
+   with3DOnlyRandom(()=>landmarks.prewarmRoute(frame.nextRouteId));
   canvas.style.visibility='visible';ready=true;return true;
  }
  function dispose(){
@@ -512,6 +517,7 @@ function createFull3DScene(THREE,canvas) {
   crashChase.dispose();wayfinding.dispose();landmarks.dispose();environment.dispose();effects.dispose();car.dispose();for(const t of textures)t.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
   renderer.dispose();
  }
- return {render,dispose,prepareTrafficVisibility,get ready(){return ready&&!lost&&active},get contextLost(){return lost}};
+ return {render,dispose,prepareTrafficVisibility,get ready(){return ready&&!lost&&active},get contextLost(){return lost},
+  get landmarkWarmCount(){return landmarks.warmCount;},get readyWarmRoutes(){return landmarks.readyRoutes;}};
 }
 module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,createChaseRig,updateChaseRig,streetOffset,TAIPEI_SIGNS};
