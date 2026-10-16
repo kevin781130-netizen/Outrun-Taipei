@@ -511,6 +511,8 @@ function createFull3DScene(THREE,canvas) {
    if(phase===0)with3DOnlyRandom(()=>landmarks.prewarmRoute(frame.nextRouteId));
    else if(phase===4&&frame.nextRaceSigns)
     with3DOnlyRandom(()=>wayfinding.prewarmRoute(frame.nextRouteId,frame.nextRaceSigns));
+   else if(phase===6&&frame.gpuRoutePrewarm)
+    with3DOnlyRandom(()=>wayfinding.prewarmTextureGPU(renderer));
   }
   canvas.style.visibility='visible';ready=true;return true;
  }
