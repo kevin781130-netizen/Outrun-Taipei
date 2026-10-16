@@ -46,7 +46,9 @@ const stats=x=>{const a=[...x].sort((a,b)=>a-b);return {meanMs:x.reduce((s,n)=>s
    }
   });
   await page.goto('http://127.0.0.1:'+server.address().port+'/',{waitUntil:'load'});
-  await page.waitForFunction(()=>window.v56ThreeStatus?.().ready,{timeout:20000});
+  await page.waitForFunction(()=>window.v56ThreeStatus?.().loaded,{timeout:20000});
+  await page.evaluate(()=>window.__perfAudit('render(0)'));
+  assert.equal(await page.evaluate(()=>window.v56ThreeStatus?.().ready),true,'WebGL starts after first manual render');
   const runs=[];
   for(let index=0;index<routes.length;index++){
    const route=routes[index];
