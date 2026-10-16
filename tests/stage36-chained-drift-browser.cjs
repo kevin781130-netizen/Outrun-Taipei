@@ -61,16 +61,17 @@ async function main(){
   }
   // CHAIN3 uses a separate URL. Verify the real browser presents no gear
   // actions while keeping Taipei WebGL, keyboard steering and custom nitro.
-  for(const profile of ['chain3','chain4','chain5']){
+  for(const profile of ['chain3','chain4','chain5','chain6']){
   const kart=await browser.newPage({viewport:{width:1280,height:800}});
   kart.on('pageerror',e=>report.errors.push(profile+' '+e.message));
   await kart.addInitScript(()=>{window.requestAnimationFrame=()=>0;});
   await kart.goto('http://127.0.0.1:'+server.address().port+'/?handling=v59&drift='+profile);
   await kart.waitForFunction(()=>window.v56ThreeStatus?.().loaded,{timeout:20000});
   const ka=expr=>kart.evaluate(s=>window.__chainTestEval(s),expr);
-  assert(await ka('v59Arcade3&&v59Chain2&&bestRecordKey().endsWith(":'+(profile==='chain5'?'H59.5':profile==='chain4'?'H59.4':'H59.3')+'")'));
-  if(profile==='chain4'||profile==='chain5')assert(await ka('v59Arcade4'));
-  if(profile==='chain5')assert(await ka('v59Arcade5'));
+  assert(await ka('v59Arcade3&&v59Chain2&&bestRecordKey().endsWith(":'+(profile==='chain6'?'H59.6':profile==='chain5'?'H59.5':profile==='chain4'?'H59.4':'H59.3')+'")'));
+  if(['chain4','chain5','chain6'].includes(profile))assert(await ka('v59Arcade4'));
+  if(['chain5','chain6'].includes(profile))assert(await ka('v59Arcade5'));
+  if(profile==='chain6')assert(await ka('v59Arcade6'));
   assert(await kart.locator('#btn-drive').evaluate(el=>getComputedStyle(el).display==='none'));
   assert(await kart.locator('#btn-gear').evaluate(el=>getComputedStyle(el).display==='none'));
   await ka('render(0)');
