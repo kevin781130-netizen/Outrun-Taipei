@@ -6,7 +6,7 @@ const {load}=require('./canvas-harness.cjs');
 const html=path.resolve(__dirname,'../index.html');
 
 function driveAcrossBoundary(profile,choice,side){
-  const game=load(html,{search:['chain2','chain3','chain4'].includes(profile)?'?handling=v59&drift='+profile:profile==='v59'?'?handling=v59':''});
+  const game=load(html,{search:['chain2','chain3','chain4','chain5'].includes(profile)?'?handling=v59&drift='+profile:profile==='v59'?'?handling=v59':''});
   return JSON.parse(game.run(`(()=>{
     v34Mode='arcade';
     setStage(0,0,false);
@@ -55,12 +55,12 @@ for(const choice of ['left','right'])for(const side of [-1,1]){
   assert(chain.profile&&chain.continues&&chain.identity);
   assert.equal(chain.next,v.next,'CHAIN2 must use exactly the same Taipei route');
   assert.deepEqual(chain.before,chain.after,'CHAIN2 must preserve drift and boost through fork');
-  for(const profile of ['chain3','chain4']){
+  for(const profile of ['chain3','chain4','chain5']){
     const tuned=driveAcrossBoundary(profile,choice,side);
     assert(tuned.profile&&tuned.continues&&tuned.identity,profile+' must continue through district change');
     assert.equal(tuned.next,v.next,profile+' must retain the exact Taipei route');
     assert.deepEqual(tuned.before,tuned.after,profile+' must retain yaw, slip, inertia, combo, boost and earned exit state');
-    if(profile==='chain4')assert(tuned.after.peak===16&&tuned.after.exitTimer===.21);
+    if(profile==='chain4'||profile==='chain5')assert(tuned.after.peak===16&&tuned.after.exitTimer===.21);
   }
   const legacy=driveAcrossBoundary('legacy',choice,side);
   assert(!legacy.profile);
