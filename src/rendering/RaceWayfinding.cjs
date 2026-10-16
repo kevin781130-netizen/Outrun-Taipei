@@ -2,10 +2,10 @@
 // Physical start/finish/distance/fork boards restored from the 2D race data.
 function createRaceWayfinding(T,scene,sample,offset,doc){
  let signature='',boards=[],disposed=false;
- let warmKey='',warmSigns=[],warmTextures=[];
+ let warmKey='',warmSigns=[],warmTextures=[],warmUploaded=new Set();
  const clearWarm=()=>{
   for(const texture of warmTextures)texture?.dispose();
-  warmTextures=[];warmSigns=[];warmKey='';
+  warmTextures=[];warmSigns=[];warmKey='';warmUploaded.clear();
  };
  function prewarmRoute(routeId,signs){
   if(disposed||!routeId||!Array.isArray(signs)||!signs.length)return false;
@@ -17,6 +17,16 @@ function createRaceWayfinding(T,scene,sample,offset,doc){
   const i=warmTextures.findIndex(t=>!t);
   if(i<0)return false;
   warmTextures[i]=textureFor(warmSigns[i]);
+  return true;
+ }
+ function prewarmTextureGPU(renderer){
+  // GPU upload consumes only one already-rasterized future sign per idle tick.
+  // Legacy unit mocks may not expose WebGLRenderer.initTexture; skip safely.
+  if(disposed||!renderer||typeof renderer.initTexture!=='function')return false;
+  const index=warmTextures.findIndex((t,i)=>t&&!warmUploaded.has(i));
+  if(index<0)return false;
+  renderer.initTexture(warmTextures[index]);
+  warmUploaded.add(index);
   return true;
  }
  const box=new T.BoxGeometry(1,1,1),plane=new T.PlaneGeometry(1,1);
@@ -48,7 +58,7 @@ function createRaceWayfinding(T,scene,sample,offset,doc){
    if(prepared){
     // Claimed textures are now owned by active boards; clear only leftovers.
     for(const tex of warmTextures)if(tex&&!boards.some(b=>b.texture===tex))tex.dispose();
-    warmTextures=[];warmSigns=[];warmKey='';
+    warmTextures=[];warmSigns=[];warmKey='';warmUploaded.clear();
    }
   }
   for(const b of boards){const d=b.sign.seg-frame.segment;b.group.visible=d>-4&&d<123;if(!b.group.visible)continue;
@@ -60,6 +70,6 @@ function createRaceWayfinding(T,scene,sample,offset,doc){
    b.crossbar.position.x=(left+right)/2;b.crossbar.scale.set(right-left,.3,.3);
   }
  }
- return {update,prewarmRoute,dispose(){if(disposed)return;disposed=true;clear();clearWarm();box.dispose();plane.dispose();frameMaterial.dispose();},get warmRemaining(){return warmTextures.filter(t=>!t).length;}};
+ return {update,prewarmRoute,prewarmTextureGPU,dispose(){if(disposed)return;disposed=true;clear();clearWarm();box.dispose();plane.dispose();frameMaterial.dispose();},get warmRemaining(){return warmTextures.filter(t=>!t).length;}};
 }
 module.exports={createRaceWayfinding};
