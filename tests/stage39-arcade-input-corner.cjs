@@ -138,7 +138,7 @@ for(const fps of [30,60,120])for(const side of [-1,1]){
  const straight=corner(fps,0,'chain5',side);
  assert(ch5.load>.18,'hard high-speed corner must build steering load: '+JSON.stringify({fps,side,ch5}));
  assert(ch5.speed<straight.speed-7,'high-speed bend must cost meaningful speed');
- assert(ch5.speed<ch4.speed-2,'CHAIN5 corner scrub must be stronger than CHAIN4');
+ assert(ch5.speed<ch4.speed-2,'CHAIN5 corner scrub vs CHAIN4: '+JSON.stringify({fps,side,ch5Speed:ch5.speed,ch4Speed:ch4.speed,load:ch5.load}));
  assert(ch5.x*side<ch4.x*side+.02,'overspeed should challenge the player with measurable outward pressure');
  assert(ch5.samples.every(x=>Number.isFinite(x.speed)&&Number.isFinite(x.x)&&Number.isFinite(x.load)));
  for(let i=1;i<ch5.samples.length;i++){
