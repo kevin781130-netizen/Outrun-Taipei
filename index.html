@@ -5214,7 +5214,9 @@ function stepCountersteerDrift59(dt,brakeHeld,accelHeld,steerTarget,curve){
       // No reward on mid-slide left↔right transfers; only actual drift exit.
       v59Arcade4ExitTimer=v59Arcade5?V59_ARCADE5.exitSeconds:V59_ARCADE4.exitSeconds;
      }
-     if(cleanDriftTime>.30&&roadGrip>.8&&!brakeHeld){
+     if(cleanDriftTime>.30&&roadGrip>.8&&!brakeHeld&&
+       (!v59Arcade6||cleanDriftTime>=V59_ARCADE4.minimumSlide&&
+        v59Arcade4PeakSlip>=V59_ARCADE4.minimumSlip)){
       momentBoostWindow=Math.max(momentBoostWindow,DRIFT51.momentWindow);momentBoostArmed=!accelHeld;
       styleMessage('MOMENT BOOST READY','反打收尾 · 放油再補油觸發小噴');
      }
