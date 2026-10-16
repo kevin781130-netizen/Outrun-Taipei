@@ -1,7 +1,7 @@
 'use strict';
 // Presentation only: no random calls, wall clock, or writes to driving physics.
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-function createEffectState(){return {time:0,speed:0,smoke:0,boost:0};}
+function createEffectState(){return {time:0,speed:0,smoke:0,boost:0,side:0};}
 function updateEffectState(state,frame,dt){
  if(!Number.isFinite(dt)||dt<0)throw new TypeError('nonnegative effect dt required');
  if(dt===0)return state;
@@ -9,10 +9,13 @@ function updateEffectState(state,frame,dt){
  const speed=Math.max(0,Number(frame.speedKmh)||0),drive=frame.driving||{};
  const boost=frame.boosting===true?1:0;
  const smoke=drive.isDrifting&&speed>55?clamp((Math.abs(drive.slipAngleDeg||0)-3)/15,0,1):0;
+ // The lateral smoke direction comes from existing handling output only.
+ const side=smoke>0?Math.sign(Number(drive.driftDirection)||Number(drive.slipAngleDeg)||0):0;
  state.time+=step;
  state.speed+=(clamp((speed-170)/155,0,1)-state.speed)*blend;
  state.smoke+=(smoke-state.smoke)*blend;
  state.boost+=(boost-state.boost)*blend;
+ state.side+=(side-state.side)*blend;
  return state;
 }
 function createDrivingEffects(THREE){
@@ -40,8 +43,11 @@ function createDrivingEffects(THREE){
   smokeMaterial.opacity=state.smoke*.17;
   for(let i=0;i<count;i++){
    const phase=(state.time*1.15+i/count)%1,side=i%2?1:-1;
-   dummy.position.set(side*(.88+phase*.45),.25+phase*.6,1.18+phase*2.3);
-   dummy.rotation.set(0,0,0);const size=.12+phase*.4;
+   // Wind-swept rear-wheel haze: larger slip spreads the plume sideways;
+   // speed carries the visible puffs further aft without any new GPU objects.
+   const sweep=state.side*state.smoke*phase*.85;
+   dummy.position.set(side*(.94+phase*.31)+sweep,.20+phase*.58,1.18+phase*(1.55+state.speed*.8));
+   dummy.rotation.set(0,0,0);const size=(.12+phase*.38)*(1+state.smoke*.22);
    dummy.scale.set(size,size*.75,size);dummy.updateMatrix();smoke.setMatrixAt(i,dummy.matrix);
   }
   smoke.instanceMatrix.needsUpdate=true;
