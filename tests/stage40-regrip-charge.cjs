@@ -63,6 +63,20 @@ function impulse(profile,fps,side,condition='clean'){
   "return JSON.stringify({before,first:series[0],last:series.at(-1),series});})()"
  ].join('\n'));
 }
+const visual=read('chain6', [
+ "(()=>{resetGame();isDrifting=false;driftState='grip';driftAngle=0;slipAngle=0;",
+ "lateralVelocity=.60;v59Arcade6Regrip=.29;const first=v51DriftVisualYaw();",
+ "v59Arcade6Regrip=.145;const half=v51DriftVisualYaw();",
+ "v59Arcade6Regrip=0;const end=v51DriftVisualYaw();",
+ "lateralVelocity=-.60;v59Arcade6Regrip=.29;const mirror=v51DriftVisualYaw();",
+ "return JSON.stringify({first,half,end,mirror});})()"
+].join('\\n'));
+assert(visual.first>4&&visual.first<7.5,'the rear should show a short, visible sideways slide after exit');
+assert(Math.abs(visual.half-visual.first/2)<1e-8&&visual.end===0,'visual yaw must fade with physical regrip');
+assert(Math.abs(visual.mirror+visual.first)<1e-8,'remaining visual angle must be directionally symmetric');
+assert(read('chain5','JSON.stringify({yaw:v51DriftVisualYaw(),on:v59Arcade6})').on===false,
+ 'older profile must not use CHAIN6 visuals');
+
 for(const fps of [30,60,120])for(const side of [-1,1]){
  const next=impulse('chain6',fps,side),legacy=impulse('chain5',fps,side);
  assert(Math.sign(next.first.v)===side&&Math.sign(next.first.x)===side,'no instant direction reversal on regrip');
