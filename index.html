@@ -3005,7 +3005,7 @@ function updateHUD(){
   
   if(v34Mode!=='arcade'){ document.getElementById('hud-route-label').textContent=v34Mode==='cruise'?'自由巡航 · T 切換路段':`單段計時 · ${raceElapsed.toFixed(2)} s`; routeStatus.textContent=v34Mode==='cruise'?'無倒數 · 自由試車 · 按 T 選路段':`個人紀錄 ${getBestTime()} · 無分岔，通過終點完成計時`; }
   else if(isDrafting) routeStatus.textContent=`尾流加速 · 上限 ${COMPETITION.topSpeed} KM/H（氮氣 ${COMPETITION.boostSpeed}）`;
-  else if(playerZ/SEGMENT_LENGTH<FORK_WARN&&!stageTransition) routeStatus.textContent=`${autoGear?'AT 自排':'MT 手排'} · ${driveGear} / ${currentGear} · Shift 滑行集氣 · Z → A 氮氣`;
+  else if(playerZ/SEGMENT_LENGTH<FORK_WARN&&!stageTransition) routeStatus.textContent=v59Arcade3?'CHAIN3 · 免換檔 · 小飄小集氣／大飄大集氣 · N 氮氣':`${autoGear?'AT 自排':'MT 手排'} · ${driveGear} / ${currentGear} · Shift 滑行集氣 · Z → A 氮氣`;
   updateV39HUD();drawTachometer();
 }
 
@@ -5340,8 +5340,8 @@ function drawSlideTrails(){
  ctx.restore();
 }
 
-function bestRecordKey(id=currentNode.id){return `${id}:${autoGear?'AT':'MT'}:${dipSettings.difficulty}:${COMPETITION.version}${handlingRecordSuffix59()}${trafficAI60RecordSuffix()}${inputRecordSuffix1()}`;}
-function arcadeBoardKey(){return `${autoGear?'AT':'MT'}:${dipSettings.difficulty}:${dipSettings.time}:${COMPETITION.version}${handlingRecordSuffix59()}${inputRecordSuffix1()}`;}
+function bestRecordKey(id=currentNode.id){return `${id}:${v59Arcade3||autoGear?'AT':'MT'}:${dipSettings.difficulty}:${COMPETITION.version}${handlingRecordSuffix59()}${trafficAI60RecordSuffix()}${inputRecordSuffix1()}`;}
+function arcadeBoardKey(){return `${v59Arcade3||autoGear?'AT':'MT'}:${dipSettings.difficulty}:${dipSettings.time}:${COMPETITION.version}${handlingRecordSuffix59()}${inputRecordSuffix1()}`;}
 
 // Street identity persists across the entire segment, instead of vanishing after the opening.
 const SCENES={
@@ -6570,7 +6570,7 @@ function updateGaragePreview(){
   const t=readGarageInputs(),p=tunedProfile(t);
   tuningHpDisp.textContent=`音色 ${t.powerBalance}/10 · 性能 +0`; 
   wanganCardInfo.textContent=`${p.name} · 獨立改裝存檔 · 已完成 ${driverStats.runs} 場`;
-  document.getElementById('garage-stats').textContent=`全車統一：${COMPETITION.topSpeed} KM/H ｜ 氮氣 ${COMPETITION.boostSpeed} KM/H・${NITRO_RULES.duration.toFixed(2)} s ｜ 高速加速漸緩（極速需長直線與好出彎）`;
+  document.getElementById('garage-stats').textContent=v59Arcade3?`CHAIN3：巡航約 ${V59_ARCADE3.cruiseMax} · 氮氣衝刺約 ${V59_ARCADE3.boostSoftLimit} KM/H · 免換檔 · 過彎掉速`: `全車統一：${COMPETITION.topSpeed} KM/H ｜ 氮氣 ${COMPETITION.boostSpeed} KM/H・${NITRO_RULES.duration.toFixed(2)} s ｜ 高速加速漸緩（極速需長直線與好出彎）`;
   const cv=document.getElementById('garage-preview'),c=cv.getContext('2d');c.clearRect(0,0,640,150);
   c.fillStyle='#071222';c.fillRect(0,0,640,150);
   c.strokeStyle='#1d4054';c.lineWidth=1;for(let y=85;y<150;y+=15){c.beginPath();c.moveTo(0,y);c.lineTo(640,y);c.stroke();}
@@ -6718,7 +6718,7 @@ function updateV39HUD(){
  const sc=scene(),state={grip:'GRIP 循跡',brake:'BRAKE 重心前移',armed:'READY 點煞・切彎',entry:'TURN IN 入彎',drift:'DRIFT 補油控線',recover:'EXIT 反打收尾'}[driftState];
  document.getElementById('street-name').textContent=`${currentNode.id} / ${sc.label}`;
  document.getElementById('street-detail').textContent=`${currentNode.id==='2B'?'高架橋面 · ':''}${sc.lanes} 線道 · ${routeReality().grade==='real-anchor'?'實景核心':'實景錨點＋街機壓縮'} · ${v59Arcade3?'免換檔・甩尾集氣':autoGear?'AT 自排':'MT 手排'}`;
- hudStage.textContent=sc.label;document.getElementById('drive-state').textContent=driveGear==='R'?'R 倒退 · A 回前進':boosting&&isDrifting?`BOOST DRIFT · 同步集氣 ${Math.round(nitro)}%`:boosting?`NITRO ${COMPETITION.boostSpeed} · ${boostRemaining.toFixed(1)} 秒 · 庫存 ${nitroStock}`:roadGrip<.8?'OFF ROAD 回到路面':state;
+ hudStage.textContent=sc.label;document.getElementById('drive-state').textContent=v59Arcade3&&isDrifting?`卡漂 · 集氣 ${Math.round(driftChargeRate)}%/s · ${Math.round(nitro)}%`:driveGear==='R'?'R 倒退 · A 回前進':boosting&&isDrifting?`BOOST DRIFT · 同步集氣 ${Math.round(nitro)}%`:boosting?`NITRO ${COMPETITION.boostSpeed} · ${boostRemaining.toFixed(1)} 秒 · 庫存 ${nitroStock}`:roadGrip<.8?'OFF ROAD 回到路面':state;
  const brake=inputHeld('ArrowDown')||inputHeld('KeyS')||gamepadInput.brake||helperPulse>0;
  const gas=(inputHeld('ArrowUp')||inputHeld('KeyW')||gamepadInput.gas||nitroLatch)&&!brake;
  document.getElementById('gas-fill').style.width=gas?'100%':'0';document.getElementById('brake-fill').style.width=brake?'100%':'0';
