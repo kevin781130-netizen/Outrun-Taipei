@@ -506,8 +506,12 @@ function createFull3DScene(THREE,canvas) {
   renderer.render(scene,camera);
   // Warm at most one next-route low-poly asset every eight frames.
   // Scene switching should not compile every landmark at the same instant.
-  if(frame.nextRouteId && (++routeWarmFrames%8)===0)
-   with3DOnlyRandom(()=>landmarks.prewarmRoute(frame.nextRouteId));
+  if(frame.nextRouteId){
+   const phase=(++routeWarmFrames%8);
+   if(phase===0)with3DOnlyRandom(()=>landmarks.prewarmRoute(frame.nextRouteId));
+   else if(phase===4&&frame.nextRaceSigns)
+    with3DOnlyRandom(()=>wayfinding.prewarmRoute(frame.nextRouteId,frame.nextRaceSigns));
+  }
   canvas.style.visibility='visible';ready=true;return true;
  }
  function dispose(){
