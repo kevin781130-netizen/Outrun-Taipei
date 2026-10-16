@@ -3011,7 +3011,7 @@ function updateHUD(){
   
   if(v34Mode!=='arcade'){ document.getElementById('hud-route-label').textContent=v34Mode==='cruise'?'自由巡航 · T 切換路段':`單段計時 · ${raceElapsed.toFixed(2)} s`; routeStatus.textContent=v34Mode==='cruise'?'無倒數 · 自由試車 · 按 T 選路段':`個人紀錄 ${getBestTime()} · 無分岔，通過終點完成計時`; }
   else if(isDrafting) routeStatus.textContent=`尾流加速 · 上限 ${COMPETITION.topSpeed} KM/H（氮氣 ${COMPETITION.boostSpeed}）`;
-  else if(playerZ/SEGMENT_LENGTH<FORK_WARN&&!stageTransition) routeStatus.textContent=v59Arcade4?'CHAIN4 · 慣性卡漂 · 控速入彎 · 出彎回速':v59Arcade3?'CHAIN3 · 免換檔 · 小飄小集氣／大飄大集氣 · N 氮氣':`${autoGear?'AT 自排':'MT 手排'} · ${driveGear} / ${currentGear} · Shift 滑行集氣 · Z → A 氮氣`;
+  else if(playerZ/SEGMENT_LENGTH<FORK_WARN&&!stageTransition) routeStatus.textContent=v59Arcade5?'CHAIN5 · 街機方向重量感 · 壓彎入線 · 反甩平順':v59Arcade4?'CHAIN4 · 慣性卡漂 · 控速入彎 · 出彎回速':v59Arcade3?'CHAIN3 · 免換檔 · 小飄小集氣／大飄大集氣 · N 氮氣':`${autoGear?'AT 自排':'MT 手排'} · ${driveGear} / ${currentGear} · Shift 滑行集氣 · Z → A 氮氣`;
   updateV39HUD();drawTachometer();
 }
 
@@ -5386,6 +5386,13 @@ function playerVisualTransform(){const p=v51DriftVisualPose();return {yaw:p.yaw,
 function stepArcadeMotionChain3(dt,curve,accelHeld=true,brakeHeld=false){
  const ratio=clamp(speed/COMPETITION.topSpeed,0,1.1),safe=v59Arcade3?v59Arcade3CornerSafe(curve):v52SafeCornerSpeed(curve),excess=Math.max(0,speed-safe);
  const profile=v51SteeringProfile(speed,isDrifting);
+ // Remember corner pressure instead of changing traction abruptly at the apex.
+ if(v59Arcade5){
+   const target=v59Arcade5Pressure(speed,curve);
+   const response=target>v59Arcade5CornerLoad?V59_ARCADE5.cornerPressRise:V59_ARCADE5.cornerPressFall;
+   v59Arcade5CornerLoad=lerp(v59Arcade5CornerLoad,target,1-Math.exp(-dt*response));
+ }
+ const cornerLoad=v59Arcade5?v59Arcade5CornerLoad:0;
  const liftGrip=!isDrifting&&!accelHeld&&!brakeHeld?profile.liftGrip:1;
  const frontGrip=clamp((1-excess/(v59Arcade3?135:210))*liftGrip,v59Arcade3?.48:.68,1.24);
  const curveDemand=clamp(Math.abs(curve)/1.8,0,1);
@@ -5396,15 +5403,17 @@ function stepArcadeMotionChain3(dt,curve,accelHeld=true,brakeHeld=false){
  const brakeRotation=!isDrifting&&brakeHeld?steer*profile.brakeRotation:0;
  const matchingCurve=Math.sign(steer)===Math.sign(curve)?Math.min(Math.abs(curve),2.4):0;
  const turnInBite=!isDrifting?steer*matchingCurve*V51_HANDLING.turnInBite*(.35+.65*ratio):0;
- const turn=Math.min(1,speed/30)*(yawTurn+steer*baseAuthority+brakeRotation+turnInBite)*(isDrifting?1:frontGrip);
- const outward=curve*.032*ratio*ratio+(isDrifting?0:v52OverspeedPush(speed,curve));
+ const turn=Math.min(1,speed/30)*(yawTurn+steer*baseAuthority+brakeRotation+turnInBite)*(isDrifting?1:frontGrip)*
+   (v59Arcade5?(1-cornerLoad*V59_ARCADE5.cornerAuthorityLoss*(isDrifting?.32:1)):1);
+ const outward=curve*.032*ratio*ratio+(isDrifting?0:v52OverspeedPush(speed,curve))+
+   (v59Arcade5?Math.sign(curve)*cornerLoad*V59_ARCADE5.cornerPush*(isDrifting?.40:1):0);
  // CHAIN3: physical slip retains lateral movement through long slides. Existing
  // road-edge collisions bound and penalize overuse, not a frictionless teleport.
  const slideCarry=v59Arcade3&&isDrifting&&driftState!=='recover'?
-   Math.sin(slipAngle*Math.PI/180)*(v59Arcade4?V59_ARCADE4.sideCarry:V59_ARCADE3.sideCarry)*(.65+.45*ratio):0;
+   Math.sin(slipAngle*Math.PI/180)*(v59Arcade5?V59_ARCADE5.sideCarry:v59Arcade4?V59_ARCADE4.sideCarry:V59_ARCADE3.sideCarry)*(.65+.45*ratio):0;
  const curveOverspeed=v59Arcade4&&!isDrifting&&excess>12?Math.sign(curve)*Math.min(.21,(excess-12)*.0024)*curveDemand:0;
  lateralVelocity=lerp(lateralVelocity,turn+slideCarry-outward-curveOverspeed,
-   1-Math.exp(-dt*(v59Arcade4&&isDrifting?V59_ARCADE4.sideResponse:
+   1-Math.exp(-dt*(v59Arcade5&&isDrifting?V59_ARCADE5.sideResponse:v59Arcade4&&isDrifting?V59_ARCADE4.sideResponse:
      v59Arcade3&&isDrifting?V59_ARCADE3.sideResponse:
      isDrifting?DRIFT51.driftLateralResponse:17.6)));
  if(v59Arcade4&&isDrifting)lateralVelocity=clamp(lateralVelocity,-V59_ARCADE4.lateralCap,V59_ARCADE4.lateralCap);
@@ -5429,6 +5438,7 @@ function stepArcadeMotionChain3(dt,curve,accelHeld=true,brakeHeld=false){
       Math.abs(curve)*V59_ARCADE3.driftCurveDrag):(.32+Math.abs(slipAngle)*.011))*dt);
  if(excess>0&&Math.abs(curve)>.8)speed=Math.max(0,speed-excess*
    (v59Arcade4?V59_ARCADE4.cornerDrag*(isDrifting?.78:1):v59Arcade3?V59_ARCADE3.cornerDrag*(isDrifting?.72:1):isDrifting?.012:V52_CORNER.scrubGrip)*dt);
+ if(v59Arcade5&&excess>0)speed=Math.max(0,speed-cornerLoad*V59_ARCADE5.cornerDragExtra*excess*dt);
 }
 function drawSlideTrails(){
  ctx.save();ctx.lineCap='round';
@@ -6754,7 +6764,7 @@ function updateDrivingHUD(){
   for(let i=idx+5;i<Math.min(segments.length,idx+lookahead);i++)if(Math.abs(segments[i].curve)>Math.abs(strongest))strongest=segments[i].curve;
   const magnitude=Math.abs(strongest),entry=Math.round(v59Arcade3?v59Arcade3CornerSafe(strongest):v52SafeCornerSpeed(strongest));
   document.getElementById('corner-name').textContent=magnitude<.55?'↑ 前方直線':`${strongest>0?'↗ 右':'↖ 左'}${magnitude>3?'急彎':magnitude>1.5?'中彎':'緩彎'}`;
-  document.getElementById('corner-speed').textContent=magnitude<.55?'保持油門 · 注意車流':`建議入彎 ${entry} KM/H · ${speed>entry+15?'先減速':'保持路線'}`;
+  document.getElementById('corner-speed').textContent=magnitude<.55?'保持油門 · 注意車流':v59Arcade5&&speed>entry+20?`⚠ 建議 ${entry} KM/H · 超速易推頭／磨速`:`建議入彎 ${entry} KM/H · ${speed>entry+15?'先減速':'保持路線'}`;
   document.getElementById('drive-state').textContent=isDrifting?`DRIFT · ${driftTime.toFixed(1)} s · x${styleCombo.toFixed(1)}`:boosting?'NITRO · 氮氣推進':exitBoost>0?'MOMENT BOOST · 小噴':momentBoostWindow>0?'MOMENT READY · 放油再補油':roadGrip<.8?'OFF ROAD · 回到路面':'GRIP · 循跡中';
 }
 const radioActions=document.getElementById('radio-actions');
