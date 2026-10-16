@@ -4317,6 +4317,24 @@ function v58RaceSigns(){
  if(v34Mode==='arcade'&&stageLevel<4){const n=nextNodes();signs.push({kind:'fork',seg:FORK_WARN,label:'← '+n.left.id+' / '+n.right.id+' →',detail:n.left.name+' ／ '+n.right.name});}
  return signs;
 }
+// Match the next Taipei district's entry signs without changing gameplay.
+function v59ArcadeRouteSigns(level,column){
+ const node=STAGES[level][column],layout=routeLayout(level,column);
+ const target={index:level===4?layout.FINISH_LINE:layout.FORK_START-52,
+  zh:level===4?'終點':'檢查站',en:level===4?'GOAL':'CHECK POINT'};
+ const signs=[{kind:'start',seg:26,label:'TAIPEI / 台北出發',detail:node.id+' · '+SCENES[node.id].label}];
+ for(const meters of V52_FLOW.approachMeters){
+  const index=target.index-Math.round(meters/SEGMENT_METERS);
+  if(index>20)signs.push({kind:'distance',seg:index,label:target.zh+' '+meters+' M',detail:target.en});
+ }
+ signs.push({kind:'finish',seg:target.index,label:target.zh,detail:target.en});
+ if(level<4){
+  const left=STAGES[level+1][column],right=STAGES[level+1][column+1];
+  signs.push({kind:'fork',seg:layout.FORK_WARN,label:'← '+left.id+' / '+right.id+' →',
+   detail:left.name+' ／ '+right.name});
+ }
+ return signs;
+}
 function v57SceneFrame(){
   const visualPlayerZ=playerZ+PLAYER_DEPTH;
   const first=Math.max(0,Math.floor(visualPlayerZ/SEGMENT_LENGTH));
@@ -4355,6 +4373,8 @@ function v57SceneFrame(){
     routeId:currentNode.id,raceSigns:v58RaceSigns(),
     nextRouteId:v34Mode==='arcade'&&stageLevel<4&&(choiceLocked||stageTransition)
       ?(stageTransition?.next.id||nextNodes()?.[pendingChoice]?.id):null,
+    nextRouteSigns:v34Mode==='arcade'&&stageLevel<4&&(choiceLocked||stageTransition)
+      ?v59ArcadeRouteSigns(stageLevel+1,stageColumn+((stageTransition?.choice||pendingChoice)==='right'?1:0)):null,
     skyColors:skyMood==='sunset'?v40Art().sky:scene().night,
     groundColor:v40Art().ground[0],mountainColor:v40Art().mountain,
     landmarks:landmarkTimeline().map((h,modelIndex)=>({id:h.id,modelIndex,name:h.name,seg:h.seg,side:h.side,heightWorld:h.heightWorld,groundDrop:h.groundDrop})),

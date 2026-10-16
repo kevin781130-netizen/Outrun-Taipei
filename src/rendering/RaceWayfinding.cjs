@@ -2,9 +2,10 @@
 // Physical start/finish/distance/fork boards restored from the 2D race data.
 function createRaceWayfinding(T,scene,sample,offset,doc){
  let signature='',boards=[],disposed=false;
+ const prepared=new Map();let previewKeys=new Set();
  const box=new T.BoxGeometry(1,1,1),plane=new T.PlaneGeometry(1,1);
  const frameMaterial=new T.MeshStandardMaterial({color:0xb9c8c5,roughness:.65,metalness:.3});
- const clear=()=>{for(const b of boards){scene.remove(b.group);b.texture?.dispose();b.material.dispose();}boards=[];};
+ const clear=()=>{for(const b of boards)scene.remove(b.group);boards=[];};
  function textureFor(sign){
   if(!doc?.createElement)return null;
   const c=doc.createElement('canvas');c.width=1024;c.height=256;const g=c.getContext('2d');if(!g)return null;
@@ -14,17 +15,48 @@ function createRaceWayfinding(T,scene,sample,offset,doc){
   write(sign.label,90,66);write(sign.detail||'',180,46);
   const t=new T.CanvasTexture(c);t.encoding=T.sRGBEncoding;return t;
  }
+
+ function signKey(routeId,sign){return JSON.stringify([routeId||'',sign]);}
+ function resourceFor(routeId,sign){
+  const key=signKey(routeId,sign);
+  if(!prepared.has(key)){
+   const texture=textureFor(sign);
+   const material=new T.MeshBasicMaterial({map:texture,color:texture?0xffffff:0x12664d,side:T.DoubleSide});
+   prepared.set(key,{texture,material});
+  }
+  return {key,...prepared.get(key)};
+ }
+ function trim(){
+  const keep=new Set([...boards.map(b=>b.key),...previewKeys]);
+  for(const [key,res] of prepared){
+   if(keep.has(key))continue;
+   res.texture?.dispose();res.material.dispose();prepared.delete(key);
+  }
+ }
+ // One new future district sign per advancing render frame.
+ function prewarm(routeId,signs,upload){
+  if(disposed)return false;
+  const source=routeId&&Array.isArray(signs)?signs:[];
+  previewKeys=new Set(source.map(s=>signKey(routeId,s)));
+  const missing=source.find(s=>!prepared.has(signKey(routeId,s)));
+  if(missing){
+   const {texture}=resourceFor(routeId,missing);
+   if(texture&&typeof upload==='function')upload(texture);
+   trim();return true;
+  }
+  trim();return false;
+ }
  function update(frame,points){
   if(disposed)return;
   const source=frame.raceSigns||[],key=(frame.routeId||'')+JSON.stringify(source);
   if(key!==signature){clear();signature=key;for(const sign of source){
-   const texture=textureFor(sign),material=new T.MeshBasicMaterial({map:texture,color:texture?0xffffff:0x12664d,side:T.DoubleSide});
+   const {key:signKeyId,material}=resourceFor(frame.routeId,sign);
    const group=new T.Group();group.name='RaceBoard_'+sign.kind+'_'+sign.seg;
    const face=new T.Mesh(plane,material);face.position.y=6.3;face.scale.set(12,3,1);group.add(face);
    const posts=[-1,1].map(()=>{const m=new T.Mesh(box,frameMaterial);group.add(m);return m;});
    const crossbar=new T.Mesh(box,frameMaterial);crossbar.position.y=8;group.add(crossbar);
-   scene.add(group);boards.push({group,posts,crossbar,texture,material,sign});
-  }}
+   scene.add(group);boards.push({group,posts,crossbar,key:signKeyId,sign});
+  }trim();}
   for(const b of boards){const d=b.sign.seg-frame.segment;b.group.visible=d>-4&&d<123;if(!b.group.visible)continue;
    const at=sample(points,d),i=Math.max(0,Math.min(124,Math.floor(d)));
    const lanes=(frame.corridors||[]).slice(Math.max(0,i-2),i+3).flat();
@@ -34,6 +66,6 @@ function createRaceWayfinding(T,scene,sample,offset,doc){
    b.crossbar.position.x=(left+right)/2;b.crossbar.scale.set(right-left,.3,.3);
   }
  }
- return {update,dispose(){if(disposed)return;disposed=true;clear();box.dispose();plane.dispose();frameMaterial.dispose();}};
+ return {update,prewarm,dispose(){if(disposed)return;disposed=true;clear();previewKeys.clear();trim();box.dispose();plane.dispose();frameMaterial.dispose();},get preparedSigns(){return prepared.size;}};
 }
 module.exports={createRaceWayfinding};
