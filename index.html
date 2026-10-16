@@ -5175,6 +5175,7 @@ function stepCountersteerDrift59(dt,brakeHeld,accelHeld,steerTarget,curve){
   isDrifting=true;driftDirection=sign;driftState='entry';driftAge=0;cleanDriftTime=0;counterTime=0;neutralTime=0;brakeEntry=0;coastWindow=0;
   v59ChainHold=0;v59ChainPreparing=false;v59ChainBlend=1;
   if(v59Arcade4){v59Arcade4PeakSlip=0;v59Arcade4ExitTimer=0;}
+  if(v59Arcade6)v59Arcade6Regrip=0;
   styleMessage('V59 DRIFT','補油反打維持滑移 · 回正或放油收尾');
  }
  let targetYaw,targetSlip=0;
@@ -5217,6 +5218,12 @@ function stepCountersteerDrift59(dt,brakeHeld,accelHeld,steerTarget,curve){
       momentBoostWindow=Math.max(momentBoostWindow,DRIFT51.momentWindow);momentBoostArmed=!accelHeld;
       styleMessage('MOMENT BOOST READY','反打收尾 · 放油再補油觸發小噴');
      }
+    if(v59Arcade6){
+      // Regrip is a short physical transition, not a nitro or score bonus.
+      // Brake/off-road/low speed exits deliberately regain normal steering.
+      v59Arcade6Regrip=!brakeHeld&&roadGrip>.8&&speed>V59_ARCADE6.regripMinimumSpeed?
+        V59_ARCADE6.regripSeconds:0;
+    }
     isDrifting=false;driftState='grip';driftDirection=0;cleanDriftTime=0;counterTime=0;neutralTime=0;
    }
   }else{
@@ -5254,7 +5261,8 @@ function stepCountersteerDrift59(dt,brakeHeld,accelHeld,steerTarget,curve){
   cleanDriftTime+=dt;driftTime+=dt;styleIdle=0;styleBank+=speed*dt*(nitroRequested?1.55:1.35);
   const slipSkill=clamp((Math.abs(slipAngle)-1.5)/8,.72,1.22),speedSkill=.88+clamp(speed/COMPETITION.topSpeed,0,1)*.26;
   const throttleFactor=accelHeld?1:.78,chargeFactor=nitroRequested?1:1;
-  driftChargeRate=v59Arcade4?v59Arcade4Charge(slipAngle,speed,curve,driftAge,v59ChainPreparing)*throttleFactor:
+  driftChargeRate=v59Arcade6?v59Arcade6Charge(slipAngle,speed,curve,driftAge,v59ChainPreparing)*throttleFactor:
+     v59Arcade4?v59Arcade4Charge(slipAngle,speed,curve,driftAge,v59ChainPreparing)*throttleFactor:
      v59Arcade3?v59Arcade3Charge(slipAngle,speed,curve)*throttleFactor:
      COMPETITION.nitroCharge*chargeFactor*throttleFactor*slipSkill*speedSkill;
  }
@@ -5410,6 +5418,10 @@ function stepArcadeMotionChain3(dt,curve,accelHeld=true,brakeHeld=false){
    v59Arcade5CornerLoad=lerp(v59Arcade5CornerLoad,target,1-Math.exp(-dt*response));
  }
  const cornerLoad=v59Arcade5?v59Arcade5CornerLoad:0;
+ if(v59Arcade6&&(brakeHeld||roadGrip<.8||speed<V59_ARCADE6.regripMinimumSpeed))
+   v59Arcade6Regrip=0;
+ const regrip=v59Arcade6&&!isDrifting?
+   clamp(v59Arcade6Regrip/V59_ARCADE6.regripSeconds,0,1):0;
  const liftGrip=!isDrifting&&!accelHeld&&!brakeHeld?profile.liftGrip:1;
  const frontGrip=clamp((1-excess/(v59Arcade3?135:210))*liftGrip,v59Arcade3?.48:.68,1.24);
  const curveDemand=clamp(Math.abs(curve)/1.8,0,1);
@@ -5421,7 +5433,8 @@ function stepArcadeMotionChain3(dt,curve,accelHeld=true,brakeHeld=false){
  const matchingCurve=Math.sign(steer)===Math.sign(curve)?Math.min(Math.abs(curve),2.4):0;
  const turnInBite=!isDrifting?steer*matchingCurve*V51_HANDLING.turnInBite*(.35+.65*ratio):0;
  const turn=Math.min(1,speed/30)*(yawTurn+steer*baseAuthority+brakeRotation+turnInBite)*(isDrifting?1:frontGrip)*
-   (v59Arcade5?(1-cornerLoad*V59_ARCADE5.cornerAuthorityLoss*(isDrifting?.32:1)):1);
+   (v59Arcade5?(1-cornerLoad*V59_ARCADE5.cornerAuthorityLoss*(isDrifting?.32:1)):1)*
+   (1-regrip*V59_ARCADE6.regripAuthority);
  const outward=curve*.032*ratio*ratio+(isDrifting?0:v52OverspeedPush(speed,curve))+
    (v59Arcade5?Math.sign(curve)*cornerLoad*V59_ARCADE5.cornerPush*(isDrifting?.40:1):0);
  // CHAIN3: physical slip retains lateral movement through long slides. Existing
@@ -5432,7 +5445,7 @@ function stepArcadeMotionChain3(dt,curve,accelHeld=true,brakeHeld=false){
  lateralVelocity=lerp(lateralVelocity,turn+slideCarry-outward-curveOverspeed,
    1-Math.exp(-dt*(v59Arcade5&&isDrifting?V59_ARCADE5.sideResponse:v59Arcade4&&isDrifting?V59_ARCADE4.sideResponse:
      v59Arcade3&&isDrifting?V59_ARCADE3.sideResponse:
-     isDrifting?DRIFT51.driftLateralResponse:17.6)));
+     isDrifting?DRIFT51.driftLateralResponse:lerp(17.6,V59_ARCADE6.regripResponse,regrip))));
  if(v59Arcade4&&isDrifting)lateralVelocity=clamp(lateralVelocity,-V59_ARCADE4.lateralCap,V59_ARCADE4.lateralCap);
  const idx=clamp(Math.floor(playerZ/SEGMENT_LENGTH),0,Math.max(0,segments.length-1)),corridors=roadCorridors(idx);
  const lane=corridors.reduce((best,q)=>Math.abs(playerX-q.center)<Math.abs(playerX-best.center)?q:best,corridors[0]||{center:0,half:roadFactor()});
@@ -5443,6 +5456,7 @@ function stepArcadeMotionChain3(dt,curve,accelHeld=true,brakeHeld=false){
    lateralVelocity*=Math.max(.72,1-dt*(2.2+shoulderDamp*5.2));
  }
  playerX+=lateralVelocity*dt*motionDirection;
+ if(v59Arcade6)v59Arcade6Regrip=Math.max(0,v59Arcade6Regrip-dt);
  visualLoad=lerp(visualLoad,brakeHeld?1.08:accelHeld?-.42:0,1-Math.exp(-dt*10));
  const targetRoll=clamp(-(steer*.72+lateralVelocity*.40)*(2.3+ratio*2.2),-V51_HANDLING.chassisRollMax,V51_HANDLING.chassisRollMax);
  const targetPitch=clamp(visualLoad*V51_HANDLING.chassisPitchMax,-V51_HANDLING.chassisPitchMax,V51_HANDLING.chassisPitchMax);
