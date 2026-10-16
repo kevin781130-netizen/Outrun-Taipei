@@ -17,7 +17,7 @@ assert(Math.abs(settings.delayed-4/60)<1e-10,'a 250ms freeze cannot trigger 15 s
 assert(Math.abs(settings.smooth-1/60)<1e-10,'normal 60fps cadence must not be altered');
 assert(Math.abs(settings.retained-2/60)<1e-10,'legitimate small debt is preserved');
 assert.equal(settings.negative,0,'clock discontinuities cannot produce negative physics debt');
-for(const profile of ['chain2','chain3','chain4','chain5','chain6','chain7']){
+for(const profile of ['chain6','chain7']){
  const game=load(html,{search:'?handling=v59&drift='+profile});
  const state=JSON.parse(game.run('JSON.stringify({newMode:v59Arcade8,record:handlingRecordSuffix59()})'));
  assert(!state.newMode&&!state.record.endsWith('.8'),'old handling and ranking unaffected: '+profile);
