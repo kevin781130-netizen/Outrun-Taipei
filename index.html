@@ -5409,16 +5409,16 @@ function stepArcadeMotion(dt,curve,accelHeld=true,brakeHeld=false){
  if(isDrifting&&driftState!=='recover')speed=Math.max(0,speed-(.32+Math.abs(slipAngle)*.011)*dt);
  if(excess>0&&Math.abs(curve)>.8)speed=Math.max(0,speed-excess*(isDrifting?.012:V52_CORNER.scrubGrip)*dt);
 }
+function playerVisualTransform(){
+ const p=v51DriftVisualPose(),yaw=v59Arcade6TrailingVisualYaw(p.yaw);
+ return {yaw,travelYaw:driftAngle-slipAngle,mode:'rigid-3d-sideways',scaleX:p.scaleX,
+  shearX:0,offsetX:p.offsetX,intensity:Math.max(p.intensity,v59Arcade6&&v59Arcade6Regrip>0?clamp((Math.abs(yaw)-3)/22,0,.25):0)};
+}
 function v59Arcade6TrailingVisualYaw(baseYaw){
  if(!v59Arcade6||isDrifting||driftState==='recover'||v59Arcade6Regrip<=0)return baseYaw;
  const blend=clamp(v59Arcade6Regrip/V59_ARCADE6.regripSeconds,0,1);
  const trailingYaw=clamp(lateralVelocity*10,-7.5,7.5)*blend;
  return clamp(baseYaw+trailingYaw,-DRIFT51.maxBodyYaw,DRIFT51.maxBodyYaw);
-}
-function playerVisualTransform(){
- const p=v51DriftVisualPose(),yaw=v59Arcade6TrailingVisualYaw(p.yaw);
- return {yaw,travelYaw:driftAngle-slipAngle,mode:'rigid-3d-sideways',scaleX:p.scaleX,
-  shearX:0,offsetX:p.offsetX,intensity:Math.max(p.intensity,v59Arcade6&&v59Arcade6Regrip>0?clamp((Math.abs(yaw)-3)/22,0,.25):0)};
 }
 function stepArcadeMotionChain3(dt,curve,accelHeld=true,brakeHeld=false){
  const ratio=clamp(speed/COMPETITION.topSpeed,0,1.1),safe=v59Arcade3?v59Arcade3CornerSafe(curve):v52SafeCornerSpeed(curve),excess=Math.max(0,speed-safe);
