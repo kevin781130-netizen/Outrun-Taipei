@@ -1,0 +1,68 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const vendor=fs.readFileSync(path.resolve(__dirname,'../assets/vendor/three-r149.min.js'),'utf8');
+const context={};vm.runInNewContext(vendor,context,{timeout:5000});
+const THREE=context.THREE;
+const {createTaipeiLandmarks,ROUTE_MODELS}=require('../src/rendering/TaipeiLandmarks.cjs');
+const {previewPoints,sampleRoadPoint,streetOffset}=require('../src/rendering/Full3DScene.cjs');
+assert(ROUTE_MODELS['2A'].length>=2&&ROUTE_MODELS['2B'].length>=1);
+const scene=new THREE.Scene(),world=createTaipeiLandmarks(THREE,scene,sampleRoadPoint,streetOffset);
+assert.equal(world.warmCount,0);
+const firstSceneCount=scene.children.length;
+let jobs=0;for(let i=0;i<10;i++)if(world.prewarmRoute('2A'))jobs++;
+assert.equal(jobs,new Set(ROUTE_MODELS['2A']).size,'prewarming does exactly one new geometry per step');
+assert.equal(world.warmCount,jobs);
+assert.equal(scene.children.length,firstSceneCount,'background preparation cannot change active scene');
+assert.equal(world.prewarmRoute('2A'),false,'warm route is idempotent');
+const points=previewPoints({curves:Array(126).fill(0),hills:Array(126).fill(0)});
+const frame=(id,h)=>({routeId:id,landmarks:h,segment:0,night:false,
+ corridors:Array.from({length:126},()=>[{center:0,half:1}])});
+const h2a=ROUTE_MODELS['2A'].map((_,i)=>({id:'2A:'+i,name:'Stage landmark '+i,modelIndex:i,seg:40+i*25,side:i%2?1:-1,heightWorld:7500}));
+const h2b=ROUTE_MODELS['2B'].map((_,i)=>({id:'2B:'+i,name:'Stage landmark '+i,modelIndex:i,seg:45+i*25,side:1,heightWorld:7500}));
+world.update(frame('2A',h2a),points);
+const geos=scene.children.filter(x=>x.name.startsWith('Taipei_')).map(x=>x.geometry);
+assert.equal(geos.length,h2a.length,'authored 3D landmarks still render');
+assert.equal(world.warmCount,jobs,'warm route switch cannot rebuild geometry');
+for(let i=0;i<10;i++)world.prewarmRoute('2B');
+const cached=world.warmCount;world.update(frame('2B',h2b),points);
+assert.equal(world.warmCount,cached,'next district consumes prewarmed assets without model construction');
+world.update(frame('2A',h2a),points);
+const restored=scene.children.filter(x=>x.name.startsWith('Taipei_')).map(x=>x.geometry);
+assert.equal(restored.length,geos.length);
+for(let i=0;i<geos.length;i++)assert.strictEqual(restored[i],geos[i],'a previously seen district reuses geometry exactly');
+assert.equal(world.warmCount,cached,'repeat 3D route incurs no extra geometry allocations');
+world.dispose();
+assert.equal(scene.children.length,firstSceneCount,'dispose clears all active meshes');
+assert(geos.every(g=>!g.attributes.position||g.attributes.position.array.length>0),'geometries were valid before disposal');
+
+const {createRaceWayfinding}=require('../src/rendering/RaceWayfinding.cjs');
+const {createCanvas}=require('@napi-rs/canvas');
+const stage=new THREE.Scene();
+const signs=[{kind:'start',seg:26,label:'TAIPEI / 台北出發',detail:'2A · 圓山'},
+ {kind:'distance',seg:58,label:'檢查站 200 M',detail:'CHECK POINT'}];
+const boards=createRaceWayfinding(THREE,stage,sampleRoadPoint,streetOffset,
+ {createElement:tag=>{assert.equal(tag,'canvas');return createCanvas(1024,256);}});
+assert.equal(stage.children.length,0);
+assert(boards.prewarmRoute('2A',signs));
+assert(boards.prewarmRoute('2A',signs));
+assert.equal(boards.prewarmRoute('2A',signs),false,'ready sign textures are not repainted');
+assert.equal(stage.children.length,0,'future signs cannot appear before the route change');
+boards.update({...frame('2A',h2a),raceSigns:signs},points);
+const firstSign=stage.children.find(n=>n.name.includes('RaceBoard_start'));
+assert(firstSign&&firstSign.children[0].material.map?.isCanvasTexture,'road signs must keep real Chinese canvas labels');
+const claimed=firstSign.children[0].material.map;
+assert.equal(boards.prewarmRoute('2A',signs),false,'active route never repaints its own textures');
+assert.strictEqual(firstSign.children[0].material.map,claimed,'already painted canvas used unchanged');
+const newSigns=[{kind:'start',seg:26,label:'TAIPEI / 台北出發',detail:'2B · 市民高架'}];
+assert(boards.prewarmRoute('2B',newSigns));
+boards.update({...frame('2B',h2b),raceSigns:newSigns},points);
+assert.equal(stage.children.length,1,'old sign scene cleared on actual route change');
+boards.dispose();assert.equal(stage.children.length,0);
+
+const html=fs.readFileSync(path.resolve(__dirname,'../index.html'),'utf8');
+assert(html.includes('v59Arcade7&&v56Full3D?v59Arcade7Sprite:getLandmarkSprite(h)'),'only opt-in full 3D avoids unused giant sprite rasterization');
+assert(html.includes("recordSuffix:':H59.7'"),'opt-in ranking remains isolated');
+assert(html.includes('nextRouteId:v59Arcade7'),'next fork is exposed solely to CHAIN7');
+assert(html.includes('const v59Arcade6=handlingProfile59&&('),'CHAIN6 inherits only opt-in');
+console.log('Stage41 route swap PASS: prewarm one kind/tick, reuse all 3D meshes, unchanged legacy sprites and CHAIN7 isolation');

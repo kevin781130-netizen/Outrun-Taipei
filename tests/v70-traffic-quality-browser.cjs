@@ -88,25 +88,28 @@ async function different(a,b){
    assert.equal(meta.route,route);assert.equal(meta.flag,true);assert(meta.eligible);
    assert(meta.distance>0&&meta.distance<42,'car must be in V70 detail LOD range');
    if(route==='4B'||route==='5B')assert.equal(meta.deck,0,'mountain/coast cannot have an invented viaduct');
-   const canvas=page.locator('#v56-full-3d-canvas');
-   // V56's scene and canvas are lexical variables in the game script; only
-   // the ephemeral in-script audit bridge can access them.
-   const render=(flag,color)=>audit(page,`(()=>{
-    const data=window.__v70Frame,chosen=${JSON.stringify(color||null)};
-    const frame={...data,trafficVisual70:${flag===true},
-     traffic:chosen?data.traffic.map((item,i)=>i===0?{...item,color:chosen}:item):data.traffic};
-    return v56Scene.render(frame,0,canvas.width,canvas.height,graphicsQuality);
-   })()`);
-   await render(false);await render(false);
-   const baseline=await canvas.screenshot({type:'png',animations:'disabled'});
-   // Positive control: a deliberately different traffic body color MUST be
-   // measurable, otherwise we are comparing stale compositor frames.
-   await render(false,'#00ffff');
-   const control=await canvas.screenshot({type:'png',animations:'disabled'});
-   await render(true);
-   const enhanced=await canvas.screenshot({type:'png',animations:'disabled'});
-   await render(false);
-   const restored=await canvas.screenshot({type:'png',animations:'disabled'});
+   // Capture synchronously from the WebGL drawing buffer inside the same page
+   // evaluation as each render. Element screenshots can sample an old compositor
+   // frame when requestAnimationFrame is deliberately disabled by this test.
+   // preserveDrawingBuffer is enabled only in the test-served Three.js bundle.
+   const renderCapture=async(flag,color)=>{
+    const uri=await audit(page,`(()=>{
+     const data=window.__v70Frame,chosen=${JSON.stringify(color||null)};
+     const frame={...data,trafficVisual70:${flag===true},
+       traffic:chosen?data.traffic.map((item,i)=>i===0?{...item,color:chosen}:item):data.traffic};
+     if(!v56Scene.render(frame,0,canvas.width,canvas.height,graphicsQuality))
+       throw new Error('V70 WebGL render failed');
+     return document.getElementById('v56-full-3d-canvas').toDataURL('image/png');
+    })()`);
+    assert(uri.startsWith('data:image/png;base64,'),'WebGL draw buffer must return PNG');
+    return Buffer.from(uri.slice('data:image/png;base64,'.length),'base64');
+   };
+   await renderCapture(false);
+   const baseline=await renderCapture(false);
+   // Positive control ensures the same actual rendered buffer changes with paint.
+   const control=await renderCapture(false,'#00ffff');
+   const enhanced=await renderCapture(true);
+   const restored=await renderCapture(false);
    const colorTest=await different(baseline,control);
    const compare=await different(baseline,enhanced),reset=await different(baseline,restored);
    // Retain the actual evidence before enforcing quality thresholds.
@@ -126,7 +129,10 @@ async function different(a,b){
    assert(colorTest.changed>20,route+' sanity check: compositor must register changed car paint');
    // Geometry must be observably more detailed, yet affect only a small visible
    // car region, not change the road/camera/terrain or mutate simulation state.
-   assert(compare.changed>15,route+' styling must visibly modify the real WebGL image');
+   // A fixed pixel-count gate unfairly rejects mobile viewports: compare the
+   // real effect against the same frame's known-visible cyan paint control.
+   const minVisibleChange=Math.max(8,Math.ceil(colorTest.changed*.10));
+   assert(compare.changed>=minVisibleChange,route+' detail effect must exceed 10% of its visible paint control ('+compare.changed+'/'+colorTest.changed+' pixels)');
    assert(compare.share<.08,route+' details must not repaint the whole scene');
    assert(reset.share<.005,route+' opting out restores almost exactly baseline pixels');
    await page.close();

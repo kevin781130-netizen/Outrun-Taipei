@@ -1836,7 +1836,7 @@ function resetGame(){
   resetDrivingState(); nitro=0;nitroStock=0;boostRemaining=0;nitroWasHeld=false;driftChargeRate=0; boosting=false; boostKick=0;shiftCutTimer=0;shiftPunch=0;lateralVelocity=0; brakeEntry=0; brakeWasHeld=false; exitBoost=0; momentBoostWindow=0;momentBoostArmed=false;cleanDriftTime=0; raceElapsed=0;
   styleCombo = 1; styleBank = 0; totalStyle = 0; styleIdle = 0; driftTime = 0;
   screenShake = 0; flash = 0; collisionCooldown = 0;
-  speed=0;currentGear='LOW';driveGear='D';motionDirection=1;reverseWindow=0;nitroLatch=false;gearDWasHeld=false;gearRWasHeld=false;rpm=800;
+  speed=0;currentGear=v59Arcade3?'HIGH':'LOW';driveGear='D';motionDirection=1;reverseWindow=0;nitroLatch=false;gearDWasHeld=false;gearRWasHeld=false;rpm=800;
   gameOver = false; paused = false; raceActive = false; countdownTimer = 0; countdownValue = 3;
   particles = []; stageTransition = null; stageVisualBlend=0;stageBlendPalette=null;inRadioScreen = false;
   routeHistory = [{ level:0, column:0, id:'1A', name:STAGES[0][0].name }];
@@ -2024,6 +2024,7 @@ function togglePause(){
 
 function enqueueDriveGear(gear){gearInputEvents.push({gear,at:performance.now()});}
 function selectDriveGear(next,inputTime=performance.now()){
+ if(v59Arcade3)return;
  if(!gameStarted||!raceActive||paused||gameOver||crashSequence||inRadioScreen)return;
  if(next===driveGear)return;
  if(next==='R'){
@@ -2037,6 +2038,7 @@ function selectDriveGear(next,inputTime=performance.now()){
  playGearShiftSound();updateV39HUD();
 }
 function processGearInputs(dt){
+ if(v59Arcade3){gearInputEvents=[];gearDWasHeld=false;gearRWasHeld=false;driveGear='D';motionDirection=1;reverseWindow=0;return;}
  reverseWindow=Math.max(0,reverseWindow-dt);
  const d=inputHeld('KeyA')||!!gamepadInput.drive,r=inputHeld('KeyZ')||!!gamepadInput.reverse;
  if(gearInputEvents.length){for(const intent of gearInputEvents)selectDriveGear(intent.gear,intent.at);gearInputEvents=[];}
@@ -2061,6 +2063,7 @@ function shiftGear(targetGear){
   say(currentGear === 'HIGH' ? (sweetUp?'PERFECT SHIFT! HIGH 🚀':'HIGH GEAR · 拉高速') : 'LOW GEAR · 強扭力 ⚙️');
 }
 function toggleGear(){
+  if(v59Arcade3)return;
   if(autoGear){say('AT 自排會自動切換 LOW / HIGH');return;}
   shiftGear(currentGear === 'LOW' ? 'HIGH' : 'LOW');
 }
@@ -2385,7 +2388,7 @@ window.addEventListener('keydown', e => {
     }
   }
 
-  if(!e.repeat&&!paused&&(e.code==='KeyA'||e.code==='KeyZ'))enqueueDriveGear(e.code==='KeyA'?'D':'R');
+  if(!v59Arcade3&&!e.repeat&&!paused&&(e.code==='KeyA'||e.code==='KeyZ'))enqueueDriveGear(e.code==='KeyA'?'D':'R');
   if(!e.repeat && e.code==='KeyT'){ toggleAtlas(); return; }
   if(!e.repeat && (e.code === 'Space' || e.code === 'KeyE')) toggleGear();
   if(!e.repeat && e.code === 'KeyM') toggleRadio();
@@ -2404,7 +2407,7 @@ function bindButton(id, code, isGear=false){
   el.addEventListener('pointerdown', e => {
     e.preventDefault(); if(paused||gameOver||inRadioScreen||!raceActive) return;
     if(code==='KeyN')queueNitroPress1();
-    if(code==='KeyA'||code==='KeyZ')enqueueDriveGear(code==='KeyA'?'D':'R');
+    if(!v59Arcade3&&(code==='KeyA'||code==='KeyZ'))enqueueDriveGear(code==='KeyA'?'D':'R');
     el.setPointerCapture(e.pointerId); pointerKeys.set(e.pointerId, { code, el });
     el.classList.add('active');
   });
@@ -2425,7 +2428,7 @@ bindButton('btn-accel','ArrowUp');
 bindButton('btn-brake','ArrowDown');
 
 carSelect.addEventListener('change',e=>{selectCarSkin(e.target.value);});
-autoGearCheck.addEventListener('change',e=>{if(gameStarted&&!gameOver){e.target.checked=autoGear;return;}autoGear=e.target.checked;document.getElementById('start-transmission').value=autoGear?'AT':'MT';persistV39();});
+autoGearCheck.addEventListener('change',e=>{if(v59Arcade3){e.target.checked=true;return;}if(gameStarted&&!gameOver){e.target.checked=autoGear;return;}autoGear=e.target.checked;document.getElementById('start-transmission').value=autoGear?'AT':'MT';persistV39();});
 startBtn.addEventListener('click', () => { if(paused){ togglePause(); return; } openRadioSelector(); });
 document.getElementById('pause-btn').addEventListener('click', togglePause);
 document.getElementById('radio-btn').addEventListener('click', toggleRadio);
@@ -2803,7 +2806,7 @@ function update(dt){
   const left=inputHeld('ArrowLeft')||inputHeld('KeyJ');
   const right=inputHeld('ArrowRight')||inputHeld('KeyL');
 
-  if(autoGear&&driveGear==='D'){
+  if(!v59Arcade3&&autoGear&&driveGear==='D'){
     if(currentGear === 'LOW' && speed >= V53_SPEED.atUp) shiftGear('HIGH');
     else if(currentGear === 'HIGH' && speed < V53_SPEED.atDown) shiftGear('LOW');
   }
@@ -2828,19 +2831,23 @@ function update(dt){
   isDrafting=driveGear==='D'&&motionDirection===1&&traffic.some(car=>car.z-playerZ>1200&&car.z-playerZ<5500&&Math.abs(playerX-car.x)<.22&&speed>200);
   draftLevel=clamp(draftLevel+(isDrafting?V53_SPEED.draftRise:-V53_SPEED.draftFall)*dt,0,1);
   draftHud.classList[isDrafting?'add':'remove']('show');
-  const desiredDirection=driveGear==='R'?-1:1;
+  const desiredDirection=v59Arcade3?1:driveGear==='R'?-1:1;
   const gearMax=desiredDirection<0?45:COMPETITION.boostSpeed;
   if(motionDirection!==desiredDirection){speed=Math.max(0,speed-320*dt);if(speed===0)motionDirection=desiredDirection;}
   else if(brakeHeld){speed=Math.max(0,speed-COMPETITION.brake*dt);}
   else if(accelHeld||boosting){
     const shiftFactor=shiftCutTimer>0?.12:1;
     const throttleFactor=accelHeld?1:.28;
-    const pull=v53GearThrust(speed,currentGear,draftLevel)*shiftFactor*throttleFactor;
-    const nitroPush=boosting?v53NitroPush(speed):0,momentPush=exitBoost>0?V53_SPEED.momentPush:0,shiftPush=shiftPunch>0?V53_SPEED.shiftPush:0;
-    speed+=(pull+nitroPush+momentPush+shiftPush)*dt;
-  }else speed=Math.max(0,speed-19*dt);
+    const pull=(v59Arcade3?v59Arcade3Thrust(speed):v53GearThrust(speed,currentGear,draftLevel))*shiftFactor*throttleFactor;
+    const nitroPush=boosting?(v59Arcade3?v59Arcade3NitroPush(speed):v53NitroPush(speed)):0,momentPush=exitBoost>0?V53_SPEED.momentPush:0,shiftPush=!v59Arcade3&&shiftPunch>0?V53_SPEED.shiftPush:0;
+    // Earned speed recovery occurs only after a qualifying controlled drift.
+    // It is weaker than N2O, ends quickly, and cannot stack with nitro or exceed cruiseMax.
+    const earnedExit=v59Arcade4&&!boosting&&!brakeHeld&&roadGrip>.8&&speed<V59_ARCADE4.exitSpeedCap&&v59Arcade4ExitTimer>0?
+      (v59Arcade5?V59_ARCADE5.exitForce:V59_ARCADE4.exitForce)*clamp((V59_ARCADE4.exitSpeedCap-speed)/20,0,1):0;
+    speed+=(pull+nitroPush+momentPush+shiftPush+earnedExit)*dt;
+  }else speed=Math.max(0,speed-(v59Arcade3?V59_ARCADE3.coast:19)*dt);
   if(helperPulse>0&&!brakeHeld)speed=Math.max(0,speed-18*dt);
-  if(motionDirection===desiredDirection)speed=Math.max(0,speed-v53OverspeedDrag(speed,currentGear,draftLevel,boosting)*dt);
+  if(motionDirection===desiredDirection)speed=Math.max(0,speed-(v59Arcade3?v59Arcade3SpeedDrag(speed,boosting):v53OverspeedDrag(speed,currentGear,draftLevel,boosting))*dt);
   speed=clamp(speed,0,motionDirection===desiredDirection?gearMax:COMPETITION.boostSpeed);
 
   // Tachometer RPM
@@ -2850,7 +2857,9 @@ function update(dt){
     rpm = lerp(rpm, 1200 + (speed / currentCar.maxSpeed) * 7000, dt * 8);
   }
 
-  stepArcadeMotion(dt,seg.curve,accelHeld,brakeHeld);
+  if(v59Arcade4)v59Arcade4ExitTimer=Math.max(0,v59Arcade4ExitTimer-dt);
+  if(v59Arcade3)stepArcadeMotionChain3(dt,seg.curve,accelHeld,brakeHeld);
+  else stepArcadeMotion(dt,seg.curve,accelHeld,brakeHeld);
 
   // Off-road bouncing & drag
   const localIndex = playerZ / SEGMENT_LENGTH;
@@ -3002,7 +3011,7 @@ function updateHUD(){
   
   if(v34Mode!=='arcade'){ document.getElementById('hud-route-label').textContent=v34Mode==='cruise'?'自由巡航 · T 切換路段':`單段計時 · ${raceElapsed.toFixed(2)} s`; routeStatus.textContent=v34Mode==='cruise'?'無倒數 · 自由試車 · 按 T 選路段':`個人紀錄 ${getBestTime()} · 無分岔，通過終點完成計時`; }
   else if(isDrafting) routeStatus.textContent=`尾流加速 · 上限 ${COMPETITION.topSpeed} KM/H（氮氣 ${COMPETITION.boostSpeed}）`;
-  else if(playerZ/SEGMENT_LENGTH<FORK_WARN&&!stageTransition) routeStatus.textContent=`${autoGear?'AT 自排':'MT 手排'} · ${driveGear} / ${currentGear} · Shift 滑行集氣 · Z → A 氮氣`;
+  else if(playerZ/SEGMENT_LENGTH<FORK_WARN&&!stageTransition) routeStatus.textContent=v59Arcade5?'CHAIN5 · 街機方向重量感 · 壓彎入線 · 反甩平順':v59Arcade4?'CHAIN4 · 慣性卡漂 · 控速入彎 · 出彎回速':v59Arcade3?'CHAIN3 · 免換檔 · 小飄小集氣／大飄大集氣 · N 氮氣':`${autoGear?'AT 自排':'MT 手排'} · ${driveGear} / ${currentGear} · Shift 滑行集氣 · Z → A 氮氣`;
   updateV39HUD();drawTachometer();
 }
 
@@ -4451,6 +4460,26 @@ function drawGoalCelebrationScene(){
   ctx.restore();
 }
 
+function v58NextRaceSigns(level,column){
+ const node=STAGES[level]?.[column],nextLayout=routeLayout(level,column);
+ if(!node)return null;
+ const signs=[{kind:'start',seg:26,label:'TAIPEI / 台北出發',
+   detail:node.id+' · '+SCENES[node.id].label}];
+ const target=level<4?
+   {index:nextLayout.FORK_START-52,zh:'檢查站',en:'CHECK POINT'}:
+   {index:nextLayout.FINISH_LINE,zh:'終點',en:'GOAL'};
+ for(const meters of V52_FLOW.approachMeters){
+   const index=target.index-Math.round(meters/SEGMENT_METERS);
+   if(index>20)signs.push({kind:'distance',seg:index,label:target.zh+' '+meters+' M',detail:target.en});
+ }
+ signs.push({kind:'finish',seg:target.index,label:target.zh,detail:target.en});
+ if(level<4){
+   const left=STAGES[level+1][column],right=STAGES[level+1][column+1];
+   signs.push({kind:'fork',seg:nextLayout.FORK_WARN,
+     label:'← '+left.id+' / '+right.id+' →',detail:left.name+' ／ '+right.name});
+ }
+ return signs;
+}
 function v58RaceSigns(){
  const signs=[{kind:'start',seg:26,label:'TAIPEI / 台北出發',detail:currentNode.id+' · '+scene().label}];
  const target=v52ApproachTarget();
@@ -4506,6 +4535,13 @@ function v57SceneFrame(){
     skyColors:skyMood==='sunset'?v40Art().sky:scene().night,
     groundColor:v40Art().ground[0],mountainColor:v40Art().mountain,
     landmarks:landmarkTimeline().map((h,modelIndex)=>({id:h.id,modelIndex,name:h.name,seg:h.seg,side:h.side,heightWorld:h.heightWorld,groundDrop:h.groundDrop})),
+    gpuRoutePrewarm:v59Arcade8,
+    nextRaceSigns:v59Arcade7&&v34Mode==='arcade'&&stageLevel<4&&
+      (stageTransition||choiceLocked&&playerZ/SEGMENT_LENGTH>=FORK_LOCK)?
+      v58NextRaceSigns(stageLevel+1,stageColumn+(stageTransition?.choice==='right'||!stageTransition&&pendingChoice==='right'?1:0)):null,
+    nextRouteId:v59Arcade7&&v34Mode==='arcade'&&stageLevel<4&&
+      (stageTransition||choiceLocked&&playerZ/SEGMENT_LENGTH>=FORK_LOCK)?
+      (stageTransition?.next?.id||STAGES[stageLevel+1]?.[stageColumn+(pendingChoice==='right'?1:0)]?.id):null,
     segment:first,
     fraction:(visualPlayerZ%SEGMENT_LENGTH)/SEGMENT_LENGTH,
     playerX,traffic:traffic3D,carColor:currentCar.color,
@@ -4930,6 +4966,35 @@ const V53_SPEED=Object.freeze({
   draftRaise:10,draftRise:.7,draftFall:1.2,momentPush:28,shiftPush:14,
   exactSourceCurveCopy:false
 });
+function v59Arcade4Charge(slip,speedNow,curve,slideAge,preparing){
+ const base=v59Arcade3Charge(slip,speedNow,curve);
+ const stable=clamp((slideAge-.10)/V59_ARCADE4.qualityBuild,0,1);
+ // Long, controlled drifts are worth more; switching sides never resets combo.
+ return base*(.66+.34*stable)*(preparing?.7:1);
+}
+function v59Arcade3Thrust(speedNow){
+ const remaining=Math.max(0,1-speedNow/V59_ARCADE3.cruiseMax);
+ return V59_ARCADE3.thrust*Math.pow(remaining,V59_ARCADE3.thrustFade);
+}
+function v59Arcade3NitroPush(speedNow){
+ return Math.min(V53_SPEED.nitroMax,Math.max(0,COMPETITION.boostSpeed-speedNow)*(v59Arcade4?V59_ARCADE4.boostForce:V59_ARCADE3.boostForce));
+}
+function v59Arcade3SpeedDrag(speedNow,boosted){
+ const target=boosted?(v59Arcade4?V59_ARCADE4.boostSoftLimit:V59_ARCADE3.boostSoftLimit):V59_ARCADE3.cruiseMax;
+ const drag=v59Arcade4?V59_ARCADE4.boostDrag:V59_ARCADE3.boostDrag;
+ return Math.max(0,speedNow-target)*(boosted?drag:drag*.85);
+}
+function v59Arcade3CornerSafe(curve){
+ return clamp(V59_ARCADE3.cornerSafeBase-Math.abs(curve)*(v59Arcade4?V59_ARCADE4.cornerPerCurve:V59_ARCADE3.cornerSafePerCurve),
+  V59_ARCADE3.cornerSafeMin,V59_ARCADE3.cornerSafeBase);
+}
+function v59Arcade3Charge(slip,speedNow,curve){
+ const angle=clamp(Math.abs(slip),0,V59_ARCADE3.chargeMax);
+ const fraction=clamp((angle-V59_ARCADE3.chargeMin)/(V59_ARCADE3.chargeMax-V59_ARCADE3.chargeMin),0,1);
+ const skill=V59_ARCADE3.chargeLow+(V59_ARCADE3.chargeHigh-V59_ARCADE3.chargeLow)*Math.pow(fraction,V59_ARCADE3.chargeExponent);
+ const motion=clamp(speedNow/185,.55,1.18);
+ return COMPETITION.nitroCharge*skill*motion*(1+Math.min(2.5,Math.abs(curve))*.07);
+}
 function v53GearThrust(speedNow,gear,draft=0){
   if(gear==='LOW'){
     const x=Math.max(0,1-speedNow/GEAR_RULES.LOW.max);
@@ -4957,6 +5022,7 @@ function seededRange(a,b){trafficSeed=(Math.imul(1664525,trafficSeed)+1013904223
 function resetDrivingState(){
  nitroPressPending=false;
  helperWasHeld=false;helperPulse=0;counterTime=0;neutralTime=0;draftLevel=0;v59LiftTime=0;
+ v59ChainHold=0;v59ChainPreparing=false;v59ChainBlend=1;v59Arcade4PeakSlip=0;v59Arcade4ExitTimer=0;v59Arcade5Steer=0;v59Arcade5CornerLoad=0;v59Arcade6Regrip=0;
  driftRearmBlocked=false;driftState='grip';brakeHoldTime=0;brakeLoss=0;driftAge=0;driftCooldown=0;
  brakeEntry=0;brakeWasHeld=false;brakeVisual=0;driftAngle=0;yawRate=0;slipAngle=0;coastWindow=0;previousGas=false;
  isDrifting=false;driftDirection=0;cleanDriftTime=0;exitBoost=0;momentBoostWindow=0;momentBoostArmed=false;boostKick=0;shiftCutTimer=0;shiftPunch=0;lateralVelocity=0;slideTrails=[];chassisRoll=0;chassisPitch=0;visualLoad=0;
@@ -5027,20 +5093,100 @@ function v52OverspeedPush(speedNow,curve){
 // Select before race startup with ?handling=v59; no mid-race profile switches.
 const V59_HANDLING=Object.freeze({id:'v59-countersteer-1',recordSuffix:':H59.1'});
 const handlingProfile59=/(?:^|[?&])handling=v59(?:&|$)/.test(window.location?.search||'');
-if(handlingProfile59)document.title+=' · V59 反打測試';
+// Explicit opt-in avoids changing old V59 feel or historical records.
+const v59Arcade8=handlingProfile59&&/(?:^|[?&])drift=chain8(?:&|$)/.test(window.location?.search||'');
+const v59Arcade7=handlingProfile59&&(/(?:^|[?&])drift=chain7(?:&|$)/.test(window.location?.search||'')||v59Arcade8);
+const v59Arcade6=handlingProfile59&&(/(?:^|[?&])drift=chain6(?:&|$)/.test(window.location?.search||'')||v59Arcade7);
+const v59Arcade5=handlingProfile59&&(/(?:^|[?&])drift=chain5(?:&|$)/.test(window.location?.search||'')||v59Arcade6);
+const v59Arcade4=handlingProfile59&&(/(?:^|[?&])drift=chain4(?:&|$)/.test(window.location?.search||'')||v59Arcade5);
+const v59Arcade3=handlingProfile59&&(/(?:^|[?&])drift=chain3(?:&|$)/.test(window.location?.search||'')||v59Arcade4);
+const v59Chain2=handlingProfile59&&(/(?:^|[?&])drift=chain2(?:&|$)/.test(window.location?.search||'')||v59Arcade3);
+const V59_CHAIN2=Object.freeze({recordSuffix:':H59.2',counterHold:.11,yawGate:5.8,slipGate:3.8,blendSeconds:.19});
+const V59_ARCADE3=Object.freeze({
+ recordSuffix:':H59.3',cruiseMax:265,thrust:60,thrustFade:1.22,coast:27,
+ driftBaseDrag:2.2,driftSlipDrag:.28,driftCurveDrag:2.2,
+ cornerSafeBase:267,cornerSafePerCurve:35,cornerSafeMin:112,cornerDrag:.94,
+ sideCarry:.72,sideResponse:7.2,
+ chargeMin:2.2,chargeMax:24,chargeExponent:1.3,chargeLow:.24,chargeHigh:1.65,
+ boostSoftLimit:291,boostDrag:1.28,boostForce:.27
+});
+// CHAIN4 builds on CHAIN3; its standalone score suffix preserves fair comparison.
+const V59_ARCADE4=Object.freeze({
+ recordSuffix:':H59.4',
+ sideCarry:.88,sideResponse:4.7,lateralCap:1.06,
+ slipDrag:.52,baseDrag:4.2,curveDrag:2.55,
+ cornerPerCurve:37.5,cornerDrag:1.04,
+ boostSoftLimit:288,boostDrag:1.75,boostForce:.40,
+ qualityBuild:.55,minimumSlide:.40,minimumSlip:9.5,
+ exitSeconds:.48,exitForce:18,exitSpeedCap:265
+});
+// Stage39 original arcade tuning inspired by control/state PRINCIPLES,
+// not any unverified third-party game's physics.
+const V59_ARCADE5=Object.freeze({
+ recordSuffix:':H59.5',steerEnter:.13,steerExit:.07,steerResponse:16,
+ yawResponse:24,slipResponse:19,sideCarry:.94,sideResponse:5.25,
+ cornerPressRise:7.5,cornerPressFall:3.8,cornerPressRange:102,
+ cornerPush:.28,cornerAuthorityLoss:.25,cornerDragExtra:.90,
+ exitSeconds:.42,exitForce:21
+});
+// CHAIN6 is an independent Taipei test profile: wheel regrip has a short
+// physical settling period after slide exit, but cannot bypass lane bounds.
+const V59_ARCADE6=Object.freeze({
+ recordSuffix:':H59.6',regripSeconds:.29,regripResponse:3.8,
+ regripAuthority:.12,regripMinimumSpeed:90,
+ chargeRampStart:.06,chargeRampSeconds:.30,chargeRampFloor:.35,
+ handoffChargePenalty:.84
+});
+const V59_ARCADE7=Object.freeze({recordSuffix:':H59.7',
+ // Metadata only. Used solely in full-WebGL mode where no 2D sprite is displayed.
+ spriteWidth:560,spriteHeight:900});
+const V59_ARCADE8=Object.freeze({recordSuffix:':H59.8',maxCatchupSteps:4,fixedSeconds:1/60});
+function v59Arcade8Budget(dt,previousDebt=0){
+ // After a frame hitch, never replay fifteen inputs/physics steps on one
+ // display frame. Preserve up to four deterministic fixed steps, then render.
+ return Math.min(V59_ARCADE8.fixedSeconds*V59_ARCADE8.maxCatchupSteps,
+  Math.max(0,dt)+Math.max(0,previousDebt));
+}
+const v59Arcade7Sprite=Object.freeze({
+ width:V59_ARCADE7.spriteWidth,height:V59_ARCADE7.spriteHeight,
+ canvas:Object.freeze({width:0,height:0}),metadataOnly:true
+});
+if(handlingProfile59)document.title+=v59Arcade8?' · CHAIN8 換圖後操作延遲改善試玩':v59Arcade7?' · CHAIN7 換圖不中斷甩尾試玩':v59Arcade6?' · CHAIN6 出彎回正／持續卡漂試玩':v59Arcade5?' · CHAIN5 街機反打與壓彎試玩':v59Arcade4?' · CHAIN4 慣性卡漂／出彎回速試玩':v59Arcade3?' · CHAIN3 卡漂集氣試玩':v59Chain2?' · V59 CHAIN2 連續反甩測試':' · V59 反打測試';
 // AI traffic is intentionally only available in cruise preview. Ranked modes stay unchanged.
 const trafficAI60Requested=/(?:^|[?&])trafficAI=v60(?:&|$)/.test(window.location?.search||'');
 if(trafficAI60Requested)document.title+=' · V60 車流試玩（巡航限定）';
 function trafficAI60Enabled(){return trafficAI60Requested&&v34Mode==='cruise'&&typeof window.TaipeiTrafficAI?.planLaneIntent==='function';}
 function trafficAI60RecordSuffix(){return trafficAI60Enabled()?':AI60':'';}
-let v59LiftTime=0;
-function handlingRecordSuffix59(){return handlingProfile59?V59_HANDLING.recordSuffix:'';}
+let v59LiftTime=0,v59ChainHold=0,v59ChainPreparing=false,v59ChainBlend=1;
+let v59Arcade4PeakSlip=0,v59Arcade4ExitTimer=0;
+let v59Arcade5Steer=0,v59Arcade5CornerLoad=0,v59Arcade6Regrip=0;
+function v59Arcade6Charge(slip,speedNow,curve,age,preparing){
+ const ready=clamp((age-V59_ARCADE6.chargeRampStart)/V59_ARCADE6.chargeRampSeconds,0,1);
+ const ramp=V59_ARCADE6.chargeRampFloor+(1-V59_ARCADE6.chargeRampFloor)*ready;
+ // No duplicate bonus during a left/right handoff. Mini-slides still gain,
+ // sustained physical slides earn more through the existing angle-based rule.
+ return v59Arcade4Charge(slip,speedNow,curve,age,preparing)*ramp*
+   (preparing?V59_ARCADE6.handoffChargePenalty:1);
+}
+function v59Arcade5Intent(raw,dt){
+ const entered=Math.abs(v59Arcade5Steer)>=V59_ARCADE5.steerExit;
+ const threshold=entered?V59_ARCADE5.steerExit:V59_ARCADE5.steerEnter;
+ const wanted=Math.abs(raw)>=threshold?raw:0;
+ v59Arcade5Steer+=(wanted-v59Arcade5Steer)*(1-Math.exp(-dt*V59_ARCADE5.steerResponse));
+ if(Math.abs(v59Arcade5Steer)<.018&&wanted===0)v59Arcade5Steer=0;
+ return v59Arcade5Steer;
+}
+function v59Arcade5Pressure(speedNow,curve){
+ if(Math.abs(curve)<.30)return 0;
+ return clamp((speedNow-v59Arcade3CornerSafe(curve))/V59_ARCADE5.cornerPressRange,0,1)*clamp(Math.abs(curve)/2,0,1);
+}
+function handlingRecordSuffix59(){return !handlingProfile59?'':v59Arcade8?V59_ARCADE8.recordSuffix:v59Arcade7?V59_ARCADE7.recordSuffix:v59Arcade6?V59_ARCADE6.recordSuffix:v59Arcade5?V59_ARCADE5.recordSuffix:v59Arcade4?V59_ARCADE4.recordSuffix:v59Arcade3?V59_ARCADE3.recordSuffix:v59Chain2?V59_CHAIN2.recordSuffix:V59_HANDLING.recordSuffix;}
 function stepHandlingDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
- if(handlingProfile59)stepCountersteerDrift59(dt,brakeHeld,accelHeld,steerTarget,curve);
+ if(handlingProfile59)stepCountersteerDrift59(dt,brakeHeld,accelHeld,v59Arcade5?v59Arcade5Intent(steerTarget,dt):steerTarget,curve);
  else stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve);
 }
 function stepCountersteerDrift59(dt,brakeHeld,accelHeld,steerTarget,curve){
- if(!isDrifting)v59LiftTime=0;
+ if(!isDrifting){v59LiftTime=0;v59ChainHold=0;v59ChainPreparing=false;v59ChainBlend=1;}
  const helper=inputHeld('ShiftLeft')||inputHeld('ShiftRight')||gamepadInput.drift;
  if(helper&&!helperWasHeld&&!isDrifting&&speed>DRIFT51.entryMinSpeed&&driveGear==='D'&&motionDirection===1){helperPulse=.085;brakeEntry=.78;}
  helperWasHeld=helper;helperPulse=Math.max(0,helperPulse-dt);
@@ -5070,14 +5216,34 @@ function stepCountersteerDrift59(dt,brakeHeld,accelHeld,steerTarget,curve){
  const liftEntry=coastWindow>0&&Math.abs(curve)>.28&&Math.abs(curve)<2.55&&sign===Math.sign(curve)&&speed>100;
  if(driveGear==='D'&&motionDirection===1&&!isDrifting&&!driftRearmBlocked&&sign&&Math.abs(steer)>.10&&speed>DRIFT51.entryMinSpeed&&roadGrip>.8&&(brakeEntry>0||liftEntry)){
   isDrifting=true;driftDirection=sign;driftState='entry';driftAge=0;cleanDriftTime=0;counterTime=0;neutralTime=0;brakeEntry=0;coastWindow=0;
+  v59ChainHold=0;v59ChainPreparing=false;v59ChainBlend=1;
+  if(v59Arcade4){v59Arcade4PeakSlip=0;v59Arcade4ExitTimer=0;}
+  if(v59Arcade6)v59Arcade6Regrip=0;
   styleMessage('V59 DRIFT','補油反打維持滑移 · 回正或放油收尾');
  }
  let targetYaw,targetSlip=0;
  if(isDrifting){
   driftAge+=dt;
-  const counter=sign!==0&&sign!==driftDirection,neutral=sign===0;
+  let counter=sign!==0&&sign!==driftDirection;
+  const neutral=sign===0;
   counterTime=counter?counterTime+dt:Math.max(0,counterTime-dt*3);
   neutralTime=neutral?neutralTime+dt:0;
+  // Sustained strong countersteer requests a new slide; brief/analog input only trims it.
+  // Change direction near zero yaw and slip, without resetting vehicle momentum.
+  const strongOpposite=v59Chain2&&counter&&Math.abs(steerTarget)>=.85&&accelHeld&&
+    !brakeHeld&&speed>90&&roadGrip>.8&&driftAge>.14&&driftState!=='recover';
+  if(strongOpposite)v59ChainHold+=dt;
+  else if(v59Chain2){
+    v59ChainHold=Math.max(0,v59ChainHold-dt*5);
+    v59ChainPreparing=false;
+  }
+  if(strongOpposite&&v59ChainHold>=V59_CHAIN2.counterHold)v59ChainPreparing=true;
+  if(v59ChainPreparing&&strongOpposite&&
+     Math.abs(driftAngle)<=V59_CHAIN2.yawGate&&Math.abs(slipAngle)<=V59_CHAIN2.slipGate){
+    driftDirection=sign;counter=false;counterTime=0;
+    v59ChainHold=0;v59ChainPreparing=false;v59ChainBlend=0;
+  }
+  if(v59Chain2&&v59ChainBlend<1)v59ChainBlend=Math.min(1,v59ChainBlend+dt/V59_CHAIN2.blendSeconds);
 
   // Independent V59 model: throttle balances countersteer instead of a timer ending the slide.
   // Lift and neutral steering deliberately recover; counter input alone never flips the slide.
@@ -5085,10 +5251,24 @@ function stepCountersteerDrift59(dt,brakeHeld,accelHeld,steerTarget,curve){
   if(neutralTime>DRIFT51.neutralRecover||v59LiftTime>(counter?.18:.40)||speed<68||roadGrip<.7||driftState==='recover'){
    driftState='recover';driftRearmBlocked=true;targetYaw=0;targetSlip=0;
    if(Math.abs(driftAngle)<DRIFT51.rearmYaw&&Math.abs(slipAngle)<DRIFT51.rearmSlip){
-    if(cleanDriftTime>.30&&roadGrip>.8&&!brakeHeld){
+    if(v59Arcade4&&cleanDriftTime>=V59_ARCADE4.minimumSlide&&
+      v59Arcade4PeakSlip>=V59_ARCADE4.minimumSlip&&roadGrip>.8&&
+      !brakeHeld&&speed>68&&speed<V59_ARCADE4.exitSpeedCap){
+      // No reward on mid-slide left↔right transfers; only actual drift exit.
+      v59Arcade4ExitTimer=v59Arcade5?V59_ARCADE5.exitSeconds:V59_ARCADE4.exitSeconds;
+     }
+     if(cleanDriftTime>.30&&roadGrip>.8&&!brakeHeld&&
+       (!v59Arcade6||cleanDriftTime>=V59_ARCADE4.minimumSlide&&
+        v59Arcade4PeakSlip>=V59_ARCADE4.minimumSlip)){
       momentBoostWindow=Math.max(momentBoostWindow,DRIFT51.momentWindow);momentBoostArmed=!accelHeld;
       styleMessage('MOMENT BOOST READY','反打收尾 · 放油再補油觸發小噴');
      }
+    if(v59Arcade6){
+      // Regrip is a short physical transition, not a nitro or score bonus.
+      // Brake/off-road/low speed exits deliberately regain normal steering.
+      v59Arcade6Regrip=!brakeHeld&&roadGrip>.8&&speed>V59_ARCADE6.regripMinimumSpeed?
+        V59_ARCADE6.regripSeconds:0;
+    }
     isDrifting=false;driftState='grip';driftDirection=0;cleanDriftTime=0;counterTime=0;neutralTime=0;
    }
   }else{
@@ -5103,8 +5283,9 @@ function stepCountersteerDrift59(dt,brakeHeld,accelHeld,steerTarget,curve){
    const correction=clamp(-steer*driftDirection,0,1);
    const yawTrim=counter?lerp(1,.52,correction):neutral?.78:1;
    const slipTrim=counter?lerp(1,.66,correction):neutral?.78:1;
-   targetYaw=driftDirection*yawFull*entryEase*yawTrim;
-   targetSlip=driftDirection*slipFull*entryEase*slipTrim;
+   const chainScale=v59ChainPreparing?0:(v59Chain2?v59ChainBlend:1);
+   targetYaw=driftDirection*yawFull*entryEase*yawTrim*chainScale;
+   targetSlip=driftDirection*slipFull*entryEase*slipTrim*chainScale;
   }
  }else{
   targetYaw=steer*(5.5+ratio*4.5);
@@ -5112,11 +5293,12 @@ function stepCountersteerDrift59(dt,brakeHeld,accelHeld,steerTarget,curve){
  }
  if(targetYaw===undefined)targetYaw=0;
  targetYaw=clamp(targetYaw,-DRIFT51.maxBodyYaw,DRIFT51.maxBodyYaw);
- const omega=driftState==='recover'?DRIFT51.recoverResponse:DRIFT51.yawResponse;
+ const omega=driftState==='recover'?DRIFT51.recoverResponse:v59Arcade5?V59_ARCADE5.yawResponse:DRIFT51.yawResponse;
  const error=driftAngle-targetYaw,c=yawRate+omega*error,decay=Math.exp(-omega*dt);
  driftAngle=clamp(targetYaw+(error+c*dt)*decay,-DRIFT51.maxBodyYaw,DRIFT51.maxBodyYaw);
  yawRate=clamp((yawRate-omega*c*dt)*decay,-190,190);
- slipAngle=lerp(slipAngle,targetSlip,1-Math.exp(-dt*(driftState==='recover'?DRIFT51.recoverSlipResponse:DRIFT51.slipResponse)));
+ slipAngle=lerp(slipAngle,targetSlip,1-Math.exp(-dt*(driftState==='recover'?DRIFT51.recoverSlipResponse:v59Arcade5?V59_ARCADE5.slipResponse:DRIFT51.slipResponse)));
+ if(v59Arcade4&&isDrifting&&driftState!=='recover')v59Arcade4PeakSlip=Math.max(v59Arcade4PeakSlip,Math.abs(slipAngle));
  const nitroRequested=boostRemaining>0;
  const driftEnergy=driveGear==='D'&&motionDirection===1&&isDrifting&&driftState!=='recover'&&!brakeHeld&&Math.abs(slipAngle)>2.0&&speed>=DRIFT51.entryMinSpeed&&roadGrip>.8;
  driftChargeRate=0;
@@ -5124,7 +5306,10 @@ function stepCountersteerDrift59(dt,brakeHeld,accelHeld,steerTarget,curve){
   cleanDriftTime+=dt;driftTime+=dt;styleIdle=0;styleBank+=speed*dt*(nitroRequested?1.55:1.35);
   const slipSkill=clamp((Math.abs(slipAngle)-1.5)/8,.72,1.22),speedSkill=.88+clamp(speed/COMPETITION.topSpeed,0,1)*.26;
   const throttleFactor=accelHeld?1:.78,chargeFactor=nitroRequested?1:1;
-  driftChargeRate=COMPETITION.nitroCharge*chargeFactor*throttleFactor*slipSkill*speedSkill;
+  driftChargeRate=v59Arcade6?v59Arcade6Charge(slipAngle,speed,curve,driftAge,v59ChainPreparing)*throttleFactor:
+     v59Arcade4?v59Arcade4Charge(slipAngle,speed,curve,driftAge,v59ChainPreparing)*throttleFactor:
+     v59Arcade3?v59Arcade3Charge(slipAngle,speed,curve)*throttleFactor:
+     COMPETITION.nitroCharge*chargeFactor*throttleFactor*slipSkill*speedSkill;
  }
  else{styleIdle+=dt;if(styleIdle>.60){if(styleBank>0)bankStyle();else driftTime=0;}}
  styleCombo=clamp(1+Math.floor(cleanDriftTime/.8)*.5,1,5);
@@ -5267,7 +5452,80 @@ function stepArcadeMotion(dt,curve,accelHeld=true,brakeHeld=false){
  if(isDrifting&&driftState!=='recover')speed=Math.max(0,speed-(.32+Math.abs(slipAngle)*.011)*dt);
  if(excess>0&&Math.abs(curve)>.8)speed=Math.max(0,speed-excess*(isDrifting?.012:V52_CORNER.scrubGrip)*dt);
 }
-function playerVisualTransform(){const p=v51DriftVisualPose();return {yaw:p.yaw,travelYaw:driftAngle-slipAngle,mode:'rigid-3d-sideways',scaleX:p.scaleX,shearX:0,offsetX:p.offsetX,intensity:p.intensity};}
+function playerVisualTransform(){
+ const p=v51DriftVisualPose(),yaw=v59Arcade6TrailingVisualYaw(p.yaw);
+ return {yaw,travelYaw:driftAngle-slipAngle,mode:'rigid-3d-sideways',scaleX:p.scaleX,
+  shearX:0,offsetX:p.offsetX,intensity:Math.max(p.intensity,v59Arcade6&&v59Arcade6Regrip>0?clamp((Math.abs(yaw)-3)/22,0,.25):0)};
+}
+function v59Arcade6TrailingVisualYaw(baseYaw){
+ if(!v59Arcade6||isDrifting||driftState==='recover'||v59Arcade6Regrip<=0)return baseYaw;
+ const blend=clamp(v59Arcade6Regrip/V59_ARCADE6.regripSeconds,0,1);
+ const trailingYaw=clamp(lateralVelocity*10,-7.5,7.5)*blend;
+ return clamp(baseYaw+trailingYaw,-DRIFT51.maxBodyYaw,DRIFT51.maxBodyYaw);
+}
+function stepArcadeMotionChain3(dt,curve,accelHeld=true,brakeHeld=false){
+ const ratio=clamp(speed/COMPETITION.topSpeed,0,1.1),safe=v59Arcade3?v59Arcade3CornerSafe(curve):v52SafeCornerSpeed(curve),excess=Math.max(0,speed-safe);
+ const profile=v51SteeringProfile(speed,isDrifting);
+ // Remember corner pressure instead of changing traction abruptly at the apex.
+ if(v59Arcade5){
+   const target=v59Arcade5Pressure(speed,curve);
+   const response=target>v59Arcade5CornerLoad?V59_ARCADE5.cornerPressRise:V59_ARCADE5.cornerPressFall;
+   v59Arcade5CornerLoad=lerp(v59Arcade5CornerLoad,target,1-Math.exp(-dt*response));
+ }
+ const cornerLoad=v59Arcade5?v59Arcade5CornerLoad:0;
+ if(v59Arcade6&&(brakeHeld||roadGrip<.8||speed<V59_ARCADE6.regripMinimumSpeed))
+   v59Arcade6Regrip=0;
+ const regrip=v59Arcade6&&!isDrifting?
+   clamp(v59Arcade6Regrip/V59_ARCADE6.regripSeconds,0,1):0;
+ const liftGrip=!isDrifting&&!accelHeld&&!brakeHeld?profile.liftGrip:1;
+ const frontGrip=clamp((1-excess/(v59Arcade3?135:210))*liftGrip,v59Arcade3?.48:.68,1.24);
+ const curveDemand=clamp(Math.abs(curve)/1.8,0,1);
+ const travelYaw=(driftAngle-slipAngle)*Math.PI/180;
+ const driftPathScale=isDrifting?v51DriftPathScale(curve):1;
+ const yawTurn=Math.sin(travelYaw)*(isDrifting?DRIFT51.driftPathYaw*driftPathScale:DRIFT51.gripPathYaw)*(.50+.72*ratio);
+ const baseAuthority=isDrifting?lerp(.25,DRIFT51.steerPath,curveDemand):.238*profile.authority;
+ const brakeRotation=!isDrifting&&brakeHeld?steer*profile.brakeRotation:0;
+ const matchingCurve=Math.sign(steer)===Math.sign(curve)?Math.min(Math.abs(curve),2.4):0;
+ const turnInBite=!isDrifting?steer*matchingCurve*V51_HANDLING.turnInBite*(.35+.65*ratio):0;
+ const turn=Math.min(1,speed/30)*(yawTurn+steer*baseAuthority+brakeRotation+turnInBite)*(isDrifting?1:frontGrip)*
+   (v59Arcade5?(1-cornerLoad*V59_ARCADE5.cornerAuthorityLoss*(isDrifting?.32:1)):1)*
+   (1-regrip*V59_ARCADE6.regripAuthority);
+ const outward=curve*.032*ratio*ratio+(isDrifting?0:v52OverspeedPush(speed,curve))+
+   (v59Arcade5?Math.sign(curve)*cornerLoad*V59_ARCADE5.cornerPush*(isDrifting?.40:1):0);
+ // CHAIN3: physical slip retains lateral movement through long slides. Existing
+ // road-edge collisions bound and penalize overuse, not a frictionless teleport.
+ const slideCarry=v59Arcade3&&isDrifting&&driftState!=='recover'?
+   Math.sin(slipAngle*Math.PI/180)*(v59Arcade5?V59_ARCADE5.sideCarry:v59Arcade4?V59_ARCADE4.sideCarry:V59_ARCADE3.sideCarry)*(.65+.45*ratio):0;
+ const curveOverspeed=v59Arcade4&&!isDrifting&&excess>12?Math.sign(curve)*Math.min(.21,(excess-12)*.0024)*curveDemand:0;
+ lateralVelocity=lerp(lateralVelocity,turn+slideCarry-outward-curveOverspeed,
+   1-Math.exp(-dt*(v59Arcade5&&isDrifting?V59_ARCADE5.sideResponse:v59Arcade4&&isDrifting?V59_ARCADE4.sideResponse:
+     v59Arcade3&&isDrifting?V59_ARCADE3.sideResponse:
+     isDrifting?DRIFT51.driftLateralResponse:lerp(17.6,V59_ARCADE6.regripResponse,regrip))));
+ if(v59Arcade4&&isDrifting)lateralVelocity=clamp(lateralVelocity,-V59_ARCADE4.lateralCap,V59_ARCADE4.lateralCap);
+ const idx=clamp(Math.floor(playerZ/SEGMENT_LENGTH),0,Math.max(0,segments.length-1)),corridors=roadCorridors(idx);
+ const lane=corridors.reduce((best,q)=>Math.abs(playerX-q.center)<Math.abs(playerX-best.center)?q:best,corridors[0]||{center:0,half:roadFactor()});
+ const usable=Math.max(.12,lane.half-PLAYER_HALF_WIDTH),edgeUse=Math.abs(playerX-lane.center)/usable;
+ const outwardMotion=Math.sign(lateralVelocity)===Math.sign(playerX-lane.center)&&Math.abs(playerX-lane.center)>.01;
+ if(isDrifting&&outwardMotion&&edgeUse>.70){
+   const shoulderDamp=clamp((edgeUse-.70)/.30,0,1);
+   lateralVelocity*=Math.max(.72,1-dt*(2.2+shoulderDamp*5.2));
+ }
+ playerX+=lateralVelocity*dt*motionDirection;
+ if(v59Arcade6)v59Arcade6Regrip=Math.max(0,v59Arcade6Regrip-dt);
+ visualLoad=lerp(visualLoad,brakeHeld?1.08:accelHeld?-.42:0,1-Math.exp(-dt*10));
+ const targetRoll=clamp(-(steer*.72+lateralVelocity*.40)*(2.3+ratio*2.2),-V51_HANDLING.chassisRollMax,V51_HANDLING.chassisRollMax);
+ const targetPitch=clamp(visualLoad*V51_HANDLING.chassisPitchMax,-V51_HANDLING.chassisPitchMax,V51_HANDLING.chassisPitchMax);
+ chassisRoll=lerp(chassisRoll,targetRoll,1-Math.exp(-dt*11));
+ chassisPitch=lerp(chassisPitch,targetPitch,1-Math.exp(-dt*13));
+ if(isDrifting&&driftState!=='recover')speed=Math.max(0,speed-
+   (v59Arcade4?(V59_ARCADE4.baseDrag+Math.abs(slipAngle)*V59_ARCADE4.slipDrag+
+      Math.abs(curve)*V59_ARCADE4.curveDrag):
+      v59Arcade3?(V59_ARCADE3.driftBaseDrag+Math.abs(slipAngle)*V59_ARCADE3.driftSlipDrag+
+      Math.abs(curve)*V59_ARCADE3.driftCurveDrag):(.32+Math.abs(slipAngle)*.011))*dt);
+ if(excess>0&&Math.abs(curve)>.8)speed=Math.max(0,speed-excess*
+   (v59Arcade4?V59_ARCADE4.cornerDrag*(isDrifting?.78:1):v59Arcade3?V59_ARCADE3.cornerDrag*(isDrifting?.72:1):isDrifting?.012:V52_CORNER.scrubGrip)*dt);
+ if(v59Arcade5&&excess>0)speed=Math.max(0,speed-cornerLoad*V59_ARCADE5.cornerDragExtra*excess*dt);
+}
 function drawSlideTrails(){
  ctx.save();ctx.lineCap='round';
  for(const p of slideTrails){const age=.62-p.life,y=p.y+age*speed*.72;if(y>H+5)continue;ctx.strokeStyle=`rgba(16,18,24,${p.life*.72})`;ctx.lineWidth=3;
@@ -5275,8 +5533,8 @@ function drawSlideTrails(){
  ctx.restore();
 }
 
-function bestRecordKey(id=currentNode.id){return `${id}:${autoGear?'AT':'MT'}:${dipSettings.difficulty}:${COMPETITION.version}${handlingRecordSuffix59()}${trafficAI60RecordSuffix()}${inputRecordSuffix1()}`;}
-function arcadeBoardKey(){return `${autoGear?'AT':'MT'}:${dipSettings.difficulty}:${dipSettings.time}:${COMPETITION.version}${handlingRecordSuffix59()}${inputRecordSuffix1()}`;}
+function bestRecordKey(id=currentNode.id){return `${id}:${v59Arcade3||autoGear?'AT':'MT'}:${dipSettings.difficulty}:${COMPETITION.version}${handlingRecordSuffix59()}${trafficAI60RecordSuffix()}${inputRecordSuffix1()}`;}
+function arcadeBoardKey(){return `${v59Arcade3||autoGear?'AT':'MT'}:${dipSettings.difficulty}:${dipSettings.time}:${COMPETITION.version}${handlingRecordSuffix59()}${inputRecordSuffix1()}`;}
 
 // Street identity persists across the entire segment, instead of vanishing after the opening.
 const SCENES={
@@ -5501,7 +5759,7 @@ function planLandmarks(){
  const end=v34Mode==='arcade'?(stageLevel===4?FINISH_LINE:STAGE_END):soloFinishIndex();
  const fractions=items.length===1?[.40]:items.length===2?[.22,.70]:[.16,.45,.75];let last=40;
  return items.map((h,i)=>{
-  const sprite=getLandmarkSprite(h),height=h.height||V51_LANDMARK_AUDIT[currentNode.id]?.height||(h.name.includes('101')?19000:h.name.includes('纜車')?7200:h.name.includes('橋')?7000:7800); // V53.1: per-landmark real-world proportion (was one height per route)
+  const sprite=v59Arcade7&&v56Full3D?v59Arcade7Sprite:getLandmarkSprite(h),height=h.height||V51_LANDMARK_AUDIT[currentNode.id]?.height||(h.name.includes('101')?19000:h.name.includes('纜車')?7200:h.name.includes('橋')?7000:7800); // V53.1: per-landmark real-world proportion (was one height per route)
   const artUnits=height*H/2/sprite.height,halfWorld=sprite.width*artUnits/W;
   const minOffset=ROAD_WIDTH*roadFactor()*1.12+halfWorld+1000,preferred=h.side??(i%2?-1:1),target=Math.round(end*fractions[i]);
   let best=null;
@@ -6505,7 +6763,7 @@ function updateGaragePreview(){
   const t=readGarageInputs(),p=tunedProfile(t);
   tuningHpDisp.textContent=`音色 ${t.powerBalance}/10 · 性能 +0`; 
   wanganCardInfo.textContent=`${p.name} · 獨立改裝存檔 · 已完成 ${driverStats.runs} 場`;
-  document.getElementById('garage-stats').textContent=`全車統一：${COMPETITION.topSpeed} KM/H ｜ 氮氣 ${COMPETITION.boostSpeed} KM/H・${NITRO_RULES.duration.toFixed(2)} s ｜ 高速加速漸緩（極速需長直線與好出彎）`;
+  document.getElementById('garage-stats').textContent=v59Arcade3?`CHAIN3：巡航約 ${V59_ARCADE3.cruiseMax} · 氮氣衝刺約 ${V59_ARCADE3.boostSoftLimit} KM/H · 免換檔 · 過彎掉速`: `全車統一：${COMPETITION.topSpeed} KM/H ｜ 氮氣 ${COMPETITION.boostSpeed} KM/H・${NITRO_RULES.duration.toFixed(2)} s ｜ 高速加速漸緩（極速需長直線與好出彎）`;
   const cv=document.getElementById('garage-preview'),c=cv.getContext('2d');c.clearRect(0,0,640,150);
   c.fillStyle='#071222';c.fillRect(0,0,640,150);
   c.strokeStyle='#1d4054';c.lineWidth=1;for(let y=85;y<150;y+=15){c.beginPath();c.moveTo(0,y);c.lineTo(640,y);c.stroke();}
@@ -6590,9 +6848,9 @@ function updateDrivingHUD(){
   let strongest=0;
   const idx=Math.floor((playerZ+PLAYER_DEPTH)/SEGMENT_LENGTH),lookahead=clamp(Math.round(speed*WORLD_SPEED*1.5/SEGMENT_LENGTH),12,40);
   for(let i=idx+5;i<Math.min(segments.length,idx+lookahead);i++)if(Math.abs(segments[i].curve)>Math.abs(strongest))strongest=segments[i].curve;
-  const magnitude=Math.abs(strongest),entry=Math.round(v52SafeCornerSpeed(strongest));
+  const magnitude=Math.abs(strongest),entry=Math.round(v59Arcade3?v59Arcade3CornerSafe(strongest):v52SafeCornerSpeed(strongest));
   document.getElementById('corner-name').textContent=magnitude<.55?'↑ 前方直線':`${strongest>0?'↗ 右':'↖ 左'}${magnitude>3?'急彎':magnitude>1.5?'中彎':'緩彎'}`;
-  document.getElementById('corner-speed').textContent=magnitude<.55?'保持油門 · 注意車流':`建議入彎 ${entry} KM/H · ${speed>entry+15?'先減速':'保持路線'}`;
+  document.getElementById('corner-speed').textContent=magnitude<.55?'保持油門 · 注意車流':v59Arcade5&&speed>entry+20?`⚠ 建議 ${entry} KM/H · 超速易推頭／磨速`:`建議入彎 ${entry} KM/H · ${speed>entry+15?'先減速':'保持路線'}`;
   document.getElementById('drive-state').textContent=isDrifting?`DRIFT · ${driftTime.toFixed(1)} s · x${styleCombo.toFixed(1)}`:boosting?'NITRO · 氮氣推進':exitBoost>0?'MOMENT BOOST · 小噴':momentBoostWindow>0?'MOMENT READY · 放油再補油':roadGrip<.8?'OFF ROAD · 回到路面':'GRIP · 循跡中';
 }
 const radioActions=document.getElementById('radio-actions');
@@ -6632,7 +6890,11 @@ if(segments.length)stageLandmarkPlan=planLandmarks();document.getElementById('mo
 document.getElementById('mood-btn').addEventListener('click',()=>{skyMood=skyMood==='sunset'?'neon':'sunset';if(segments.length)stageLandmarkPlan=planLandmarks();document.getElementById('mood-btn').textContent=skyMood==='sunset'?'夕陽色調':'霓虹夜色';persistV39();render(0);});
 const menuCar=document.getElementById('menu-car'),transmissionSelect=document.getElementById('start-transmission');
 menuCar.innerHTML=carSelect.innerHTML;menuCar.value=selectedCarId;
-transmissionSelect.value=autoGear?'AT':'MT';autoGearCheck.checked=autoGear;
+transmissionSelect.value=v59Arcade3?'AT':autoGear?'AT':'MT';autoGearCheck.checked=v59Arcade3||autoGear;
+if(v59Arcade3){
+ for(const el of [transmissionSelect,autoGearCheck]){const label=el.closest?.('label');(label||el).style.display='none';}
+ for(const id of ['btn-drive','btn-gear'])document.getElementById(id).style.display='none';
+}
 function selectCarSkin(id){
  if(gameStarted&&!gameOver)return;
  profilesV39[selectedCarId]=sanitizeTuning(wanganTuning);selectedCarId=CAR_PROFILES[id]?id:'red_roadster';
@@ -6640,16 +6902,16 @@ function selectCarSkin(id){
  wanganTuning=sanitizeTuning(profilesV39[selectedCarId]||{...defaultTuning,paint:CAR_PROFILES[selectedCarId].color});applyCarTuning();persistV39();updateModeUI();
 }
 menuCar.addEventListener('change',e=>selectCarSkin(e.target.value));
-transmissionSelect.addEventListener('change',e=>{if(gameStarted&&!gameOver)return;autoGear=e.target.value==='AT';autoGearCheck.checked=autoGear;persistV39();});
+transmissionSelect.addEventListener('change',e=>{if(v59Arcade3){e.target.value='AT';return;}if(gameStarted&&!gameOver)return;autoGear=e.target.value==='AT';autoGearCheck.checked=autoGear;persistV39();});
 const sceneIdentity=document.createElement('div');sceneIdentity.id='scene-identity';sceneIdentity.innerHTML='<strong id="street-name"></strong><span id="street-detail"></span>';document.getElementById('game-container').appendChild(sceneIdentity);
 const pedals=document.createElement('div');pedals.id='pedal-feedback';pedals.innerHTML='<span class="pedal-meter">GAS <i><em id="gas-fill"></em></i></span><span class="pedal-meter">BRAKE <i><em id="brake-fill"></em></i></span>';document.getElementById('speed-cluster').appendChild(pedals);
 function updateV39HUD(){
- gearBadge.textContent=driveGear==='R'?'R 倒退':`D · ${currentGear}`;
+ gearBadge.textContent=v59Arcade3?'AUTO · DRIFT':driveGear==='R'?'R 倒退':`D · ${currentGear}`;
  gearBadge.classList.toggle('high',driveGear==='D'&&currentGear==='HIGH');
  const sc=scene(),state={grip:'GRIP 循跡',brake:'BRAKE 重心前移',armed:'READY 點煞・切彎',entry:'TURN IN 入彎',drift:'DRIFT 補油控線',recover:'EXIT 反打收尾'}[driftState];
  document.getElementById('street-name').textContent=`${currentNode.id} / ${sc.label}`;
- document.getElementById('street-detail').textContent=`${currentNode.id==='2B'?'高架橋面 · ':''}${sc.lanes} 線道 · ${routeReality().grade==='real-anchor'?'實景核心':'實景錨點＋街機壓縮'} · ${autoGear?'AT 自排':'MT 手排'}`;
- hudStage.textContent=sc.label;document.getElementById('drive-state').textContent=driveGear==='R'?'R 倒退 · A 回前進':boosting&&isDrifting?`BOOST DRIFT · 同步集氣 ${Math.round(nitro)}%`:boosting?`NITRO ${COMPETITION.boostSpeed} · ${boostRemaining.toFixed(1)} 秒 · 庫存 ${nitroStock}`:roadGrip<.8?'OFF ROAD 回到路面':state;
+ document.getElementById('street-detail').textContent=`${currentNode.id==='2B'?'高架橋面 · ':''}${sc.lanes} 線道 · ${routeReality().grade==='real-anchor'?'實景核心':'實景錨點＋街機壓縮'} · ${v59Arcade3?'免換檔・甩尾集氣':autoGear?'AT 自排':'MT 手排'}`;
+ hudStage.textContent=sc.label;document.getElementById('drive-state').textContent=v59Arcade3&&isDrifting?`卡漂 · 集氣 ${Math.round(driftChargeRate)}%/s · ${Math.round(nitro)}%`:driveGear==='R'?'R 倒退 · A 回前進':boosting&&isDrifting?`BOOST DRIFT · 同步集氣 ${Math.round(nitro)}%`:boosting?`NITRO ${COMPETITION.boostSpeed} · ${boostRemaining.toFixed(1)} 秒 · 庫存 ${nitroStock}`:roadGrip<.8?'OFF ROAD 回到路面':state;
  const brake=inputHeld('ArrowDown')||inputHeld('KeyS')||gamepadInput.brake||helperPulse>0;
  const gas=(inputHeld('ArrowUp')||inputHeld('KeyW')||gamepadInput.gas||nitroLatch)&&!brake;
  document.getElementById('gas-fill').style.width=gas?'100%':'0';document.getElementById('brake-fill').style.width=brake?'100%':'0';
@@ -6691,11 +6953,18 @@ function finishStageTransition(){
   const oldArt=v40Art();
   stageBlendPalette={sky:[...oldArt.sky],ground:[...oldArt.ground]};
   stageVisualBlend=1;
+  // The opt-in countersteer profile carries vehicle inertia across a district boundary.
+  // Only stage-local scenery, road data and traffic change: a route selection is not a crash.
+  // Keep the legacy profile's original reset for physics replay and leaderboard isolation.
+  const carryHandling=handlingProfile59;
+  const gripBeforeSwitch=roadGrip;
   playerX+=remainingCenter*roadFactor();
   distanceOffset+=STAGE_SWITCH*SEGMENT_LENGTH;
   setStage(tr.nextLevel,tr.nextColumn,false,tr.choice==='left'?'LEFT FLOW':'RIGHT FLOW',tr.choice,true);
   playerZ=Math.max(0,remainder);
-  playerX=clamp(playerX,-drivableHalf()*.85,drivableHalf()*.85);resetDrivingState();
+  playerX=clamp(playerX,-drivableHalf()*.85,drivableHalf()*.85);
+  if(carryHandling)roadGrip=gripBeforeSwitch;
+  else resetDrivingState();
   styleMessage('DISTRICT FLOW',tr.next.name+' · KEEP IT MOVING');
 }
 
@@ -6961,7 +7230,7 @@ function loop(now){
   lastTime = now;
   pollGamepads();
   if(gameStarted && !paused && !gameOver && !inRadioScreen){
-    accumulator += dt;
+    accumulator = v59Arcade8?v59Arcade8Budget(dt,accumulator):accumulator+dt;
     while(accumulator >= 1/60){
       update(1/60); accumulator -= 1/60;
       if(v64Probe)v64Steps++;

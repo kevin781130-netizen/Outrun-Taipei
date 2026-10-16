@@ -737,14 +737,27 @@ function createLandmarkGeometry(T,kind){
 }
 function createTaipeiLandmarks(T,scene,sample,offset){
  let route=null,items=[],disposed=false;
- const clear=()=>{for(const item of items){scene.remove(item.mesh);item.mesh.geometry.dispose();item.mesh.material.dispose();}items=[];};
+ // One-time GPU-ready geometry data per authored landmark kind. Advance at
+ // most one new model on a warm-up tick; never alter the active scene/physics.
+ const geometries=new Map(),warmedRoutes=new Set();
+ const modelGeometry=kind=>{
+  if(!geometries.has(kind))geometries.set(kind,createLandmarkGeometry(T,kind));
+  return geometries.get(kind);
+ };
+ const clear=()=>{for(const item of items){scene.remove(item.mesh);item.mesh.material.dispose();}items=[];};
+ function prewarmRoute(id){
+  if(disposed||!ROUTE_MODELS[id]||warmedRoutes.has(id))return false;
+  const missing=ROUTE_MODELS[id].find(kind=>!geometries.has(kind));
+  if(missing){modelGeometry(missing);return true;}
+  warmedRoutes.add(id);return false;
+ }
  function update(frame,points){
   if(disposed)return;
   const source=frame.landmarks||[],signature=(frame.routeId||'')+':'+source.map(h=>h.id).join('|');
   if(signature!==route){
    clear();route=signature;
    for(const h of source){const model=ROUTE_MODELS[frame.routeId]?.[h.modelIndex];if(!model)continue;
-    const geometry=createLandmarkGeometry(T,model),bounds=geometry.boundingBox;
+    const geometry=modelGeometry(model),bounds=geometry.boundingBox;
     const height=Math.min(68,Math.max(12,(h.heightWorld||5000)/260));
     const scale=height/Math.max(1,bounds.max.y-bounds.min.y);
     const mesh=new T.Mesh(geometry,new T.MeshStandardMaterial({vertexColors:true,roughness:.78,metalness:.12,transparent:true}));
@@ -771,7 +784,12 @@ function createTaipeiLandmarks(T,scene,sample,offset){
   }
   return placements;
  }
- return {update,dispose(){if(disposed)return;disposed=true;clear();},get count(){return items.length;}};
+ return {update,prewarmRoute,
+  dispose(){if(disposed)return;disposed=true;clear();for(const g of geometries.values())g.dispose();geometries.clear();},
+  get count(){return items.length;},
+  get warmCount(){return geometries.size;},
+  get readyRoutes(){return warmedRoutes.size;}
+ };
 }
 module.exports={ROUTE_MODELS,createLandmarkGeometry,createTaipeiLandmarks};
 
@@ -902,6 +920,33 @@ module.exports={createRaceEnvironment};
 // Physical start/finish/distance/fork boards restored from the 2D race data.
 function createRaceWayfinding(T,scene,sample,offset,doc){
  let signature='',boards=[],disposed=false;
+ let warmKey='',warmSigns=[],warmTextures=[],warmUploaded=new Set(),warmUploadCount=0;
+ const clearWarm=()=>{
+  for(const texture of warmTextures)texture?.dispose();
+  warmTextures=[];warmSigns=[];warmKey='';warmUploaded.clear();
+ };
+ function prewarmRoute(routeId,signs){
+  if(disposed||!routeId||!Array.isArray(signs)||!signs.length)return false;
+  const key=routeId+JSON.stringify(signs);
+  if(key===signature)return false;
+  if(key!==warmKey){
+   clearWarm();warmKey=key;warmSigns=signs;warmTextures=Array(signs.length).fill(null);
+  }
+  const i=warmTextures.findIndex(t=>!t);
+  if(i<0)return false;
+  warmTextures[i]=textureFor(warmSigns[i]);
+  return true;
+ }
+ function prewarmTextureGPU(renderer){
+  // GPU upload consumes only one already-rasterized future sign per idle tick.
+  // Legacy unit mocks may not expose WebGLRenderer.initTexture; skip safely.
+  if(disposed||!renderer||typeof renderer.initTexture!=='function')return false;
+  const index=warmTextures.findIndex((t,i)=>t&&!warmUploaded.has(i));
+  if(index<0)return false;
+  renderer.initTexture(warmTextures[index]);
+  warmUploaded.add(index);warmUploadCount++;
+  return true;
+ }
  const box=new T.BoxGeometry(1,1,1),plane=new T.PlaneGeometry(1,1);
  const frameMaterial=new T.MeshStandardMaterial({color:0xb9c8c5,roughness:.65,metalness:.3});
  const clear=()=>{for(const b of boards){scene.remove(b.group);b.texture?.dispose();b.material.dispose();}boards=[];};
@@ -917,14 +962,23 @@ function createRaceWayfinding(T,scene,sample,offset,doc){
  function update(frame,points){
   if(disposed)return;
   const source=frame.raceSigns||[],key=(frame.routeId||'')+JSON.stringify(source);
-  if(key!==signature){clear();signature=key;for(const sign of source){
-   const texture=textureFor(sign),material=new T.MeshBasicMaterial({map:texture,color:texture?0xffffff:0x12664d,side:T.DoubleSide});
+  if(key!==signature){
+   const prepared=warmKey===key?warmTextures:null;
+   if(!prepared)clearWarm();
+   clear();signature=key;for(const [i,sign] of source.entries()){
+   const texture=prepared?.[i]||textureFor(sign),material=new T.MeshBasicMaterial({map:texture,color:texture?0xffffff:0x12664d,side:T.DoubleSide});
    const group=new T.Group();group.name='RaceBoard_'+sign.kind+'_'+sign.seg;
    const face=new T.Mesh(plane,material);face.position.y=6.3;face.scale.set(12,3,1);group.add(face);
    const posts=[-1,1].map(()=>{const m=new T.Mesh(box,frameMaterial);group.add(m);return m;});
    const crossbar=new T.Mesh(box,frameMaterial);crossbar.position.y=8;group.add(crossbar);
    scene.add(group);boards.push({group,posts,crossbar,texture,material,sign});
-  }}
+   }
+   if(prepared){
+    // Claimed textures are now owned by active boards; clear only leftovers.
+    for(const tex of warmTextures)if(tex&&!boards.some(b=>b.texture===tex))tex.dispose();
+    warmTextures=[];warmSigns=[];warmKey='';warmUploaded.clear();
+   }
+  }
   for(const b of boards){const d=b.sign.seg-frame.segment;b.group.visible=d>-4&&d<123;if(!b.group.visible)continue;
    const at=sample(points,d),i=Math.max(0,Math.min(124,Math.floor(d)));
    const lanes=(frame.corridors||[]).slice(Math.max(0,i-2),i+3).flat();
@@ -934,7 +988,7 @@ function createRaceWayfinding(T,scene,sample,offset,doc){
    b.crossbar.position.x=(left+right)/2;b.crossbar.scale.set(right-left,.3,.3);
   }
  }
- return {update,dispose(){if(disposed)return;disposed=true;clear();box.dispose();plane.dispose();frameMaterial.dispose();}};
+ return {update,prewarmRoute,prewarmTextureGPU,dispose(){if(disposed)return;disposed=true;clear();clearWarm();box.dispose();plane.dispose();frameMaterial.dispose();},get warmRemaining(){return warmTextures.filter(t=>!t).length;},get warmUploadCount(){return warmUploadCount;}};
 }
 module.exports={createRaceWayfinding};
 
@@ -1248,6 +1302,7 @@ function createFull3DScene(THREE,canvas) {
  const doc=canvas.ownerDocument||(typeof document!=='undefined'?document:null);
  const wayfinding=createRaceWayfinding(THREE,scene,sampleRoadPoint,streetOffset,doc);
  const landmarks=createTaipeiLandmarks(THREE,scene,sampleRoadPoint,streetOffset);
+ let routeWarmFrames=0;
  const environment=createRaceEnvironment(THREE,scene,sampleRoadPoint,streetOffset,doc);
  const signs=TAIPEI_SIGNS.map((text,i)=>{
   const texture=createSignTexture(THREE,text,SIGN_COLORS[i],doc);if(texture)textures.push(texture);
@@ -1552,6 +1607,16 @@ function createFull3DScene(THREE,canvas) {
   effects.update(frame,Math.max(0,dt),quality,camera,car);
   if(frame.crash){const smoke=car.root.getObjectByName('V57_DriftSmoke');if(smoke)smoke.visible=false;}
   renderer.render(scene,camera);
+  // Warm at most one next-route low-poly asset every eight frames.
+  // Scene switching should not compile every landmark at the same instant.
+  if(frame.nextRouteId){
+   const phase=(++routeWarmFrames%8);
+   if(phase===0)with3DOnlyRandom(()=>landmarks.prewarmRoute(frame.nextRouteId));
+   else if(phase===4&&frame.nextRaceSigns)
+    with3DOnlyRandom(()=>wayfinding.prewarmRoute(frame.nextRouteId,frame.nextRaceSigns));
+   else if(phase===6&&frame.gpuRoutePrewarm)
+    with3DOnlyRandom(()=>wayfinding.prewarmTextureGPU(renderer));
+  }
   canvas.style.visibility='visible';ready=true;return true;
  }
  function dispose(){
@@ -1561,7 +1626,8 @@ function createFull3DScene(THREE,canvas) {
   crashChase.dispose();wayfinding.dispose();landmarks.dispose();environment.dispose();effects.dispose();car.dispose();for(const t of textures)t.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
   renderer.dispose();
  }
- return {render,dispose,prepareTrafficVisibility,get ready(){return ready&&!lost&&active},get contextLost(){return lost}};
+ return {render,dispose,prepareTrafficVisibility,get ready(){return ready&&!lost&&active},get contextLost(){return lost},
+  get landmarkWarmCount(){return landmarks.warmCount;},get readyWarmRoutes(){return landmarks.readyRoutes;},get routeGpuWarmCount(){return wayfinding.warmUploadCount;}};
 }
 module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,createChaseRig,updateChaseRig,streetOffset,TAIPEI_SIGNS};
 
