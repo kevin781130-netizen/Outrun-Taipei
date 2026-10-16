@@ -141,14 +141,27 @@ function createLandmarkGeometry(T,kind){
 }
 function createTaipeiLandmarks(T,scene,sample,offset){
  let route=null,items=[],disposed=false;
- const clear=()=>{for(const item of items){scene.remove(item.mesh);item.mesh.geometry.dispose();item.mesh.material.dispose();}items=[];};
+ // One-time GPU-ready geometry data per authored landmark kind. Advance at
+ // most one new model on a warm-up tick; never alter the active scene/physics.
+ const geometries=new Map(),warmedRoutes=new Set();
+ const modelGeometry=kind=>{
+  if(!geometries.has(kind))geometries.set(kind,createLandmarkGeometry(T,kind));
+  return geometries.get(kind);
+ };
+ const clear=()=>{for(const item of items){scene.remove(item.mesh);item.mesh.material.dispose();}items=[];};
+ function prewarmRoute(id){
+  if(disposed||!ROUTE_MODELS[id]||warmedRoutes.has(id))return false;
+  const missing=ROUTE_MODELS[id].find(kind=>!geometries.has(kind));
+  if(missing){modelGeometry(missing);return true;}
+  warmedRoutes.add(id);return false;
+ }
  function update(frame,points){
   if(disposed)return;
   const source=frame.landmarks||[],signature=(frame.routeId||'')+':'+source.map(h=>h.id).join('|');
   if(signature!==route){
    clear();route=signature;
    for(const h of source){const model=ROUTE_MODELS[frame.routeId]?.[h.modelIndex];if(!model)continue;
-    const geometry=createLandmarkGeometry(T,model),bounds=geometry.boundingBox;
+    const geometry=modelGeometry(model),bounds=geometry.boundingBox;
     const height=Math.min(68,Math.max(12,(h.heightWorld||5000)/260));
     const scale=height/Math.max(1,bounds.max.y-bounds.min.y);
     const mesh=new T.Mesh(geometry,new T.MeshStandardMaterial({vertexColors:true,roughness:.78,metalness:.12,transparent:true}));
@@ -175,6 +188,11 @@ function createTaipeiLandmarks(T,scene,sample,offset){
   }
   return placements;
  }
- return {update,dispose(){if(disposed)return;disposed=true;clear();},get count(){return items.length;}};
+ return {update,prewarmRoute,
+  dispose(){if(disposed)return;disposed=true;clear();for(const g of geometries.values())g.dispose();geometries.clear();},
+  get count(){return items.length;},
+  get warmCount(){return geometries.size;},
+  get readyRoutes(){return warmedRoutes.size;}
+ };
 }
 module.exports={ROUTE_MODELS,createLandmarkGeometry,createTaipeiLandmarks};
