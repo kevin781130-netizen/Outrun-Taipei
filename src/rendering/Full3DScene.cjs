@@ -104,7 +104,11 @@ function createSignTexture(THREE,text,color,doc){
  chars.forEach((ch,i)=>g.fillText(ch,64,36+step*(i+.5),104));
  const texture=new THREE.CanvasTexture(c);texture.encoding=THREE.sRGBEncoding;return texture;
 }
-function createFull3DScene(THREE,canvas) {
+function createFull3DScene(THREE,canvas,options=null) {
+ // Opt-in only. The shipped two-argument call creates no timing snapshots.
+ const sink=typeof options?.onPhaseProfile==='function'?options.onPhaseProfile:null;
+ let previouslyProfiledRoute=null;
+ const stamp=(p,key)=>{if(!p)return;const now=performance.now();p.phases[key]=Math.max(0,now-p.previous);p.previous=now;};
  if(!THREE?.WebGLRenderer || !canvas)throw new TypeError('WebGL canvas and Three.js required');
  const geometries=[],materials=[],textures=[];
  let active=true, lost=false,ready=false;
@@ -395,20 +399,28 @@ function createFull3DScene(THREE,canvas) {
  function render(frame,dt=0,width=960,height=540,quality='STANDARD'){
   if(!active||lost)return false;
   if(!frame?.curves?.length) return false;
+  const p=sink?{start:performance.now(),previous:0,phases:{}}:null;
+  if(p)p.previous=p.start;
   const points=previewPoints(frame);
+  stamp(p,'previewRoad');
   if(width!==lastW||height!==lastH){
    renderer.setSize(width,height,false);lastW=width;lastH=height;
    camera.aspect=width/height;camera.updateProjectionMatrix();
   }
   const dpr=quality==='LOW'?.7:quality==='ULTRA'?1.15:1;
   if(lastDpr!==dpr){renderer.setPixelRatio(dpr);lastDpr=dpr;}
+  stamp(p,'viewport');
   paintWorld(frame,points,quality);
+  stamp(p,'roadGeometry');
   environment.update(frame,points,quality);
+  stamp(p,'environment');
   // Three allocates UUIDs while a route's models/signs are first constructed.
   // Those visual allocations must not advance traffic/gameplay randomness.
   with3DOnlyRandom(()=>{
    landmarks.update(frame,points);
+   stamp(p,'landmarks');
    wayfinding.update(frame,points);
+   stamp(p,'roadSigns');
    // The chosen fork is known before district cutover. Prebuild only one
    // future model per advancing frame, inside the visual-only RNG boundary.
    if(dt>0){
@@ -417,6 +429,7 @@ function createFull3DScene(THREE,canvas) {
     wayfinding.prewarm(frame.nextRouteId,frame.nextRouteSigns,
      typeof renderer.initTexture==='function'?texture=>renderer.initTexture(texture):null);
    }
+   stamp(p,'nextRoutePrewarm');
   });
   updateTraffic(frame,points);
   if(frame.carColor!==lastCarColor){
@@ -424,6 +437,7 @@ function createFull3DScene(THREE,canvas) {
    const previous=car;car=with3DOnlyRandom(()=>createVehicle3D(THREE,{color:value,quality}));
    scene.add(car.root);previous.dispose();lastCarColor=frame.carColor;
   }
+  stamp(p,'trafficMeshes');
   updateDrivingVisualSnapshot(driving,frame.driving||gripFrame);
   updateDriftVisualRig(driftRig,driving,Math.max(0,dt));
   updateVehiclePose(pose,{
@@ -456,10 +470,20 @@ function createFull3DScene(THREE,canvas) {
   scene.fog.color.setHex(frame.night?0x233b58:0xd69b82);
   // A flat ground plane must never cover a descending road.
   ground.position.y=Math.min(-.22,...points.map((p,i)=>p.y-.3-(frame.deckHeights?.[i]||0)/260));
+  stamp(p,'vehicleCamera');
   trafficVisibility(frame,points,width,height);
   effects.update(frame,Math.max(0,dt),quality,camera,car);
+  stamp(p,'visibilityEffects');
   renderer.render(scene,camera);
-  canvas.style.visibility='visible';ready=true;return true;
+  stamp(p,'webglSubmit');
+  canvas.style.visibility='visible';ready=true;
+  if(p){
+   sink({routeId:frame.routeId||null,nextRouteId:frame.nextRouteId||null,
+    firstRouteFrame:previouslyProfiledRoute!==null&&previouslyProfiledRoute!==frame.routeId,
+    totalMs:Math.max(0,p.previous-p.start),phases:p.phases});
+   previouslyProfiledRoute=frame.routeId;
+  }
+  return true;
  }
  function dispose(){
   if(!active)return;active=false;ready=false;

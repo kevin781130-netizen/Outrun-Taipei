@@ -74,11 +74,18 @@ const stats=x=>{const a=[...x].sort((a,b)=>a-b);return {meanMs:x.reduce((s,n)=>s
      const canvas=document.createElement('canvas');
      canvas.width=960;canvas.height=540;canvas.style.position='absolute';
      canvas.style.left='-9999px';document.body.appendChild(canvas);
-     const world=window.TaipeiHybrid.createFull3DScene(window.THREE,canvas);
+     const receipts=[];
+     const world=window.TaipeiHybrid.createFull3DScene(window.THREE,canvas,{
+      onPhaseProfile:receipt=>receipts.push(receipt)
+     });
      const timed=(state,dt)=>{
-      const uploads=window.__uploadCalls,start=performance.now();
+      const uploads=window.__uploadCalls,start=performance.now(),index=receipts.length;
       const ok=world.render(state,dt,960,540,'STANDARD');
-      return {ms:performance.now()-start,textureCalls:window.__uploadCalls-uploads,ok};
+      if(receipts.length!==index+1)throw Error('missing renderer phase sample');
+      const profile=receipts[index];
+      return {ms:performance.now()-start,textureCalls:window.__uploadCalls-uploads,ok,
+       phase:profile.phases,totalProfileMs:profile.totalMs,
+       firstRouteFrame:profile.firstRouteFrame};
      };
      try{
       const prime=timed(frame,0);
@@ -115,7 +122,8 @@ const stats=x=>{const a=[...x].sort((a,b)=>a-b);return {meanMs:x.reduce((s,n)=>s
     runs.push(measurement);
     console.log(route.from+'>'+route.to+' '+mode+' handoff '+
      measurement.handoff.ms.toFixed(2)+'ms, texture calls '+
-     measurement.handoff.textureCalls+', preview calls '+measurement.prewarm.textureCalls);
+     measurement.handoff.textureCalls+', preview calls '+measurement.prewarm.textureCalls+
+     ', phases '+JSON.stringify(measurement.handoff.phase));
    }
   }
   const comparisons=routes.map(route=>{
@@ -124,18 +132,23 @@ const stats=x=>{const a=[...x].sort((a,b)=>a-b);return {meanMs:x.reduce((s,n)=>s
    assert(cold&&warm&&cold.driftRetained&&warm.driftRetained);
    return {from:route.from,to:route.to,choice:route.choice,
     coldMs:cold.handoff.ms,warmMs:warm.handoff.ms,deltaMs:warm.handoff.ms-cold.handoff.ms,
+    coldPhases:cold.handoff.phase,warmPhases:warm.handoff.phase,
     coldTextureCalls:cold.handoff.textureCalls,warmTextureCalls:warm.handoff.textureCalls,
     prewarmTextureCalls:warm.prewarm.textureCalls};
   });
   assert.equal(runs.length,8);
   assert.deepEqual(errors,[],'no browser runtime errors');
-  const report={schema:'v59.4-handoff-1',browser:browser.version(),
+  const report={schema:'v59.6-handoff-phases-1',browser:browser.version(),
    environment:'Chromium headless SwiftShader real WebGL; offscreen test canvas',
    sourceRoot:ROOT,commit:process.env.GITHUB_SHA||null,
    measurement:'Synchronous WebGL render JS wall time + texImage/subImage API calls; NOT GPU completion or device FPS',
    warmupFrames:12,comparisons,runs,
    aggregate:{cold:stats(comparisons.map(x=>x.coldMs)),
     warm:stats(comparisons.map(x=>x.warmMs)),
+    coldPhases:Object.fromEntries(Object.keys(comparisons[0].coldPhases).map(k=>
+     [k,stats(comparisons.map(x=>x.coldPhases[k]))])),
+    warmPhases:Object.fromEntries(Object.keys(comparisons[0].warmPhases).map(k=>
+     [k,stats(comparisons.map(x=>x.warmPhases[k]))])),
     coldTextureCalls:comparisons.reduce((s,x)=>s+x.coldTextureCalls,0),
     warmTextureCalls:comparisons.reduce((s,x)=>s+x.warmTextureCalls,0)},
    errors};
