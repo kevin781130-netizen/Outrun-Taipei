@@ -2853,7 +2853,8 @@ function update(dt){
     rpm = lerp(rpm, 1200 + (speed / currentCar.maxSpeed) * 7000, dt * 8);
   }
 
-  stepArcadeMotion(dt,seg.curve,accelHeld,brakeHeld);
+  if(v59Arcade3)stepArcadeMotionChain3(dt,seg.curve,accelHeld,brakeHeld);
+  else stepArcadeMotion(dt,seg.curve,accelHeld,brakeHeld);
 
   // Off-road bouncing & drag
   const localIndex = playerZ / SEGMENT_LENGTH;
@@ -5292,6 +5293,40 @@ function stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
  if(isDrifting&&Math.abs(slipAngle)>2.5&&speed>70){const points=(currentCar.isBike?[1]:currentCar.isTruck?[-75,75]:[-81,81]).map(x=>vehicleProject([x,0,-66],v51DriftVisualYaw()));slideTrails.push({life:.62,y:H-65,points,dir:driftDirection});if(slideTrails.length>32)slideTrails.shift();}
 }
 function stepArcadeMotion(dt,curve,accelHeld=true,brakeHeld=false){
+ const ratio=clamp(speed/COMPETITION.topSpeed,0,1.1),safe=v52SafeCornerSpeed(curve),excess=Math.max(0,speed-safe);
+ const profile=v51SteeringProfile(speed,isDrifting);
+ const liftGrip=!isDrifting&&!accelHeld&&!brakeHeld?profile.liftGrip:1;
+ const frontGrip=clamp((1-excess/210)*liftGrip,.68,1.24);
+ const curveDemand=clamp(Math.abs(curve)/1.8,0,1);
+ const travelYaw=(driftAngle-slipAngle)*Math.PI/180;
+ const driftPathScale=isDrifting?v51DriftPathScale(curve):1;
+ const yawTurn=Math.sin(travelYaw)*(isDrifting?DRIFT51.driftPathYaw*driftPathScale:DRIFT51.gripPathYaw)*(.50+.72*ratio);
+ const baseAuthority=isDrifting?lerp(.25,DRIFT51.steerPath,curveDemand):.238*profile.authority;
+ const brakeRotation=!isDrifting&&brakeHeld?steer*profile.brakeRotation:0;
+ const matchingCurve=Math.sign(steer)===Math.sign(curve)?Math.min(Math.abs(curve),2.4):0;
+ const turnInBite=!isDrifting?steer*matchingCurve*V51_HANDLING.turnInBite*(.35+.65*ratio):0;
+ const turn=Math.min(1,speed/30)*(yawTurn+steer*baseAuthority+brakeRotation+turnInBite)*(isDrifting?1:frontGrip);
+ const outward=curve*.032*ratio*ratio+(isDrifting?0:v52OverspeedPush(speed,curve));
+ lateralVelocity=lerp(lateralVelocity,turn-outward,1-Math.exp(-dt*(isDrifting?DRIFT51.driftLateralResponse:17.6)));
+ const idx=clamp(Math.floor(playerZ/SEGMENT_LENGTH),0,Math.max(0,segments.length-1)),corridors=roadCorridors(idx);
+ const lane=corridors.reduce((best,q)=>Math.abs(playerX-q.center)<Math.abs(playerX-best.center)?q:best,corridors[0]||{center:0,half:roadFactor()});
+ const usable=Math.max(.12,lane.half-PLAYER_HALF_WIDTH),edgeUse=Math.abs(playerX-lane.center)/usable;
+ const outwardMotion=Math.sign(lateralVelocity)===Math.sign(playerX-lane.center)&&Math.abs(playerX-lane.center)>.01;
+ if(isDrifting&&outwardMotion&&edgeUse>.70){
+   const shoulderDamp=clamp((edgeUse-.70)/.30,0,1);
+   lateralVelocity*=Math.max(.72,1-dt*(2.2+shoulderDamp*5.2));
+ }
+ playerX+=lateralVelocity*dt*motionDirection;
+ visualLoad=lerp(visualLoad,brakeHeld?1.08:accelHeld?-.42:0,1-Math.exp(-dt*10));
+ const targetRoll=clamp(-(steer*.72+lateralVelocity*.40)*(2.3+ratio*2.2),-V51_HANDLING.chassisRollMax,V51_HANDLING.chassisRollMax);
+ const targetPitch=clamp(visualLoad*V51_HANDLING.chassisPitchMax,-V51_HANDLING.chassisPitchMax,V51_HANDLING.chassisPitchMax);
+ chassisRoll=lerp(chassisRoll,targetRoll,1-Math.exp(-dt*11));
+ chassisPitch=lerp(chassisPitch,targetPitch,1-Math.exp(-dt*13));
+ if(isDrifting&&driftState!=='recover')speed=Math.max(0,speed-(.32+Math.abs(slipAngle)*.011)*dt);
+ if(excess>0&&Math.abs(curve)>.8)speed=Math.max(0,speed-excess*(isDrifting?.012:V52_CORNER.scrubGrip)*dt);
+}
+function playerVisualTransform(){const p=v51DriftVisualPose();return {yaw:p.yaw,travelYaw:driftAngle-slipAngle,mode:'rigid-3d-sideways',scaleX:p.scaleX,shearX:0,offsetX:p.offsetX,intensity:p.intensity};}
+function stepArcadeMotionChain3(dt,curve,accelHeld=true,brakeHeld=false){
  const ratio=clamp(speed/COMPETITION.topSpeed,0,1.1),safe=v59Arcade3?v59Arcade3CornerSafe(curve):v52SafeCornerSpeed(curve),excess=Math.max(0,speed-safe);
  const profile=v51SteeringProfile(speed,isDrifting);
  const liftGrip=!isDrifting&&!accelHeld&&!brakeHeld?profile.liftGrip:1;
@@ -5332,7 +5367,6 @@ function stepArcadeMotion(dt,curve,accelHeld=true,brakeHeld=false){
  if(excess>0&&Math.abs(curve)>.8)speed=Math.max(0,speed-excess*
    (v59Arcade3?V59_ARCADE3.cornerDrag*(isDrifting?.72:1):isDrifting?.012:V52_CORNER.scrubGrip)*dt);
 }
-function playerVisualTransform(){const p=v51DriftVisualPose();return {yaw:p.yaw,travelYaw:driftAngle-slipAngle,mode:'rigid-3d-sideways',scaleX:p.scaleX,shearX:0,offsetX:p.offsetX,intensity:p.intensity};}
 function drawSlideTrails(){
  ctx.save();ctx.lineCap='round';
  for(const p of slideTrails){const age=.62-p.life,y=p.y+age*speed*.72;if(y>H+5)continue;ctx.strokeStyle=`rgba(16,18,24,${p.life*.72})`;ctx.lineWidth=3;
