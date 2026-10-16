@@ -409,6 +409,9 @@ function createFull3DScene(THREE,canvas) {
   with3DOnlyRandom(()=>{
    landmarks.update(frame,points);
    wayfinding.update(frame,points);
+   // The chosen fork is known before district cutover. Prebuild only one
+   // future model per advancing frame, inside the visual-only RNG boundary.
+   if(dt>0&&frame.nextRouteId)landmarks.prewarm(frame.nextRouteId);
   });
   updateTraffic(frame,points);
   if(frame.carColor!==lastCarColor){

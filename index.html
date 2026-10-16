@@ -4353,6 +4353,8 @@ function v57SceneFrame(){
   return {
     curves,hills,corridors,deckHeights,
     routeId:currentNode.id,raceSigns:v58RaceSigns(),
+    nextRouteId:v34Mode==='arcade'&&stageLevel<4&&(choiceLocked||stageTransition)
+      ?(stageTransition?.next.id||nextNodes()?.[pendingChoice]?.id):null,
     skyColors:skyMood==='sunset'?v40Art().sky:scene().night,
     groundColor:v40Art().ground[0],mountainColor:v40Art().mountain,
     landmarks:landmarkTimeline().map((h,modelIndex)=>({id:h.id,modelIndex,name:h.name,seg:h.seg,side:h.side,heightWorld:h.heightWorld,groundDrop:h.groundDrop})),
