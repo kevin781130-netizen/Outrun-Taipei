@@ -61,7 +61,7 @@ for(const choice of ['left','right']){
 const frame=JSON.parse(game.run('JSON.stringify(v57SceneFrame())'));
 let uploads=0,renders=0;
 T.WebGLRenderer=class{setPixelRatio(){}setClearColor(){}setSize(){}render(){renders++;}dispose(){}initTexture(t){assert(t.isTexture);uploads++;}};
-const world=createFull3DScene(T,{style:{},addEventListener(){},removeEventListener(){}});
+const world=createFull3DScene(T,{style:{},ownerDocument:doc,addEventListener(){},removeEventListener(){}});
 const oldRandom=Math.random;Math.random=()=>{throw Error('visual initialization touched gameplay RNG');};
 try{
  world.render(frame,1/60);
