@@ -33,9 +33,16 @@ const stats=x=>{const a=[...x].sort((a,b)=>a-b);return {meanMs:x.reduce((s,n)=>s
   const errors=[];page.on('pageerror',err=>errors.push(err.message));
   await page.addInitScript(()=>{
    window.requestAnimationFrame=()=>0;
-   window.__uploadCalls=0;
+   window.__uploadCalls=0;window.__bufferCalls=0;
    for(const type of [window.WebGLRenderingContext,window.WebGL2RenderingContext]){
     if(!type)continue;
+    for(const method of ['bufferData','bufferSubData']){
+     if(!Object.prototype.hasOwnProperty.call(type.prototype,method))continue;
+     const native=type.prototype[method];
+     if(typeof native==='function')type.prototype[method]=function(...args){
+      window.__bufferCalls++;return native.apply(this,args);
+     };
+    }
     for(const method of ['texImage2D','texSubImage2D','compressedTexImage2D','compressedTexSubImage2D']){
      if(!Object.prototype.hasOwnProperty.call(type.prototype,method))continue;
      const native=type.prototype[method];
@@ -79,11 +86,13 @@ const stats=x=>{const a=[...x].sort((a,b)=>a-b);return {meanMs:x.reduce((s,n)=>s
       onPhaseProfile:receipt=>receipts.push(receipt)
      });
      const timed=(state,dt)=>{
-      const uploads=window.__uploadCalls,start=performance.now(),index=receipts.length;
+      const uploads=window.__uploadCalls,buffers=window.__bufferCalls,
+       start=performance.now(),index=receipts.length;
       const ok=world.render(state,dt,960,540,'STANDARD');
       if(receipts.length!==index+1)throw Error('missing renderer phase sample');
       const profile=receipts[index];
-      return {ms:performance.now()-start,textureCalls:window.__uploadCalls-uploads,ok,
+      return {ms:performance.now()-start,textureCalls:window.__uploadCalls-uploads,
+       bufferCalls:window.__bufferCalls-buffers,ok,
        phase:profile.phases,totalProfileMs:profile.totalMs,
        firstRouteFrame:profile.firstRouteFrame};
      };
@@ -105,11 +114,13 @@ const stats=x=>{const a=[...x].sort((a,b)=>a-b);return {meanMs:x.reduce((s,n)=>s
       const handoff=timed(next,1/60);
       const followup=Array.from({length:8},()=>timed(next,1/60));
       if([prime,...previews,handoff,...followup].some(x=>!x.ok||!Number.isFinite(x.ms)||x.ms<0||
-       !Number.isInteger(x.textureCalls)||x.textureCalls<0))throw Error('invalid WebGL receipt');
+       !Number.isInteger(x.textureCalls)||x.textureCalls<0||
+        !Number.isInteger(x.bufferCalls)||x.bufferCalls<0))throw Error('invalid WebGL receipt');
       if(!canvas.getContext('webgl2')&&!canvas.getContext('webgl'))throw Error('WebGL context missing');
       return {from:route.from,to:route.to,choice:route.choice,mode,
        primeMs:prime.ms,stageSwitchMs,handoff,prewarm:{
         frames:previews.length,textureCalls:previews.reduce((s,x)=>s+x.textureCalls,0),
+         bufferCalls:previews.reduce((s,x)=>s+x.bufferCalls,0),
         meanCpuMs:previews.length?previews.reduce((s,x)=>s+x.ms,0)/previews.length:0
        },followup:followup.map(x=>x.ms),driftRetained:true};
      }finally{
@@ -123,7 +134,9 @@ const stats=x=>{const a=[...x].sort((a,b)=>a-b);return {meanMs:x.reduce((s,n)=>s
     console.log(route.from+'>'+route.to+' '+mode+' handoff '+
      measurement.handoff.ms.toFixed(2)+'ms, texture calls '+
      measurement.handoff.textureCalls+', preview calls '+measurement.prewarm.textureCalls+
-     ', phases '+JSON.stringify(measurement.handoff.phase));
+     ', handoff buffer calls '+measurement.handoff.bufferCalls+
+      ', prior buffer calls '+measurement.prewarm.bufferCalls+
+      ', phases '+JSON.stringify(measurement.handoff.phase));
    }
   }
   const comparisons=routes.map(route=>{
@@ -133,12 +146,14 @@ const stats=x=>{const a=[...x].sort((a,b)=>a-b);return {meanMs:x.reduce((s,n)=>s
    return {from:route.from,to:route.to,choice:route.choice,
     coldMs:cold.handoff.ms,warmMs:warm.handoff.ms,deltaMs:warm.handoff.ms-cold.handoff.ms,
     coldPhases:cold.handoff.phase,warmPhases:warm.handoff.phase,
+     coldBufferCalls:cold.handoff.bufferCalls,warmBufferCalls:warm.handoff.bufferCalls,
+     prewarmBufferCalls:warm.prewarm.bufferCalls,
     coldTextureCalls:cold.handoff.textureCalls,warmTextureCalls:warm.handoff.textureCalls,
     prewarmTextureCalls:warm.prewarm.textureCalls};
   });
   assert.equal(runs.length,8);
   assert.deepEqual(errors,[],'no browser runtime errors');
-  const report={schema:'v59.6-handoff-phases-1',browser:browser.version(),
+  const report={schema:'v59.7-gpu-prewarm-1',browser:browser.version(),
    environment:'Chromium headless SwiftShader real WebGL; offscreen test canvas',
    sourceRoot:ROOT,commit:process.env.GITHUB_SHA||null,
    measurement:'Synchronous WebGL render JS wall time + texImage/subImage API calls; NOT GPU completion or device FPS',
@@ -150,7 +165,10 @@ const stats=x=>{const a=[...x].sort((a,b)=>a-b);return {meanMs:x.reduce((s,n)=>s
     warmPhases:Object.fromEntries(Object.keys(comparisons[0].warmPhases).map(k=>
      [k,stats(comparisons.map(x=>x.warmPhases[k]))])),
     coldTextureCalls:comparisons.reduce((s,x)=>s+x.coldTextureCalls,0),
-    warmTextureCalls:comparisons.reduce((s,x)=>s+x.warmTextureCalls,0)},
+    warmTextureCalls:comparisons.reduce((s,x)=>s+x.warmTextureCalls,0),
+     coldBufferCalls:comparisons.reduce((s,x)=>s+x.coldBufferCalls,0),
+     warmBufferCalls:comparisons.reduce((s,x)=>s+x.warmBufferCalls,0),
+     prewarmBufferCalls:comparisons.reduce((s,x)=>s+x.prewarmBufferCalls,0)},
    errors};
   fs.mkdirSync(path.dirname(OUTPUT),{recursive:true});
   fs.writeFileSync(OUTPUT,JSON.stringify(report,null,2)+'\n');
