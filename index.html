@@ -4515,6 +4515,9 @@ function v57SceneFrame(){
     skyColors:skyMood==='sunset'?v40Art().sky:scene().night,
     groundColor:v40Art().ground[0],mountainColor:v40Art().mountain,
     landmarks:landmarkTimeline().map((h,modelIndex)=>({id:h.id,modelIndex,name:h.name,seg:h.seg,side:h.side,heightWorld:h.heightWorld,groundDrop:h.groundDrop})),
+    nextRouteId:v59Arcade7&&v34Mode==='arcade'&&stageLevel<4&&
+      (stageTransition||choiceLocked&&playerZ/SEGMENT_LENGTH>=FORK_LOCK)?
+      (stageTransition?.next?.id||STAGES[stageLevel+1]?.[stageColumn+(pendingChoice==='right'?1:0)]?.id):null,
     segment:first,
     fraction:(visualPlayerZ%SEGMENT_LENGTH)/SEGMENT_LENGTH,
     playerX,traffic:traffic3D,carColor:currentCar.color,
@@ -5067,7 +5070,8 @@ function v52OverspeedPush(speedNow,curve){
 const V59_HANDLING=Object.freeze({id:'v59-countersteer-1',recordSuffix:':H59.1'});
 const handlingProfile59=/(?:^|[?&])handling=v59(?:&|$)/.test(window.location?.search||'');
 // Explicit opt-in avoids changing old V59 feel or historical records.
-const v59Arcade6=handlingProfile59&&/(?:^|[?&])drift=chain6(?:&|$)/.test(window.location?.search||'');
+const v59Arcade7=handlingProfile59&&/(?:^|[?&])drift=chain7(?:&|$)/.test(window.location?.search||'');
+const v59Arcade6=handlingProfile59&&(/(?:^|[?&])drift=chain6(?:&|$)/.test(window.location?.search||'')||v59Arcade7);
 const v59Arcade5=handlingProfile59&&(/(?:^|[?&])drift=chain5(?:&|$)/.test(window.location?.search||'')||v59Arcade6);
 const v59Arcade4=handlingProfile59&&(/(?:^|[?&])drift=chain4(?:&|$)/.test(window.location?.search||'')||v59Arcade5);
 const v59Arcade3=handlingProfile59&&(/(?:^|[?&])drift=chain3(?:&|$)/.test(window.location?.search||'')||v59Arcade4);
@@ -5108,7 +5112,14 @@ const V59_ARCADE6=Object.freeze({
  chargeRampStart:.06,chargeRampSeconds:.30,chargeRampFloor:.35,
  handoffChargePenalty:.84
 });
-if(handlingProfile59)document.title+=v59Arcade6?' · CHAIN6 出彎回正／持續卡漂試玩':v59Arcade5?' · CHAIN5 街機反打與壓彎試玩':v59Arcade4?' · CHAIN4 慣性卡漂／出彎回速試玩':v59Arcade3?' · CHAIN3 卡漂集氣試玩':v59Chain2?' · V59 CHAIN2 連續反甩測試':' · V59 反打測試';
+const V59_ARCADE7=Object.freeze({recordSuffix:':H59.7',
+ // Metadata only. Used solely in full-WebGL mode where no 2D sprite is displayed.
+ spriteWidth:560,spriteHeight:900});
+const v59Arcade7Sprite=Object.freeze({
+ width:V59_ARCADE7.spriteWidth,height:V59_ARCADE7.spriteHeight,
+ canvas:Object.freeze({width:0,height:0}),metadataOnly:true
+});
+if(handlingProfile59)document.title+=v59Arcade7?' · CHAIN7 換圖不中斷甩尾試玩':v59Arcade6?' · CHAIN6 出彎回正／持續卡漂試玩':v59Arcade5?' · CHAIN5 街機反打與壓彎試玩':v59Arcade4?' · CHAIN4 慣性卡漂／出彎回速試玩':v59Arcade3?' · CHAIN3 卡漂集氣試玩':v59Chain2?' · V59 CHAIN2 連續反甩測試':' · V59 反打測試';
 // AI traffic is intentionally only available in cruise preview. Ranked modes stay unchanged.
 const trafficAI60Requested=/(?:^|[?&])trafficAI=v60(?:&|$)/.test(window.location?.search||'');
 if(trafficAI60Requested)document.title+=' · V60 車流試玩（巡航限定）';
@@ -5137,7 +5148,7 @@ function v59Arcade5Pressure(speedNow,curve){
  if(Math.abs(curve)<.30)return 0;
  return clamp((speedNow-v59Arcade3CornerSafe(curve))/V59_ARCADE5.cornerPressRange,0,1)*clamp(Math.abs(curve)/2,0,1);
 }
-function handlingRecordSuffix59(){return !handlingProfile59?'':v59Arcade6?V59_ARCADE6.recordSuffix:v59Arcade5?V59_ARCADE5.recordSuffix:v59Arcade4?V59_ARCADE4.recordSuffix:v59Arcade3?V59_ARCADE3.recordSuffix:v59Chain2?V59_CHAIN2.recordSuffix:V59_HANDLING.recordSuffix;}
+function handlingRecordSuffix59(){return !handlingProfile59?'':v59Arcade7?V59_ARCADE7.recordSuffix:v59Arcade6?V59_ARCADE6.recordSuffix:v59Arcade5?V59_ARCADE5.recordSuffix:v59Arcade4?V59_ARCADE4.recordSuffix:v59Arcade3?V59_ARCADE3.recordSuffix:v59Chain2?V59_CHAIN2.recordSuffix:V59_HANDLING.recordSuffix;}
 function stepHandlingDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
  if(handlingProfile59)stepCountersteerDrift59(dt,brakeHeld,accelHeld,v59Arcade5?v59Arcade5Intent(steerTarget,dt):steerTarget,curve);
  else stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve);
@@ -5716,7 +5727,7 @@ function planLandmarks(){
  const end=v34Mode==='arcade'?(stageLevel===4?FINISH_LINE:STAGE_END):soloFinishIndex();
  const fractions=items.length===1?[.40]:items.length===2?[.22,.70]:[.16,.45,.75];let last=40;
  return items.map((h,i)=>{
-  const sprite=getLandmarkSprite(h),height=h.height||V51_LANDMARK_AUDIT[currentNode.id]?.height||(h.name.includes('101')?19000:h.name.includes('纜車')?7200:h.name.includes('橋')?7000:7800); // V53.1: per-landmark real-world proportion (was one height per route)
+  const sprite=v59Arcade7&&v56Full3D?v59Arcade7Sprite:getLandmarkSprite(h),height=h.height||V51_LANDMARK_AUDIT[currentNode.id]?.height||(h.name.includes('101')?19000:h.name.includes('纜車')?7200:h.name.includes('橋')?7000:7800); // V53.1: per-landmark real-world proportion (was one height per route)
   const artUnits=height*H/2/sprite.height,halfWorld=sprite.width*artUnits/W;
   const minOffset=ROAD_WIDTH*roadFactor()*1.12+halfWorld+1000,preferred=h.side??(i%2?-1:1),target=Math.round(end*fractions[i]);
   let best=null;
