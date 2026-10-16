@@ -6,7 +6,11 @@ const original=JSON.stringify(frame);
 const states=[30,60,120].map(fps=>{
  const state=createEffectState();for(let i=0;i<fps;i++)updateEffectState(state,frame,1/fps);return state;
 });
-for(const key of ['time','speed','smoke','boost'])assert(Math.abs(states[0][key]-states[2][key])<1e-10,'FPS-independent '+key);
+for(const key of ['time','speed','smoke','boost','side'])assert(Math.abs(states[0][key]-states[2][key])<1e-10,'FPS-independent '+key);
+const otherSide=createEffectState();
+for(let i=0;i<60;i++)updateEffectState(otherSide,{...frame,driving:{isDrifting:true,slipAngleDeg:-16}},1/60);
+assert(states[1].side>0&&otherSide.side<0,'haze follows drift side');
+assert(Math.abs(states[1].side+otherSide.side)<1e-10,'opposite turns mirror the haze response');
 assert.equal(JSON.stringify(frame),original,'effects never mutate driving input');
 const frozen=JSON.stringify(states[0]);updateEffectState(states[0],{},0);assert.equal(JSON.stringify(states[0]),frozen);
 assert.throws(()=>updateEffectState(states[0],frame,-1),/nonnegative/);
