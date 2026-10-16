@@ -29,7 +29,7 @@ for(const fps of [30,60,120])for(const side of [-1,1]){
   "speed=180;driftAngle=30*"+side+";slipAngle=20*"+side+";steer=0;",
   "isDrifting=true;driftState='drift';driftDirection="+side+";roadGrip=1;",
   "playerX=0;lateralVelocity=0;",
-  "for(let i=0;i<"+fps+";i++)stepArcadeMotion(1/"+fps+","+side+"*.35,true,false);",
+  "for(let i=0;i<"+fps+";i++)stepArcadeMotionChain3(1/"+fps+","+side+"*.35,true,false);",
   "return JSON.stringify({gear,stillHigh,x:playerX,velocity:lateralVelocity,speed});})()"
  ].join('\n');
  const sample=JSON.parse(run(arcade,code));
@@ -53,8 +53,8 @@ assert(speeds.every(Number.isFinite)&&speeds[0]<300&&speeds[3]<275,
  '300 must bleed down on straight without nitro: '+JSON.stringify(speeds));
 const bend=JSON.parse(run(arcade,[
  "(()=>{speed=280;playerX=0;lateralVelocity=0;isDrifting=false;steer=0;driftAngle=0;slipAngle=0;",
- "stepArcadeMotion(1,2.2,true,false);const hard=speed;",
- "speed=280;playerX=0;lateralVelocity=0;stepArcadeMotion(1,0,true,false);",
+ "stepArcadeMotionChain3(1,2.2,true,false);const hard=speed;",
+ "speed=280;playerX=0;lateralVelocity=0;stepArcadeMotionChain3(1,0,true,false);",
  "return JSON.stringify({hard,straight:speed});})()"
 ].join('\n')));
 assert(bend.hard<bend.straight-40,
