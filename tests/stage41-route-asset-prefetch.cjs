@@ -36,6 +36,30 @@ world.dispose();
 assert.equal(scene.children.length,firstSceneCount,'dispose clears all active meshes');
 assert(geos.every(g=>!g.attributes.position||g.attributes.position.array.length>0),'geometries were valid before disposal');
 
+const {createRaceWayfinding}=require('../src/rendering/RaceWayfinding.cjs');
+const {createCanvas}=require('@napi-rs/canvas');
+const stage=new THREE.Scene();
+const signs=[{kind:'start',seg:26,label:'TAIPEI / 台北出發',detail:'2A · 圓山'},
+ {kind:'distance',seg:58,label:'檢查站 200 M',detail:'CHECK POINT'}];
+const boards=createRaceWayfinding(THREE,stage,sampleRoadPoint,streetOffset,
+ {createElement:tag=>{assert.equal(tag,'canvas');return createCanvas(1024,256);}});
+assert.equal(stage.children.length,0);
+assert(boards.prewarmRoute('2A',signs));
+assert(boards.prewarmRoute('2A',signs));
+assert.equal(boards.prewarmRoute('2A',signs),false,'ready sign textures are not repainted');
+assert.equal(stage.children.length,0,'future signs cannot appear before the route change');
+boards.update({...frame('2A',h2a),raceSigns:signs},points);
+const firstSign=stage.children.find(n=>n.name.includes('RaceBoard_start'));
+assert(firstSign&&firstSign.children[0].material.map?.isCanvasTexture,'road signs must keep real Chinese canvas labels');
+const claimed=firstSign.children[0].material.map;
+assert.equal(boards.prewarmRoute('2A',signs),false,'active route never repaints its own textures');
+assert.strictEqual(firstSign.children[0].material.map,claimed,'already painted canvas used unchanged');
+const newSigns=[{kind:'start',seg:26,label:'TAIPEI / 台北出發',detail:'2B · 市民高架'}];
+assert(boards.prewarmRoute('2B',newSigns));
+boards.update({...frame('2B',h2b),raceSigns:newSigns},points);
+assert.equal(stage.children.length,1,'old sign scene cleared on actual route change');
+boards.dispose();assert.equal(stage.children.length,0);
+
 const html=fs.readFileSync(path.resolve(__dirname,'../index.html'),'utf8');
 assert(html.includes('v59Arcade7&&v56Full3D?v59Arcade7Sprite:getLandmarkSprite(h)'),'only opt-in full 3D avoids unused giant sprite rasterization');
 assert(html.includes("recordSuffix:':H59.7'"),'opt-in ranking remains isolated');
