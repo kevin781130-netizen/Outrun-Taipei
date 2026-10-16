@@ -5035,7 +5035,16 @@ function v51CurveDemand(curve){return clamp(Math.abs(curve)/V51_SIDEWAYS.curveFo
 function v51VisualCurveCap(curve){return lerp(V51_SIDEWAYS.shallowCurveYaw,V51_SIDEWAYS.tightCurveYaw,v51CurveDemand(curve));}
 function v51DriftPathScale(curve){return lerp(.45,1,clamp(Math.abs(curve)/1.8,0,1));}
 function v51DriftVisualYaw(curve=v51CurrentCurve()){
-  if(!isDrifting&&driftState!=='recover')return driftAngle;
+  if(!isDrifting&&driftState!=='recover'){
+    if(v59Arcade6&&v59Arcade6Regrip>0){
+      // Residual yaw follows actual sliding travel during brief regrip;
+      // avoid a visually straight car gliding sideways at the exit.
+      const blend=clamp(v59Arcade6Regrip/V59_ARCADE6.regripSeconds,0,1);
+      const trailingYaw=clamp(lateralVelocity*10,-7.5,7.5)*blend;
+      return clamp(driftAngle+trailingYaw,-DRIFT51.maxBodyYaw,DRIFT51.maxBodyYaw);
+    }
+    return driftAngle;
+  }
   const signedSlip=Math.sign(driftAngle||driftDirection||1)*Math.abs(slipAngle);
   const raw=driftAngle*V51_SIDEWAYS.visualYawGain+signedSlip*V51_SIDEWAYS.visualSlipGain;
   const curveCap=v51VisualCurveCap(curve);
