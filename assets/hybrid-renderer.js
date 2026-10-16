@@ -920,7 +920,7 @@ module.exports={createRaceEnvironment};
 // Physical start/finish/distance/fork boards restored from the 2D race data.
 function createRaceWayfinding(T,scene,sample,offset,doc){
  let signature='',boards=[],disposed=false;
- let warmKey='',warmSigns=[],warmTextures=[],warmUploaded=new Set();
+ let warmKey='',warmSigns=[],warmTextures=[],warmUploaded=new Set(),warmUploadCount=0;
  const clearWarm=()=>{
   for(const texture of warmTextures)texture?.dispose();
   warmTextures=[];warmSigns=[];warmKey='';warmUploaded.clear();
@@ -944,7 +944,7 @@ function createRaceWayfinding(T,scene,sample,offset,doc){
   const index=warmTextures.findIndex((t,i)=>t&&!warmUploaded.has(i));
   if(index<0)return false;
   renderer.initTexture(warmTextures[index]);
-  warmUploaded.add(index);
+  warmUploaded.add(index);warmUploadCount++;
   return true;
  }
  const box=new T.BoxGeometry(1,1,1),plane=new T.PlaneGeometry(1,1);
@@ -988,7 +988,7 @@ function createRaceWayfinding(T,scene,sample,offset,doc){
    b.crossbar.position.x=(left+right)/2;b.crossbar.scale.set(right-left,.3,.3);
   }
  }
- return {update,prewarmRoute,prewarmTextureGPU,dispose(){if(disposed)return;disposed=true;clear();clearWarm();box.dispose();plane.dispose();frameMaterial.dispose();},get warmRemaining(){return warmTextures.filter(t=>!t).length;}};
+ return {update,prewarmRoute,prewarmTextureGPU,dispose(){if(disposed)return;disposed=true;clear();clearWarm();box.dispose();plane.dispose();frameMaterial.dispose();},get warmRemaining(){return warmTextures.filter(t=>!t).length;},get warmUploadCount(){return warmUploadCount;}};
 }
 module.exports={createRaceWayfinding};
 
@@ -1627,7 +1627,7 @@ function createFull3DScene(THREE,canvas) {
   renderer.dispose();
  }
  return {render,dispose,prepareTrafficVisibility,get ready(){return ready&&!lost&&active},get contextLost(){return lost},
-  get landmarkWarmCount(){return landmarks.warmCount;},get readyWarmRoutes(){return landmarks.readyRoutes;}};
+  get landmarkWarmCount(){return landmarks.warmCount;},get readyWarmRoutes(){return landmarks.readyRoutes;},get routeGpuWarmCount(){return wayfinding.warmUploadCount;}};
 }
 module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,createChaseRig,updateChaseRig,streetOffset,TAIPEI_SIGNS};
 
