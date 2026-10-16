@@ -2840,7 +2840,11 @@ function update(dt){
     const throttleFactor=accelHeld?1:.28;
     const pull=(v59Arcade3?v59Arcade3Thrust(speed):v53GearThrust(speed,currentGear,draftLevel))*shiftFactor*throttleFactor;
     const nitroPush=boosting?(v59Arcade3?v59Arcade3NitroPush(speed):v53NitroPush(speed)):0,momentPush=exitBoost>0?V53_SPEED.momentPush:0,shiftPush=!v59Arcade3&&shiftPunch>0?V53_SPEED.shiftPush:0;
-    speed+=(pull+nitroPush+momentPush+shiftPush)*dt;
+    // Earned speed recovery occurs only after a qualifying controlled drift.
+    // It is weaker than N2O, ends quickly, and cannot stack with nitro or exceed cruiseMax.
+    const earnedExit=v59Arcade4&&!boosting&&!brakeHeld&&roadGrip>.8&&speed<V59_ARCADE4.exitSpeedCap&&v59Arcade4ExitTimer>0?
+      V59_ARCADE4.exitForce*clamp((V59_ARCADE4.exitSpeedCap-speed)/20,0,1):0;
+    speed+=(pull+nitroPush+momentPush+shiftPush+earnedExit)*dt;
   }else speed=Math.max(0,speed-(v59Arcade3?V59_ARCADE3.coast:19)*dt);
   if(helperPulse>0&&!brakeHeld)speed=Math.max(0,speed-18*dt);
   if(motionDirection===desiredDirection)speed=Math.max(0,speed-(v59Arcade3?v59Arcade3SpeedDrag(speed,boosting):v53OverspeedDrag(speed,currentGear,draftLevel,boosting))*dt);
@@ -2853,6 +2857,7 @@ function update(dt){
     rpm = lerp(rpm, 1200 + (speed / currentCar.maxSpeed) * 7000, dt * 8);
   }
 
+  if(v59Arcade4)v59Arcade4ExitTimer=Math.max(0,v59Arcade4ExitTimer-dt);
   if(v59Arcade3)stepArcadeMotionChain3(dt,seg.curve,accelHeld,brakeHeld);
   else stepArcadeMotion(dt,seg.curve,accelHeld,brakeHeld);
 
@@ -4934,19 +4939,26 @@ const V53_SPEED=Object.freeze({
   draftRaise:10,draftRise:.7,draftFall:1.2,momentPush:28,shiftPush:14,
   exactSourceCurveCopy:false
 });
+function v59Arcade4Charge(slip,speedNow,curve,slideAge,preparing){
+ const base=v59Arcade3Charge(slip,speedNow,curve);
+ const stable=clamp((slideAge-.10)/V59_ARCADE4.qualityBuild,0,1);
+ // Long, controlled drifts are worth more; switching sides never resets combo.
+ return base*(.66+.34*stable)*(preparing?.7:1);
+}
 function v59Arcade3Thrust(speedNow){
  const remaining=Math.max(0,1-speedNow/V59_ARCADE3.cruiseMax);
  return V59_ARCADE3.thrust*Math.pow(remaining,V59_ARCADE3.thrustFade);
 }
 function v59Arcade3NitroPush(speedNow){
- return Math.min(V53_SPEED.nitroMax,Math.max(0,COMPETITION.boostSpeed-speedNow)*V59_ARCADE3.boostForce);
+ return Math.min(V53_SPEED.nitroMax,Math.max(0,COMPETITION.boostSpeed-speedNow)*(v59Arcade4?V59_ARCADE4.boostForce:V59_ARCADE3.boostForce));
 }
 function v59Arcade3SpeedDrag(speedNow,boosted){
- const target=boosted?V59_ARCADE3.boostSoftLimit:V59_ARCADE3.cruiseMax;
- return Math.max(0,speedNow-target)*(boosted?V59_ARCADE3.boostDrag:V59_ARCADE3.boostDrag*.85);
+ const target=boosted?(v59Arcade4?V59_ARCADE4.boostSoftLimit:V59_ARCADE3.boostSoftLimit):V59_ARCADE3.cruiseMax;
+ const drag=v59Arcade4?V59_ARCADE4.boostDrag:V59_ARCADE3.boostDrag;
+ return Math.max(0,speedNow-target)*(boosted?drag:drag*.85);
 }
 function v59Arcade3CornerSafe(curve){
- return clamp(V59_ARCADE3.cornerSafeBase-Math.abs(curve)*V59_ARCADE3.cornerSafePerCurve,
+ return clamp(V59_ARCADE3.cornerSafeBase-Math.abs(curve)*(v59Arcade4?V59_ARCADE4.cornerPerCurve:V59_ARCADE3.cornerSafePerCurve),
   V59_ARCADE3.cornerSafeMin,V59_ARCADE3.cornerSafeBase);
 }
 function v59Arcade3Charge(slip,speedNow,curve){
@@ -4983,7 +4995,7 @@ function seededRange(a,b){trafficSeed=(Math.imul(1664525,trafficSeed)+1013904223
 function resetDrivingState(){
  nitroPressPending=false;
  helperWasHeld=false;helperPulse=0;counterTime=0;neutralTime=0;draftLevel=0;v59LiftTime=0;
- v59ChainHold=0;v59ChainPreparing=false;v59ChainBlend=1;
+ v59ChainHold=0;v59ChainPreparing=false;v59ChainBlend=1;v59Arcade4PeakSlip=0;v59Arcade4ExitTimer=0;
  driftRearmBlocked=false;driftState='grip';brakeHoldTime=0;brakeLoss=0;driftAge=0;driftCooldown=0;
  brakeEntry=0;brakeWasHeld=false;brakeVisual=0;driftAngle=0;yawRate=0;slipAngle=0;coastWindow=0;previousGas=false;
  isDrifting=false;driftDirection=0;cleanDriftTime=0;exitBoost=0;momentBoostWindow=0;momentBoostArmed=false;boostKick=0;shiftCutTimer=0;shiftPunch=0;lateralVelocity=0;slideTrails=[];chassisRoll=0;chassisPitch=0;visualLoad=0;
@@ -5055,7 +5067,8 @@ function v52OverspeedPush(speedNow,curve){
 const V59_HANDLING=Object.freeze({id:'v59-countersteer-1',recordSuffix:':H59.1'});
 const handlingProfile59=/(?:^|[?&])handling=v59(?:&|$)/.test(window.location?.search||'');
 // Explicit opt-in avoids changing old V59 feel or historical records.
-const v59Arcade3=handlingProfile59&&/(?:^|[?&])drift=chain3(?:&|$)/.test(window.location?.search||'');
+const v59Arcade4=handlingProfile59&&/(?:^|[?&])drift=chain4(?:&|$)/.test(window.location?.search||'');
+const v59Arcade3=handlingProfile59&&(/(?:^|[?&])drift=chain3(?:&|$)/.test(window.location?.search||'')||v59Arcade4);
 const v59Chain2=handlingProfile59&&(/(?:^|[?&])drift=chain2(?:&|$)/.test(window.location?.search||'')||v59Arcade3);
 const V59_CHAIN2=Object.freeze({recordSuffix:':H59.2',counterHold:.11,yawGate:5.8,slipGate:3.8,blendSeconds:.19});
 const V59_ARCADE3=Object.freeze({
@@ -5066,14 +5079,25 @@ const V59_ARCADE3=Object.freeze({
  chargeMin:2.2,chargeMax:24,chargeExponent:1.3,chargeLow:.24,chargeHigh:1.65,
  boostSoftLimit:291,boostDrag:1.28,boostForce:.27
 });
-if(handlingProfile59)document.title+=v59Arcade3?' · CHAIN3 卡漂集氣試玩':v59Chain2?' · V59 CHAIN2 連續反甩測試':' · V59 反打測試';
+// CHAIN4 builds on CHAIN3; its standalone score suffix preserves fair comparison.
+const V59_ARCADE4=Object.freeze({
+ recordSuffix:':H59.4',
+ sideCarry:.88,sideResponse:4.7,lateralCap:1.06,
+ slipDrag:.52,baseDrag:4.2,curveDrag:2.55,
+ cornerPerCurve:37.5,cornerDrag:1.04,
+ boostSoftLimit:288,boostDrag:1.75,boostForce:.40,
+ qualityBuild:.55,minimumSlide:.40,minimumSlip:9.5,
+ exitSeconds:.48,exitForce:18,exitSpeedCap:265
+});
+if(handlingProfile59)document.title+=v59Arcade4?' · CHAIN4 慣性卡漂／出彎回速試玩':v59Arcade3?' · CHAIN3 卡漂集氣試玩':v59Chain2?' · V59 CHAIN2 連續反甩測試':' · V59 反打測試';
 // AI traffic is intentionally only available in cruise preview. Ranked modes stay unchanged.
 const trafficAI60Requested=/(?:^|[?&])trafficAI=v60(?:&|$)/.test(window.location?.search||'');
 if(trafficAI60Requested)document.title+=' · V60 車流試玩（巡航限定）';
 function trafficAI60Enabled(){return trafficAI60Requested&&v34Mode==='cruise'&&typeof window.TaipeiTrafficAI?.planLaneIntent==='function';}
 function trafficAI60RecordSuffix(){return trafficAI60Enabled()?':AI60':'';}
 let v59LiftTime=0,v59ChainHold=0,v59ChainPreparing=false,v59ChainBlend=1;
-function handlingRecordSuffix59(){return !handlingProfile59?'':v59Arcade3?V59_ARCADE3.recordSuffix:v59Chain2?V59_CHAIN2.recordSuffix:V59_HANDLING.recordSuffix;}
+let v59Arcade4PeakSlip=0,v59Arcade4ExitTimer=0;
+function handlingRecordSuffix59(){return !handlingProfile59?'':v59Arcade4?V59_ARCADE4.recordSuffix:v59Arcade3?V59_ARCADE3.recordSuffix:v59Chain2?V59_CHAIN2.recordSuffix:V59_HANDLING.recordSuffix;}
 function stepHandlingDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
  if(handlingProfile59)stepCountersteerDrift59(dt,brakeHeld,accelHeld,steerTarget,curve);
  else stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve);
