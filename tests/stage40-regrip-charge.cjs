@@ -27,15 +27,15 @@ for(const older of ['chain2','chain3','chain4','chain5']){
  assert(!state.on&&!state.suffix.endsWith('.6'),'old profile must remain isolated: '+older);
 }
 
-function exit(profile,brake=false,grip=1,speedNow=185){
+function exit(profile,brake=false,grip=1,speedNow=185,peak=17,age=.62){
  return read(profile,[
   "(()=>{v34Mode='cruise';selectedRoute=routeForId('1A');resetGame();",
   "gameStarted=true;raceActive=true;paused=false;gameOver=false;inRadioScreen=false;",
   "isDrifting=true;driftState='recover';driftDirection=1;driftAge=.95;",
   "speed="+speedNow+";currentGear='HIGH';roadGrip="+grip+";driftAngle=0;slipAngle=0;steer=0;",
-  "cleanDriftTime=.62;v59Arcade4PeakSlip=17;",
+  "cleanDriftTime="+age+";v59Arcade4PeakSlip="+peak+";",
   "stepCountersteerDrift59(1/60,"+brake+",true,0,.7);",
-  "return JSON.stringify({state:driftState,drifting:isDrifting,regrip:v59Arcade6Regrip,exit:v59Arcade4ExitTimer});})()"
+  "return JSON.stringify({state:driftState,drifting:isDrifting,regrip:v59Arcade6Regrip,exit:v59Arcade4ExitTimer,moment:momentBoostWindow});})()"
  ].join('\n'));
 }
 const good=exit('chain6');
@@ -45,6 +45,10 @@ assert.equal(exit('chain6',true).regrip,0,'braking cannot coast through the reco
 assert.equal(exit('chain6',false,.6).regrip,0,'off-road must bypass extra gliding');
 assert.equal(exit('chain6',false,1,75).regrip,0,'low-speed exit must regain normal traction');
 assert.equal(exit('chain5').regrip,0,'CHAIN5 must keep its original direct grip recovery');
+assert(exit('chain6').moment>0,'long clean drift may arm original non-nitro moment window');
+assert.equal(exit('chain6',false,1,185,5).moment,0,'shallow drift cannot farm moment acceleration');
+assert.equal(exit('chain6',false,1,185,17,.31).moment,0,'sub-0.4s drift cannot farm moment acceleration');
+assert(exit('chain5',false,1,185,5).moment>0,'CHAIN5 original bonus threshold remains untouched');
 
 function impulse(profile,fps,side,condition='clean'){
  return read(profile,[
