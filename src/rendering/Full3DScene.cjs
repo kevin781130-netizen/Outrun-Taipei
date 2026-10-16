@@ -411,7 +411,12 @@ function createFull3DScene(THREE,canvas) {
    wayfinding.update(frame,points);
    // The chosen fork is known before district cutover. Prebuild only one
    // future model per advancing frame, inside the visual-only RNG boundary.
-   if(dt>0&&frame.nextRouteId)landmarks.prewarm(frame.nextRouteId);
+   if(dt>0){
+    if(frame.nextRouteId)landmarks.prewarm(frame.nextRouteId);
+    // Prepare one future road-sign material and texture per rendered frame.
+    wayfinding.prewarm(frame.nextRouteId,frame.nextRouteSigns,
+     typeof renderer.initTexture==='function'?texture=>renderer.initTexture(texture):null);
+   }
   });
   updateTraffic(frame,points);
   if(frame.carColor!==lastCarColor){
