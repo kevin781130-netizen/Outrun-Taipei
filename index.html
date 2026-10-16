@@ -4460,6 +4460,26 @@ function drawGoalCelebrationScene(){
   ctx.restore();
 }
 
+function v58NextRaceSigns(level,column){
+ const node=STAGES[level]?.[column],nextLayout=routeLayout(level,column);
+ if(!node)return null;
+ const signs=[{kind:'start',seg:26,label:'TAIPEI / 台北出發',
+   detail:node.id+' · '+SCENES[node.id].label}];
+ const target=level<4?
+   {index:nextLayout.FORK_START-52,zh:'檢查站',en:'CHECK POINT'}:
+   {index:nextLayout.FINISH_LINE,zh:'終點',en:'GOAL'};
+ for(const meters of V52_FLOW.approachMeters){
+   const index=target.index-Math.round(meters/SEGMENT_METERS);
+   if(index>20)signs.push({kind:'distance',seg:index,label:target.zh+' '+meters+' M',detail:target.en});
+ }
+ signs.push({kind:'finish',seg:target.index,label:target.zh,detail:target.en});
+ if(level<4){
+   const left=STAGES[level+1][column],right=STAGES[level+1][column+1];
+   signs.push({kind:'fork',seg:nextLayout.FORK_WARN,
+     label:'← '+left.id+' / '+right.id+' →',detail:left.name+' ／ '+right.name});
+ }
+ return signs;
+}
 function v58RaceSigns(){
  const signs=[{kind:'start',seg:26,label:'TAIPEI / 台北出發',detail:currentNode.id+' · '+scene().label}];
  const target=v52ApproachTarget();
@@ -4515,6 +4535,9 @@ function v57SceneFrame(){
     skyColors:skyMood==='sunset'?v40Art().sky:scene().night,
     groundColor:v40Art().ground[0],mountainColor:v40Art().mountain,
     landmarks:landmarkTimeline().map((h,modelIndex)=>({id:h.id,modelIndex,name:h.name,seg:h.seg,side:h.side,heightWorld:h.heightWorld,groundDrop:h.groundDrop})),
+    nextRaceSigns:v59Arcade7&&v34Mode==='arcade'&&stageLevel<4&&
+      (stageTransition||choiceLocked&&playerZ/SEGMENT_LENGTH>=FORK_LOCK)?
+      v58NextRaceSigns(stageLevel+1,stageColumn+(stageTransition?.choice==='right'||!stageTransition&&pendingChoice==='right'?1:0)):null,
     nextRouteId:v59Arcade7&&v34Mode==='arcade'&&stageLevel<4&&
       (stageTransition||choiceLocked&&playerZ/SEGMENT_LENGTH>=FORK_LOCK)?
       (stageTransition?.next?.id||STAGES[stageLevel+1]?.[stageColumn+(pendingChoice==='right'?1:0)]?.id):null,
