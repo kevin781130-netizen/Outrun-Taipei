@@ -95,21 +95,29 @@ async function main(){
       v34Mode='arcade';setStage(0,0,false);gameStarted=true;raceActive=true;
       inRadioScreen=false;paused=false;gameOver=false;speed=180;roadGrip=1;
       const misses=v54LandmarkCacheStats().misses;
+      const predicted=JSON.stringify(v58NextRaceSigns(1,0));
+      choiceLocked=true;pendingChoice='left';playerZ=FORK_LOCK*SEGMENT_LENGTH;
+      const warmStart=v56Scene.landmarkWarmCount;
+      for(let n=0;n<40;n++)render(1/60);
+      const warmed=v56Scene.landmarkWarmCount;
       stageTransition={choice:'left',nextLevel:1,nextColumn:0,next:STAGES[1][0],lastCenter:0,progress:1};
       playerZ=STAGE_SWITCH*SEGMENT_LENGTH+SEGMENT_LENGTH*.15;
       driftState='drift';driftDirection=1;isDrifting=true;driftAge=.8;cleanDriftTime=.65;
       driftAngle=21;slipAngle=12;lateralVelocity=.37;nitro=24;
       const before={driftAngle,slipAngle,lateralVelocity,nitro};
       const t=performance.now();finishStageTransition();const elapsed=performance.now()-t;
+      const signMatch=predicted===JSON.stringify(v58RaceSigns());
       render(1/60);
       const after={driftAngle,slipAngle,lateralVelocity,nitro};
       return {before,after,id:currentNode.id,elapsed,missesBefore:misses,missesAfter:v54LandmarkCacheStats().misses,
-        hints:stageLandmarkPlan.every(h=>h.sprite?.metadataOnly),ready:v56Scene.ready};
+        hints:stageLandmarkPlan.every(h=>h.sprite?.metadataOnly),ready:v56Scene.ready,signMatch,warmStart,warmed};
     })()`);
     assert.equal(fork.id,'2A','map choice must still reach 2A');
     assert.deepEqual(fork.before,fork.after,'no drift momentum interruption at real WebGL route switch');
     assert.equal(fork.missesAfter,fork.missesBefore,'full 3D route swap cannot rasterize a massive hidden landmark sprite');
     assert(fork.hints&&fork.ready,'author-defined Taipei landmarks remain planned and WebGL renders');
+    assert(fork.signMatch,'prepainted road-sign labels must exactly match the actual 2A stage');
+    assert(fork.warmed>fork.warmStart,'next Taipei district models were built before switch');
     report.checks.push('CHAIN7 WebGL district switch no 2D sprite rasterization; '+fork.elapsed.toFixed(2)+'ms swap');
   }
   report.checks.push(profile.toUpperCase()+' gearless UI + WebGL + held-slide charging');
