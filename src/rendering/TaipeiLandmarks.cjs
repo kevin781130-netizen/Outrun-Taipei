@@ -141,21 +141,48 @@ function createLandmarkGeometry(T,kind){
 }
 function createTaipeiLandmarks(T,scene,sample,offset){
  let route=null,items=[],disposed=false;
- const clear=()=>{for(const item of items){scene.remove(item.mesh);item.mesh.geometry.dispose();item.mesh.material.dispose();}items=[];};
+ // A district needs only a handful of authored meshes. Cache heavy merged
+ // geometry, preparing at most one new model per advancing render frame.
+ const cache=new Map(),CACHE_LIMIT=8;
+ let previewRoute=null;
+ function geometryFor(kind){
+  if(!cache.has(kind))cache.set(kind,createLandmarkGeometry(T,kind));
+  return cache.get(kind);
+ }
+ const clear=()=>{for(const item of items){scene.remove(item.mesh);item.mesh.material.dispose();}items=[];};
+ function trim(){
+  if(cache.size<=CACHE_LIMIT)return;
+  const pinned=new Set(items.map(item=>item.kind));
+  for(const kind of ROUTE_MODELS[previewRoute]||[])pinned.add(kind);
+  for(const [kind,geometry] of cache){
+   if(cache.size<=CACHE_LIMIT)break;
+   if(pinned.has(kind))continue;
+   geometry.dispose();cache.delete(kind);
+  }
+ }
+ function prewarm(routeId){
+  if(disposed)return false;
+  previewRoute=ROUTE_MODELS[routeId]?routeId:null;
+  if(!previewRoute){trim();return false;}
+  const missing=ROUTE_MODELS[routeId].find(kind=>!cache.has(kind));
+  if(!missing){trim();return false;}
+  geometryFor(missing);trim();return true;
+ }
  function update(frame,points){
   if(disposed)return;
   const source=frame.landmarks||[],signature=(frame.routeId||'')+':'+source.map(h=>h.id).join('|');
   if(signature!==route){
    clear();route=signature;
    for(const h of source){const model=ROUTE_MODELS[frame.routeId]?.[h.modelIndex];if(!model)continue;
-    const geometry=createLandmarkGeometry(T,model),bounds=geometry.boundingBox;
+    const geometry=geometryFor(model),bounds=geometry.boundingBox;
     const height=Math.min(68,Math.max(12,(h.heightWorld||5000)/260));
     const scale=height/Math.max(1,bounds.max.y-bounds.min.y);
     const mesh=new T.Mesh(geometry,new T.MeshStandardMaterial({vertexColors:true,roughness:.78,metalness:.12,transparent:true}));
     mesh.name='Taipei_'+h.id+'_'+model;mesh.userData.landmarkName=h.name;mesh.scale.setScalar(scale);mesh.visible=false;scene.add(mesh);
-    items.push({mesh,id:h.id,scale,halfWidth:Math.max(Math.abs(bounds.min.x),Math.abs(bounds.max.x))*scale,
+    items.push({mesh,id:h.id,kind:model,scale,halfWidth:Math.max(Math.abs(bounds.min.x),Math.abs(bounds.max.x))*scale,
      halfDepth:Math.max(Math.abs(bounds.min.z),Math.abs(bounds.max.z))*scale,bottom:bounds.min.y*scale});
    }
+   trim();
   }
   const placements=[];
   for(const item of items){
@@ -175,6 +202,7 @@ function createTaipeiLandmarks(T,scene,sample,offset){
   }
   return placements;
  }
- return {update,dispose(){if(disposed)return;disposed=true;clear();},get count(){return items.length;}};
+ return {update,prewarm,dispose(){if(disposed)return;disposed=true;clear();for(const g of cache.values())g.dispose();cache.clear();},
+  get count(){return items.length;},get preparedModels(){return [...cache.keys()];}};
 }
 module.exports={ROUTE_MODELS,createLandmarkGeometry,createTaipeiLandmarks};
