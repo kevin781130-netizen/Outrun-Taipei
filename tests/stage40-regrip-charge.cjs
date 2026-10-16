@@ -70,7 +70,7 @@ const visual=read('chain6', [
  "v59Arcade6Regrip=0;const end=v51DriftVisualYaw();",
  "lateralVelocity=-.60;v59Arcade6Regrip=.29;const mirror=v51DriftVisualYaw();",
  "return JSON.stringify({first,half,end,mirror});})()"
-].join('\\n'));
+].join('\n'));
 assert(visual.first>4&&visual.first<7.5,'the rear should show a short, visible sideways slide after exit');
 assert(Math.abs(visual.half-visual.first/2)<1e-8&&visual.end===0,'visual yaw must fade with physical regrip');
 assert(Math.abs(visual.mirror+visual.first)<1e-8,'remaining visual angle must be directionally symmetric');
