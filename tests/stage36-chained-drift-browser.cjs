@@ -61,17 +61,18 @@ async function main(){
   }
   // CHAIN3 uses a separate URL. Verify the real browser presents no gear
   // actions while keeping Taipei WebGL, keyboard steering and custom nitro.
-  for(const profile of ['chain3','chain4','chain5','chain6']){
+  for(const profile of ['chain3','chain4','chain5','chain6','chain7']){
   const kart=await browser.newPage({viewport:{width:1280,height:800}});
   kart.on('pageerror',e=>report.errors.push(profile+' '+e.message));
   await kart.addInitScript(()=>{window.requestAnimationFrame=()=>0;});
   await kart.goto('http://127.0.0.1:'+server.address().port+'/?handling=v59&drift='+profile);
   await kart.waitForFunction(()=>window.v56ThreeStatus?.().loaded,{timeout:20000});
   const ka=expr=>kart.evaluate(s=>window.__chainTestEval(s),expr);
-  assert(await ka('v59Arcade3&&v59Chain2&&bestRecordKey().endsWith(":'+(profile==='chain6'?'H59.6':profile==='chain5'?'H59.5':profile==='chain4'?'H59.4':'H59.3')+'")'));
-  if(['chain4','chain5','chain6'].includes(profile))assert(await ka('v59Arcade4'));
-  if(['chain5','chain6'].includes(profile))assert(await ka('v59Arcade5'));
-  if(profile==='chain6')assert(await ka('v59Arcade6'));
+  assert(await ka('v59Arcade3&&v59Chain2&&bestRecordKey().endsWith(":'+(profile==='chain7'?'H59.7':profile==='chain6'?'H59.6':profile==='chain5'?'H59.5':profile==='chain4'?'H59.4':'H59.3')+'")'));
+  if(['chain4','chain5','chain6','chain7'].includes(profile))assert(await ka('v59Arcade4'));
+  if(['chain5','chain6','chain7'].includes(profile))assert(await ka('v59Arcade5'));
+  if(['chain6','chain7'].includes(profile))assert(await ka('v59Arcade6'));
+  if(profile==='chain7')assert(await ka('v59Arcade7'));
   assert(await kart.locator('#btn-drive').evaluate(el=>getComputedStyle(el).display==='none'));
   assert(await kart.locator('#btn-gear').evaluate(el=>getComputedStyle(el).display==='none'));
   await ka('render(0)');
@@ -87,6 +88,30 @@ async function main(){
   assert(held.nitro>early.nitro,'CHAIN3 must charge during held slide');
   assert.equal(held.gear,'HIGH','gearless handling cannot change gear');
   await kart.keyboard.up('ArrowRight');await kart.keyboard.up('KeyW');
+  if(profile==='chain7'){
+    // Measure actual WebGL district change after 2D sprites are skipped, while
+    // preserving the same active drift inputs, route choice and GPU surface.
+    const fork=await ka(`(()=>{
+      v34Mode='arcade';setStage(0,0,false);gameStarted=true;raceActive=true;
+      inRadioScreen=false;paused=false;gameOver=false;speed=180;roadGrip=1;
+      const misses=v54LandmarkCacheStats().misses;
+      stageTransition={choice:'left',nextLevel:1,nextColumn:0,next:STAGES[1][0],lastCenter:0,progress:1};
+      playerZ=STAGE_SWITCH*SEGMENT_LENGTH+SEGMENT_LENGTH*.15;
+      driftState='drift';driftDirection=1;isDrifting=true;driftAge=.8;cleanDriftTime=.65;
+      driftAngle=21;slipAngle=12;lateralVelocity=.37;nitro=24;
+      const before={driftAngle,slipAngle,lateralVelocity,nitro};
+      const t=performance.now();finishStageTransition();const elapsed=performance.now()-t;
+      render(1/60);
+      const after={driftAngle,slipAngle,lateralVelocity,nitro};
+      return {before,after,id:currentNode.id,elapsed,missesBefore:misses,missesAfter:v54LandmarkCacheStats().misses,
+        hints:stageLandmarkPlan.every(h=>h.sprite?.metadataOnly),ready:v56Scene.ready};
+    })()`);
+    assert.equal(fork.id,'2A','map choice must still reach 2A');
+    assert.deepEqual(fork.before,fork.after,'no drift momentum interruption at real WebGL route switch');
+    assert.equal(fork.missesAfter,fork.missesBefore,'full 3D route swap cannot rasterize a massive hidden landmark sprite');
+    assert(fork.hints&&fork.ready,'author-defined Taipei landmarks remain planned and WebGL renders');
+    report.checks.push('CHAIN7 WebGL district switch no 2D sprite rasterization; '+fork.elapsed.toFixed(2)+'ms swap');
+  }
   report.checks.push(profile.toUpperCase()+' gearless UI + WebGL + held-slide charging');
   await kart.close();
   }
