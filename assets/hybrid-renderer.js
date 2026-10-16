@@ -740,7 +740,7 @@ function createTaipeiLandmarks(T,scene,sample,offset){
  // A district needs only a handful of authored meshes. Cache heavy merged
  // geometry, preparing at most one new model per advancing render frame.
  const cache=new Map(),CACHE_LIMIT=8;
- let previewRoute=null;
+ let previewRoute=null,pendingGpu=[];
  function geometryFor(kind){
   if(!cache.has(kind))cache.set(kind,createLandmarkGeometry(T,kind));
   return cache.get(kind);
@@ -758,11 +758,29 @@ function createTaipeiLandmarks(T,scene,sample,offset){
  }
  function prewarm(routeId){
   if(disposed)return false;
-  previewRoute=ROUTE_MODELS[routeId]?routeId:null;
-  if(!previewRoute){trim();return false;}
+  const next=ROUTE_MODELS[routeId]?routeId:null;
+  if(previewRoute!==next)pendingGpu=[];
+  previewRoute=next;
+  if(!next){trim();return false;}
   const missing=ROUTE_MODELS[routeId].find(kind=>!cache.has(kind));
   if(!missing){trim();return false;}
-  geometryFor(missing);trim();return true;
+  geometryFor(missing);
+  if(!pendingGpu.includes(missing))pendingGpu.push(missing);
+  trim();return true;
+ }
+ // Stage a single temporary mesh whose geometry is the same object reused
+ // in the next district. Never write pixels or depth during its buffer upload.
+ function takeGpuWarmupMesh(routeId){
+  if(disposed||!routeId||previewRoute!==routeId)return null;
+  const kind=pendingGpu.shift();
+  if(!kind||!cache.has(kind))return null;
+  const mesh=new T.Mesh(cache.get(kind),new T.MeshStandardMaterial({
+   vertexColors:true,roughness:.78,metalness:.12,transparent:true,
+   colorWrite:false,depthWrite:false,depthTest:false
+  }));
+  mesh.name='V59_BufferPreload_'+kind;
+  mesh.frustumCulled=false;mesh.scale.setScalar(.00001);
+  return mesh;
  }
  function update(frame,points){
   if(disposed)return;
@@ -798,8 +816,10 @@ function createTaipeiLandmarks(T,scene,sample,offset){
   }
   return placements;
  }
- return {update,prewarm,dispose(){if(disposed)return;disposed=true;clear();for(const g of cache.values())g.dispose();cache.clear();},
-  get count(){return items.length;},get preparedModels(){return [...cache.keys()];}};
+ return {update,prewarm,takeGpuWarmupMesh,
+  dispose(){if(disposed)return;disposed=true;pendingGpu=[];clear();for(const g of cache.values())g.dispose();cache.clear();},
+  get count(){return items.length;},get pendingGpuModels(){return [...pendingGpu];},
+  get preparedModels(){return [...cache.keys()];}};
 }
 module.exports={ROUTE_MODELS,createLandmarkGeometry,createTaipeiLandmarks};
 
@@ -1378,6 +1398,7 @@ function createFull3DScene(THREE,canvas,options=null) {
   stamp(p,'environment');
   // Three allocates UUIDs while a route's models/signs are first constructed.
   // Those visual allocations must not advance traffic/gameplay randomness.
+  let gpuWarmupMesh=null;
   with3DOnlyRandom(()=>{
    landmarks.update(frame,points);
    stamp(p,'landmarks');
@@ -1386,7 +1407,10 @@ function createFull3DScene(THREE,canvas,options=null) {
    // The chosen fork is known before district cutover. Prebuild only one
    // future model per advancing frame, inside the visual-only RNG boundary.
    if(dt>0){
-    if(frame.nextRouteId)landmarks.prewarm(frame.nextRouteId);
+    landmarks.prewarm(frame.nextRouteId);
+    // This mesh uploads GPU buffers inside the next render pass without
+    // affecting the visible scene or gameplay RNG.
+    gpuWarmupMesh=landmarks.takeGpuWarmupMesh(frame.nextRouteId);
     // Prepare one future road-sign material and texture per rendered frame.
     wayfinding.prewarm(frame.nextRouteId,frame.nextRouteSigns,
      typeof renderer.initTexture==='function'?texture=>renderer.initTexture(texture):null);
@@ -1436,7 +1460,14 @@ function createFull3DScene(THREE,canvas,options=null) {
   trafficVisibility(frame,points,width,height);
   effects.update(frame,Math.max(0,dt),quality,camera,car);
   stamp(p,'visibilityEffects');
-  renderer.render(scene,camera);
+  if(gpuWarmupMesh){
+   gpuWarmupMesh.position.copy(camera.position);
+   scene.add(gpuWarmupMesh);
+  }
+  try{renderer.render(scene,camera);}
+  finally{
+   if(gpuWarmupMesh){scene.remove(gpuWarmupMesh);gpuWarmupMesh.material.dispose();}
+  }
   stamp(p,'webglSubmit');
   canvas.style.visibility='visible';ready=true;
   if(p){
