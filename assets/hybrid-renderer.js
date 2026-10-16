@@ -737,14 +737,27 @@ function createLandmarkGeometry(T,kind){
 }
 function createTaipeiLandmarks(T,scene,sample,offset){
  let route=null,items=[],disposed=false;
- const clear=()=>{for(const item of items){scene.remove(item.mesh);item.mesh.geometry.dispose();item.mesh.material.dispose();}items=[];};
+ // One-time GPU-ready geometry data per authored landmark kind. Advance at
+ // most one new model on a warm-up tick; never alter the active scene/physics.
+ const geometries=new Map(),warmedRoutes=new Set();
+ const modelGeometry=kind=>{
+  if(!geometries.has(kind))geometries.set(kind,createLandmarkGeometry(T,kind));
+  return geometries.get(kind);
+ };
+ const clear=()=>{for(const item of items){scene.remove(item.mesh);item.mesh.material.dispose();}items=[];};
+ function prewarmRoute(id){
+  if(disposed||!ROUTE_MODELS[id]||warmedRoutes.has(id))return false;
+  const missing=ROUTE_MODELS[id].find(kind=>!geometries.has(kind));
+  if(missing){modelGeometry(missing);return true;}
+  warmedRoutes.add(id);return false;
+ }
  function update(frame,points){
   if(disposed)return;
   const source=frame.landmarks||[],signature=(frame.routeId||'')+':'+source.map(h=>h.id).join('|');
   if(signature!==route){
    clear();route=signature;
    for(const h of source){const model=ROUTE_MODELS[frame.routeId]?.[h.modelIndex];if(!model)continue;
-    const geometry=createLandmarkGeometry(T,model),bounds=geometry.boundingBox;
+    const geometry=modelGeometry(model),bounds=geometry.boundingBox;
     const height=Math.min(68,Math.max(12,(h.heightWorld||5000)/260));
     const scale=height/Math.max(1,bounds.max.y-bounds.min.y);
     const mesh=new T.Mesh(geometry,new T.MeshStandardMaterial({vertexColors:true,roughness:.78,metalness:.12,transparent:true}));
@@ -771,7 +784,12 @@ function createTaipeiLandmarks(T,scene,sample,offset){
   }
   return placements;
  }
- return {update,dispose(){if(disposed)return;disposed=true;clear();},get count(){return items.length;}};
+ return {update,prewarmRoute,
+  dispose(){if(disposed)return;disposed=true;clear();for(const g of geometries.values())g.dispose();geometries.clear();},
+  get count(){return items.length;},
+  get warmCount(){return geometries.size;},
+  get readyRoutes(){return warmedRoutes.size;}
+ };
 }
 module.exports={ROUTE_MODELS,createLandmarkGeometry,createTaipeiLandmarks};
 
@@ -1248,6 +1266,7 @@ function createFull3DScene(THREE,canvas) {
  const doc=canvas.ownerDocument||(typeof document!=='undefined'?document:null);
  const wayfinding=createRaceWayfinding(THREE,scene,sampleRoadPoint,streetOffset,doc);
  const landmarks=createTaipeiLandmarks(THREE,scene,sampleRoadPoint,streetOffset);
+ let routeWarmFrames=0;
  const environment=createRaceEnvironment(THREE,scene,sampleRoadPoint,streetOffset,doc);
  const signs=TAIPEI_SIGNS.map((text,i)=>{
   const texture=createSignTexture(THREE,text,SIGN_COLORS[i],doc);if(texture)textures.push(texture);
@@ -1552,6 +1571,10 @@ function createFull3DScene(THREE,canvas) {
   effects.update(frame,Math.max(0,dt),quality,camera,car);
   if(frame.crash){const smoke=car.root.getObjectByName('V57_DriftSmoke');if(smoke)smoke.visible=false;}
   renderer.render(scene,camera);
+  // Warm at most one next-route low-poly asset every eight frames.
+  // Scene switching should not compile every landmark at the same instant.
+  if(frame.nextRouteId && (++routeWarmFrames%8)===0)
+   with3DOnlyRandom(()=>landmarks.prewarmRoute(frame.nextRouteId));
   canvas.style.visibility='visible';ready=true;return true;
  }
  function dispose(){
@@ -1561,7 +1584,8 @@ function createFull3DScene(THREE,canvas) {
   crashChase.dispose();wayfinding.dispose();landmarks.dispose();environment.dispose();effects.dispose();car.dispose();for(const t of textures)t.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
   renderer.dispose();
  }
- return {render,dispose,prepareTrafficVisibility,get ready(){return ready&&!lost&&active},get contextLost(){return lost}};
+ return {render,dispose,prepareTrafficVisibility,get ready(){return ready&&!lost&&active},get contextLost(){return lost},
+  get landmarkWarmCount(){return landmarks.warmCount;},get readyWarmRoutes(){return landmarks.readyRoutes;}};
 }
 module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,createChaseRig,updateChaseRig,streetOffset,TAIPEI_SIGNS};
 
