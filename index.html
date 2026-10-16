@@ -1836,7 +1836,7 @@ function resetGame(){
   resetDrivingState(); nitro=0;nitroStock=0;boostRemaining=0;nitroWasHeld=false;driftChargeRate=0; boosting=false; boostKick=0;shiftCutTimer=0;shiftPunch=0;lateralVelocity=0; brakeEntry=0; brakeWasHeld=false; exitBoost=0; momentBoostWindow=0;momentBoostArmed=false;cleanDriftTime=0; raceElapsed=0;
   styleCombo = 1; styleBank = 0; totalStyle = 0; styleIdle = 0; driftTime = 0;
   screenShake = 0; flash = 0; collisionCooldown = 0;
-  speed=0;currentGear='LOW';driveGear='D';motionDirection=1;reverseWindow=0;nitroLatch=false;gearDWasHeld=false;gearRWasHeld=false;rpm=800;
+  speed=0;currentGear=v59Arcade3?'HIGH':'LOW';driveGear='D';motionDirection=1;reverseWindow=0;nitroLatch=false;gearDWasHeld=false;gearRWasHeld=false;rpm=800;
   gameOver = false; paused = false; raceActive = false; countdownTimer = 0; countdownValue = 3;
   particles = []; stageTransition = null; stageVisualBlend=0;stageBlendPalette=null;inRadioScreen = false;
   routeHistory = [{ level:0, column:0, id:'1A', name:STAGES[0][0].name }];
@@ -2024,6 +2024,7 @@ function togglePause(){
 
 function enqueueDriveGear(gear){gearInputEvents.push({gear,at:performance.now()});}
 function selectDriveGear(next,inputTime=performance.now()){
+ if(v59Arcade3)return;
  if(!gameStarted||!raceActive||paused||gameOver||crashSequence||inRadioScreen)return;
  if(next===driveGear)return;
  if(next==='R'){
@@ -2037,6 +2038,7 @@ function selectDriveGear(next,inputTime=performance.now()){
  playGearShiftSound();updateV39HUD();
 }
 function processGearInputs(dt){
+ if(v59Arcade3){gearInputEvents=[];gearDWasHeld=false;gearRWasHeld=false;driveGear='D';motionDirection=1;reverseWindow=0;return;}
  reverseWindow=Math.max(0,reverseWindow-dt);
  const d=inputHeld('KeyA')||!!gamepadInput.drive,r=inputHeld('KeyZ')||!!gamepadInput.reverse;
  if(gearInputEvents.length){for(const intent of gearInputEvents)selectDriveGear(intent.gear,intent.at);gearInputEvents=[];}
@@ -2061,6 +2063,7 @@ function shiftGear(targetGear){
   say(currentGear === 'HIGH' ? (sweetUp?'PERFECT SHIFT! HIGH 🚀':'HIGH GEAR · 拉高速') : 'LOW GEAR · 強扭力 ⚙️');
 }
 function toggleGear(){
+  if(v59Arcade3)return;
   if(autoGear){say('AT 自排會自動切換 LOW / HIGH');return;}
   shiftGear(currentGear === 'LOW' ? 'HIGH' : 'LOW');
 }
@@ -2385,7 +2388,7 @@ window.addEventListener('keydown', e => {
     }
   }
 
-  if(!e.repeat&&!paused&&(e.code==='KeyA'||e.code==='KeyZ'))enqueueDriveGear(e.code==='KeyA'?'D':'R');
+  if(!v59Arcade3&&!e.repeat&&!paused&&(e.code==='KeyA'||e.code==='KeyZ'))enqueueDriveGear(e.code==='KeyA'?'D':'R');
   if(!e.repeat && e.code==='KeyT'){ toggleAtlas(); return; }
   if(!e.repeat && (e.code === 'Space' || e.code === 'KeyE')) toggleGear();
   if(!e.repeat && e.code === 'KeyM') toggleRadio();
@@ -2404,7 +2407,7 @@ function bindButton(id, code, isGear=false){
   el.addEventListener('pointerdown', e => {
     e.preventDefault(); if(paused||gameOver||inRadioScreen||!raceActive) return;
     if(code==='KeyN')queueNitroPress1();
-    if(code==='KeyA'||code==='KeyZ')enqueueDriveGear(code==='KeyA'?'D':'R');
+    if(!v59Arcade3&&(code==='KeyA'||code==='KeyZ'))enqueueDriveGear(code==='KeyA'?'D':'R');
     el.setPointerCapture(e.pointerId); pointerKeys.set(e.pointerId, { code, el });
     el.classList.add('active');
   });
@@ -2425,7 +2428,7 @@ bindButton('btn-accel','ArrowUp');
 bindButton('btn-brake','ArrowDown');
 
 carSelect.addEventListener('change',e=>{selectCarSkin(e.target.value);});
-autoGearCheck.addEventListener('change',e=>{if(gameStarted&&!gameOver){e.target.checked=autoGear;return;}autoGear=e.target.checked;document.getElementById('start-transmission').value=autoGear?'AT':'MT';persistV39();});
+autoGearCheck.addEventListener('change',e=>{if(v59Arcade3){e.target.checked=true;return;}if(gameStarted&&!gameOver){e.target.checked=autoGear;return;}autoGear=e.target.checked;document.getElementById('start-transmission').value=autoGear?'AT':'MT';persistV39();});
 startBtn.addEventListener('click', () => { if(paused){ togglePause(); return; } openRadioSelector(); });
 document.getElementById('pause-btn').addEventListener('click', togglePause);
 document.getElementById('radio-btn').addEventListener('click', toggleRadio);
@@ -2803,7 +2806,7 @@ function update(dt){
   const left=inputHeld('ArrowLeft')||inputHeld('KeyJ');
   const right=inputHeld('ArrowRight')||inputHeld('KeyL');
 
-  if(autoGear&&driveGear==='D'){
+  if(!v59Arcade3&&autoGear&&driveGear==='D'){
     if(currentGear === 'LOW' && speed >= V53_SPEED.atUp) shiftGear('HIGH');
     else if(currentGear === 'HIGH' && speed < V53_SPEED.atDown) shiftGear('LOW');
   }
@@ -2828,19 +2831,19 @@ function update(dt){
   isDrafting=driveGear==='D'&&motionDirection===1&&traffic.some(car=>car.z-playerZ>1200&&car.z-playerZ<5500&&Math.abs(playerX-car.x)<.22&&speed>200);
   draftLevel=clamp(draftLevel+(isDrafting?V53_SPEED.draftRise:-V53_SPEED.draftFall)*dt,0,1);
   draftHud.classList[isDrafting?'add':'remove']('show');
-  const desiredDirection=driveGear==='R'?-1:1;
+  const desiredDirection=v59Arcade3?1:driveGear==='R'?-1:1;
   const gearMax=desiredDirection<0?45:COMPETITION.boostSpeed;
   if(motionDirection!==desiredDirection){speed=Math.max(0,speed-320*dt);if(speed===0)motionDirection=desiredDirection;}
   else if(brakeHeld){speed=Math.max(0,speed-COMPETITION.brake*dt);}
   else if(accelHeld||boosting){
     const shiftFactor=shiftCutTimer>0?.12:1;
     const throttleFactor=accelHeld?1:.28;
-    const pull=v53GearThrust(speed,currentGear,draftLevel)*shiftFactor*throttleFactor;
-    const nitroPush=boosting?v53NitroPush(speed):0,momentPush=exitBoost>0?V53_SPEED.momentPush:0,shiftPush=shiftPunch>0?V53_SPEED.shiftPush:0;
+    const pull=(v59Arcade3?v59Arcade3Thrust(speed):v53GearThrust(speed,currentGear,draftLevel))*shiftFactor*throttleFactor;
+    const nitroPush=boosting?(v59Arcade3?v59Arcade3NitroPush(speed):v53NitroPush(speed)):0,momentPush=exitBoost>0?V53_SPEED.momentPush:0,shiftPush=!v59Arcade3&&shiftPunch>0?V53_SPEED.shiftPush:0;
     speed+=(pull+nitroPush+momentPush+shiftPush)*dt;
-  }else speed=Math.max(0,speed-19*dt);
+  }else speed=Math.max(0,speed-(v59Arcade3?V59_ARCADE3.coast:19)*dt);
   if(helperPulse>0&&!brakeHeld)speed=Math.max(0,speed-18*dt);
-  if(motionDirection===desiredDirection)speed=Math.max(0,speed-v53OverspeedDrag(speed,currentGear,draftLevel,boosting)*dt);
+  if(motionDirection===desiredDirection)speed=Math.max(0,speed-(v59Arcade3?v59Arcade3SpeedDrag(speed,boosting):v53OverspeedDrag(speed,currentGear,draftLevel,boosting))*dt);
   speed=clamp(speed,0,motionDirection===desiredDirection?gearMax:COMPETITION.boostSpeed);
 
   // Tachometer RPM
@@ -6686,7 +6689,11 @@ if(segments.length)stageLandmarkPlan=planLandmarks();document.getElementById('mo
 document.getElementById('mood-btn').addEventListener('click',()=>{skyMood=skyMood==='sunset'?'neon':'sunset';if(segments.length)stageLandmarkPlan=planLandmarks();document.getElementById('mood-btn').textContent=skyMood==='sunset'?'夕陽色調':'霓虹夜色';persistV39();render(0);});
 const menuCar=document.getElementById('menu-car'),transmissionSelect=document.getElementById('start-transmission');
 menuCar.innerHTML=carSelect.innerHTML;menuCar.value=selectedCarId;
-transmissionSelect.value=autoGear?'AT':'MT';autoGearCheck.checked=autoGear;
+transmissionSelect.value=v59Arcade3?'AT':autoGear?'AT':'MT';autoGearCheck.checked=v59Arcade3||autoGear;
+if(v59Arcade3){
+ for(const el of [transmissionSelect,autoGearCheck]){const label=el.closest?.('label');(label||el).style.display='none';}
+ for(const id of ['btn-drive','btn-gear'])document.getElementById(id).style.display='none';
+}
 function selectCarSkin(id){
  if(gameStarted&&!gameOver)return;
  profilesV39[selectedCarId]=sanitizeTuning(wanganTuning);selectedCarId=CAR_PROFILES[id]?id:'red_roadster';
@@ -6694,7 +6701,7 @@ function selectCarSkin(id){
  wanganTuning=sanitizeTuning(profilesV39[selectedCarId]||{...defaultTuning,paint:CAR_PROFILES[selectedCarId].color});applyCarTuning();persistV39();updateModeUI();
 }
 menuCar.addEventListener('change',e=>selectCarSkin(e.target.value));
-transmissionSelect.addEventListener('change',e=>{if(gameStarted&&!gameOver)return;autoGear=e.target.value==='AT';autoGearCheck.checked=autoGear;persistV39();});
+transmissionSelect.addEventListener('change',e=>{if(v59Arcade3){e.target.value='AT';return;}if(gameStarted&&!gameOver)return;autoGear=e.target.value==='AT';autoGearCheck.checked=autoGear;persistV39();});
 const sceneIdentity=document.createElement('div');sceneIdentity.id='scene-identity';sceneIdentity.innerHTML='<strong id="street-name"></strong><span id="street-detail"></span>';document.getElementById('game-container').appendChild(sceneIdentity);
 const pedals=document.createElement('div');pedals.id='pedal-feedback';pedals.innerHTML='<span class="pedal-meter">GAS <i><em id="gas-fill"></em></i></span><span class="pedal-meter">BRAKE <i><em id="brake-fill"></em></i></span>';document.getElementById('speed-cluster').appendChild(pedals);
 function updateV39HUD(){
