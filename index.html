@@ -1808,7 +1808,7 @@ function setStage(level, column, announce=true, detail='STAGE REACHED', entryCho
   playerZ = 0;
   if(!preserveLane) playerX = entryChoice === 'left' ? -0.28 : entryChoice === 'right' ? 0.28 : 0;
   if(!preserveLane){steer=0;resetDrivingState();}
-  roadGrip = 1; pendingChoice = 'left'; choiceLocked = false; lastForkChoice = '';
+  if(!preserveLane) roadGrip = 1; pendingChoice = 'left'; choiceLocked = false; lastForkChoice = '';
   stageTransition = null; checkpointPassed = false; checkpointBonus = 0;
   forkChoice.classList.remove('show');
   if(announce) showStageCard(detail);
@@ -6433,7 +6433,9 @@ function finishStageTransition(){
   distanceOffset+=STAGE_SWITCH*SEGMENT_LENGTH;
   setStage(tr.nextLevel,tr.nextColumn,false,tr.choice==='left'?'LEFT FLOW':'RIGHT FLOW',tr.choice,true);
   playerZ=Math.max(0,remainder);
-  playerX=clamp(playerX,-drivableHalf()*.85,drivableHalf()*.85);resetDrivingState();
+  // Route topology changes here; drifting momentum and nitro must not restart.
+  // The preserveLane handoff in setStage keeps active slip/yaw/steering state.
+  playerX=clamp(playerX,-drivableHalf()*.85,drivableHalf()*.85);
   styleMessage('DISTRICT FLOW',tr.next.name+' · KEEP IT MOVING');
 }
 
