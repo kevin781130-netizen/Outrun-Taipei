@@ -524,6 +524,6 @@ function createFull3DScene(THREE,canvas) {
   renderer.dispose();
  }
  return {render,dispose,prepareTrafficVisibility,get ready(){return ready&&!lost&&active},get contextLost(){return lost},
-  get landmarkWarmCount(){return landmarks.warmCount;},get readyWarmRoutes(){return landmarks.readyRoutes;}};
+  get landmarkWarmCount(){return landmarks.warmCount;},get readyWarmRoutes(){return landmarks.readyRoutes;},get routeGpuWarmCount(){return wayfinding.warmUploadCount;}};
 }
 module.exports={createFull3DScene,previewPoints,sampleRoadPoint,roadVehiclePose,createChaseRig,updateChaseRig,streetOffset,TAIPEI_SIGNS};
