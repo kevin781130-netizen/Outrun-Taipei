@@ -416,6 +416,7 @@ function createFull3DScene(THREE,canvas,options=null) {
   stamp(p,'environment');
   // Three allocates UUIDs while a route's models/signs are first constructed.
   // Those visual allocations must not advance traffic/gameplay randomness.
+  let gpuWarmupMesh=null;
   with3DOnlyRandom(()=>{
    landmarks.update(frame,points);
    stamp(p,'landmarks');
@@ -424,7 +425,10 @@ function createFull3DScene(THREE,canvas,options=null) {
    // The chosen fork is known before district cutover. Prebuild only one
    // future model per advancing frame, inside the visual-only RNG boundary.
    if(dt>0){
-    if(frame.nextRouteId)landmarks.prewarm(frame.nextRouteId);
+    landmarks.prewarm(frame.nextRouteId);
+    // This mesh uploads GPU buffers inside the next render pass without
+    // affecting the visible scene or gameplay RNG.
+    gpuWarmupMesh=landmarks.takeGpuWarmupMesh(frame.nextRouteId);
     // Prepare one future road-sign material and texture per rendered frame.
     wayfinding.prewarm(frame.nextRouteId,frame.nextRouteSigns,
      typeof renderer.initTexture==='function'?texture=>renderer.initTexture(texture):null);
@@ -474,7 +478,14 @@ function createFull3DScene(THREE,canvas,options=null) {
   trafficVisibility(frame,points,width,height);
   effects.update(frame,Math.max(0,dt),quality,camera,car);
   stamp(p,'visibilityEffects');
-  renderer.render(scene,camera);
+  if(gpuWarmupMesh){
+   gpuWarmupMesh.position.copy(camera.position);
+   scene.add(gpuWarmupMesh);
+  }
+  try{renderer.render(scene,camera);}
+  finally{
+   if(gpuWarmupMesh){scene.remove(gpuWarmupMesh);gpuWarmupMesh.material.dispose();}
+  }
   stamp(p,'webglSubmit');
   canvas.style.visibility='visible';ready=true;
   if(p){
