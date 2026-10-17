@@ -5241,7 +5241,7 @@ function v76CanRecord(){
 }
 function v76RecordStart(){
  if(!v76CanRecord())return false;
- v76Clip={schema:'outrun-taipei.v76.player-drive.1',build:'V76',
+ v76Clip={schema:'taipei-driving.v76.player-drive.1',build:'V76',
   mode:v70ExitMode,route:currentNode.id,sampleRateHz:60,limitSeconds:90,
   reason:null,frames:[],summary:{driftStarts:0,countersteerStarts:0,
     recoverToGrip:0,activeSteerGrip:0,peakAbsLateral:0}};
@@ -5319,7 +5319,7 @@ function v76RenderRecorder(){
 }
 function v76ExportRecord(){
  if(v76Recording||!v76Clip||!v76Clip.frames.length)return false;
- const filename='outrun-taipei-v76-'+v76Clip.route+'-'+v76Clip.mode+'.json';
+ const filename='taipei-driving-v76-'+v76Clip.route+'-'+v76Clip.mode+'.json';
  const payload={...v76Clip,exportNote:'Locally downloaded by explicit user action. No automatic upload. Synthetic tests and personal recordings must be compared separately.'};
  const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
  const a=document.createElement('a');a.href=url;a.download=filename;
