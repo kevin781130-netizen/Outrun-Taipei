@@ -1819,7 +1819,7 @@ function setStage(level, column, announce=true, detail='STAGE REACHED', entryCho
   if(!preserveLane){steer=0;resetDrivingState();}
   roadGrip = 1; pendingChoice = 'left'; choiceLocked = false; lastForkChoice = '';
   stageTransition = null; checkpointPassed = false; checkpointBonus = 0;
-  v61ResetApex();v62BreakFlow();v64ResetCoachDisplay();
+  v61ResetApex();v62BreakFlow();v64ResetCoachDisplay();v67ResetCatch();
   forkChoice.classList.remove('show');
   if(announce) showStageCard(detail);
   drawRouteMap(); updateHUD();
@@ -1835,7 +1835,7 @@ function resetGame(){
   score=0; timeLeft=v34Mode==='arcade'?dipSettings.time:stageTimeBudget(selectedRoute.level,selectedRoute.column)+20;
   resetDrivingState(); nitro=0;nitroStock=0;boostRemaining=0;nitroWasHeld=false;driftChargeRate=0; boosting=false; boostKick=0;shiftCutTimer=0;shiftPunch=0;lateralVelocity=0; brakeEntry=0; brakeWasHeld=false; exitBoost=0; momentBoostWindow=0;momentBoostArmed=false;cleanDriftTime=0; raceElapsed=0;
   styleCombo = 1; styleBank = 0; totalStyle = 0; styleIdle = 0; driftTime = 0;
-  v61ApexAwards = 0;v62FlowBest=0;v63SwitchbackTotal=0;v65PracticeAttempts=0;v65PracticeHits=0;
+  v61ApexAwards = 0;v62FlowBest=0;v63SwitchbackTotal=0;v65PracticeAttempts=0;v65PracticeHits=0;v67ResetCatch();v67CatchCount=0;
   screenShake = 0; flash = 0; collisionCooldown = 0;
   speed=0;currentGear='LOW';driveGear='D';motionDirection=1;reverseWindow=0;nitroLatch=false;gearDWasHeld=false;gearRWasHeld=false;rpm=800;
   gameOver = false; paused = false; raceActive = false; countdownTimer = 0; countdownValue = 3;
@@ -4936,7 +4936,7 @@ function drawMiramarWheel(x,y,s){
 }
 
 // V40 competition rules: V39 simulation core + V40 drift calibration; art never changes physics.
-const COMPETITION=Object.freeze({version:'58.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
+const COMPETITION=Object.freeze({version:'59.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
 // V52 arcade-flow rules (independent): shorter crash interruption, stronger re-entry, Taiwan-style approach signage.
 const V52_FLOW=Object.freeze({
   crashDuration:2.9,crashAnimScale:4.1/2.9,recoverySpeed:118,recoveryGrace:1.6,
@@ -5078,6 +5078,30 @@ function v66DriftLineBite(steerNow,curve,grip=roadGrip){
  const command=clamp((Math.abs(steerNow)-V66_LINE.steerDeadzone)/(1-V66_LINE.steerDeadzone),0,1);
  return Math.sign(steerNow)*V66_LINE.maxBite*bend*command;
 }
+// V67 controlled slip catch: a player-caused momentum reduction, never
+// self-steering. Independent arcade model, no third-party code copied.
+const V67_CATCH=Object.freeze({deadzone:.22,minSlip:5,fullSlip:16,baseRate:1.5,extraRate:2.7,minHold:.15});
+let v67CatchHold=0,v67CatchFired=false,v67CatchCount=0;
+function v67ResetCatch(){v67CatchHold=0;v67CatchFired=false;}
+function v67CountersteerCatch(dt,command,grip=roadGrip){
+  const valid=isDrifting&&driftState!=='recover'&&grip>=.8
+    &&motionDirection===1&&speed>=70&&Math.abs(slipAngle)>=V67_CATCH.minSlip
+    &&Math.abs(command)>V67_CATCH.deadzone
+    &&Math.sign(command)===-Math.sign(slipAngle)
+    &&Math.sign(lateralVelocity)===Math.sign(slipAngle);
+  if(!valid){v67CatchHold=0;return 0;}
+  const force=clamp((Math.abs(command)-V67_CATCH.deadzone)/(1-V67_CATCH.deadzone),0,1);
+  const slip=clamp((Math.abs(slipAngle)-V67_CATCH.minSlip)/(V67_CATCH.fullSlip-V67_CATCH.minSlip),0,1);
+  const rate=V67_CATCH.baseRate+V67_CATCH.extraRate*force*slip;
+  const previous=lateralVelocity;
+  lateralVelocity*=Math.exp(-Math.max(0,dt)*rate);
+  v67CatchHold+=Math.max(0,dt);
+  if(v67CatchHold>=V67_CATCH.minHold&&!v67CatchFired){
+    v67CatchFired=true;v67CatchCount++;
+    styleMessage('SLIDE CAUGHT!','反打抓回側滑 · 穩住路線');
+  }
+  return Math.abs(previous)-Math.abs(lateralVelocity);
+}
 function stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
  const helper=inputHeld('ShiftLeft')||inputHeld('ShiftRight')||gamepadInput.drift;
  if(helper&&!helperWasHeld&&!isDrifting&&speed>DRIFT51.entryMinSpeed&&driveGear==='D'&&motionDirection===1){helperPulse=.085;brakeEntry=.78;}
@@ -5107,7 +5131,7 @@ function stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
  previousGas=accelHeld;brakeWasHeld=brakeHeld;exitBoost=Math.max(0,exitBoost-dt);
  const liftEntry=coastWindow>0&&Math.abs(curve)>.28&&Math.abs(curve)<2.55&&sign===Math.sign(curve)&&speed>100;
  if(driveGear==='D'&&motionDirection===1&&!isDrifting&&!driftRearmBlocked&&sign&&Math.abs(steer)>.10&&speed>DRIFT51.entryMinSpeed&&roadGrip>.8&&(brakeEntry>0||liftEntry)){
-  isDrifting=true;driftDirection=sign;driftState='entry';driftAge=0;cleanDriftTime=0;counterTime=0;neutralTime=0;brakeEntry=0;coastWindow=0;
+  isDrifting=true;driftDirection=sign;driftState='entry';driftAge=0;cleanDriftTime=0;counterTime=0;neutralTime=0;brakeEntry=0;coastWindow=0;v67ResetCatch();
   styleMessage('DRIFT','甩尾集氮中 · 反打可修線');
  }
  let targetYaw,targetSlip=0;
@@ -5186,6 +5210,7 @@ function stepArcadeMotion(dt,curve,accelHeld=true,brakeHeld=false){
  const turn=Math.min(1,speed/30)*(yawTurn+steer*baseAuthority+brakeRotation+turnInBite+v66DriftLineBite(steer,curve))*(isDrifting?1:frontGrip);
  const outward=curve*.032*ratio*ratio+(isDrifting?0:v52OverspeedPush(speed,curve));
  lateralVelocity=lerp(lateralVelocity,turn-outward,1-Math.exp(-dt*(isDrifting?DRIFT51.driftLateralResponse:17.6)));
+ v67CountersteerCatch(dt,steer);
  const idx=clamp(Math.floor(playerZ/SEGMENT_LENGTH),0,Math.max(0,segments.length-1)),corridors=roadCorridors(idx);
  const lane=corridors.reduce((best,q)=>Math.abs(playerX-q.center)<Math.abs(playerX-best.center)?q:best,corridors[0]||{center:0,half:roadFactor()});
  const usable=Math.max(.12,lane.half-PLAYER_HALF_WIDTH),edgeUse=Math.abs(playerX-lane.center)/usable;

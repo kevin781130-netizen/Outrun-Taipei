@@ -26,8 +26,8 @@ function hash(s){
 }
 function fingerprints(html){
  const sections={
-  drift:['function stepBrakeDrift(','function stepArcadeMotion(','51090577'],
-  motion:['function stepArcadeMotion(','function playerVisualTransform(','f32d34ee'],
+  drift:['function stepBrakeDrift(','function stepArcadeMotion(','566e6b2c'],
+  motion:['function stepArcadeMotion(','function playerVisualTransform(','39618802'],
   rules:['const DRIFT51=Object.freeze(','const V52_CORNER=Object.freeze(','4d7079af']
  };
  const result={};
@@ -77,7 +77,7 @@ function replay(game,cfg){
 }
 function validate(result,cfg){
  assert.equal(result.route,'1A');
- assert.equal(result.competitionVersion,'58.0');
+ assert.equal(result.competitionVersion,'59.0');
  assert.equal(result.rows.length,108);
  for(const row of result.rows)for(const [field,value] of Object.entries(row)){
   if(typeof value==='number')assert(Number.isFinite(value),cfg.name+'/'+field+' must be finite');
