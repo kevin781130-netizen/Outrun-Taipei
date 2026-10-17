@@ -20,7 +20,10 @@ const state=JSON.parse(game.run(`(()=>{
  const signedPush=[
    v52OverspeedPush(250,2.4),
    v52OverspeedPush(250,-2.4),
-   v52OverspeedPush(190,2.4)
+   v52OverspeedPush(190,2.4),
+   v52OverspeedPush(260,3.6),
+   v52OverspeedPush(285,3.6),
+   v52OverspeedPush(1000,3.6)
  ];
  const straight=measure(0,250),cruiseBend=measure(1.3,220),
        grip=measure(2.4,250),drift=measure(2.4,250,true);
@@ -48,6 +51,8 @@ assert.equal(state.reference[4][1],120,'extreme curves respect minimum safe spee
 assert(state.signedPush[0]>.10&&state.signedPush[0]<.17,'overspeed push is material but bounded');
 assert(Math.abs(state.signedPush[0]+state.signedPush[1])<1e-10,'left/right symmetric');
 assert.equal(state.signedPush[2],0,'below safe speed no added understeer');
+assert(state.signedPush[4]>state.signedPush[3],'higher hairpin speed must worsen outward push');
+assert(state.signedPush[5]<.28,'extreme hairpin understeer retains a strict soft cap');
 assert(Math.abs(state.straight.deltaSpeed)<1e-9,'no arbitrary straight-line speed cap');
 assert(Math.abs(state.cruiseBend.deltaSpeed)<1e-9,'moderate-speed corner stays accessible');
 assert(state.grip.deltaSpeed>.40&&state.grip.deltaSpeed<1,'fast tight grip turn has speed penalty');
