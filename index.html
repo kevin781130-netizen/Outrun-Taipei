@@ -6433,7 +6433,9 @@ function finishStageTransition(){
   distanceOffset+=STAGE_SWITCH*SEGMENT_LENGTH;
   setStage(tr.nextLevel,tr.nextColumn,false,tr.choice==='left'?'LEFT FLOW':'RIGHT FLOW',tr.choice,true);
   playerZ=Math.max(0,remainder);
-  playerX=clamp(playerX,-drivableHalf()*.85,drivableHalf()*.85);resetDrivingState();
+  playerX=clamp(playerX,-drivableHalf()*.85,drivableHalf()*.85);
+  // V59: stage boundaries change scenery, not vehicle dynamics. Keep active
+  // drift, lateral momentum, and boost state through the route handoff.
   styleMessage('DISTRICT FLOW',tr.next.name+' · KEEP IT MOVING');
 }
 
