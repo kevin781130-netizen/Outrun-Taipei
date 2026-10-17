@@ -4862,10 +4862,10 @@ function v51DriftVisualPose(curve=v51CurrentCurve()){
     curveCap:v51VisualCurveCap(curve)
   };
 }
-// V60 corner calibration: more progressive loss of grip in medium/tight bends.
-// Grip driving must respect the recommended speed; a controlled drift retains its
-// existing low scrub cost. The same safe-speed curve is shared by HUD and physics.
+// V52 corner rules: one shared "safe speed" for physics and HUD, plus an over-speed understeer push (grip only).
 const V52_CORNER=Object.freeze({safeBase:278,safePerCurve:34,safeMin:120,pushSpan:75,pushGain:.17,pushCurveRef:2.4,pushExp:1.3,scrubGrip:.51});
+// V60: tighter medium/high curvature entry limits, without changing drift
+// physics. The HUD and grip-handling model share the same curve.
 function v52SafeCornerSpeed(curve){return clamp(V52_CORNER.safeBase-Math.abs(curve)*V52_CORNER.safePerCurve,V52_CORNER.safeMin,V52_CORNER.safeBase);}
 function v52OverspeedPush(speedNow,curve){
   const excess=Math.max(0,speedNow-v52SafeCornerSpeed(curve));if(excess<=0||!curve)return 0;
