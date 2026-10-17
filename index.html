@@ -52,6 +52,8 @@
   /* POPUPS & ALERTS */
   #style-pop{position:absolute;left:50%;top:74px;transform:translateX(-50%) scale(.9);z-index:7;pointer-events:none;text-align:center;opacity:0;transition:opacity .12s,transform .12s;text-shadow:0 3px 0 #000,0 0 16px rgba(255,45,117,.8)}
   #style-pop.show{opacity:1;transform:translateX(-50%) scale(1)}
+  #corner-target:not([hidden]){margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,206,106,.35);font-size:10px;font-weight:900;line-height:1.35;color:#9df2df;max-width:225px}
+  @media(max-width:760px){#corner-target:not([hidden]){font-size:8px;max-width:145px}}
   #corner-coach:not([hidden]){margin-top:5px;padding-top:5px;border-top:1px solid rgba(125,236,215,.42);color:#ffe39b;line-height:1.35;font-size:10px;font-weight:800;white-space:normal;max-width:225px}
   @media(max-width:760px){#corner-coach:not([hidden]){font-size:8px;margin-top:3px;padding-top:3px;max-width:145px}}
   #style-main{font-family:var(--hud-font);font-size:clamp(24px,4.5vw,42px);font-weight:900;font-style:italic;color:#fff}
@@ -458,7 +460,7 @@
     .atlas-layout{grid-template-columns:1.2fr 1fr;}#atlas-routes{max-height:210px;}#atlas-map{max-height:220px;}
   }
 </style>
-<div id="corner-hud"><b id="corner-name">前方直線</b><span id="corner-speed">建議入彎速度</span><br><span id="drive-state">GRIP · 循跡中</span><div id="corner-coach" aria-live="off" hidden></div></div>
+<div id="corner-hud"><b id="corner-name">前方直線</b><span id="corner-speed">建議入彎速度</span><br><span id="drive-state">GRIP · 循跡中</span><div id="corner-target" aria-live="off" hidden></div><div id="corner-coach" aria-live="off" hidden></div></div>
 <div id="atlas-modal" role="dialog" aria-modal="true" aria-label="台北路線圖">
   <div class="atlas-head"><div><h2>TAIPEI ROUTE ATLAS</h2><small>台北・北海岸・山城 / 北向上，遊戲路線示意</small></div><button class="btn" id="atlas-close">✕ 關閉</button></div>
   <div class="atlas-layout"><svg id="atlas-map" viewBox="0 0 520 440" role="img" aria-label="台北區域與十五個遊戲路段"></svg><div id="atlas-routes"></div></div>
@@ -1833,7 +1835,7 @@ function resetGame(){
   score=0; timeLeft=v34Mode==='arcade'?dipSettings.time:stageTimeBudget(selectedRoute.level,selectedRoute.column)+20;
   resetDrivingState(); nitro=0;nitroStock=0;boostRemaining=0;nitroWasHeld=false;driftChargeRate=0; boosting=false; boostKick=0;shiftCutTimer=0;shiftPunch=0;lateralVelocity=0; brakeEntry=0; brakeWasHeld=false; exitBoost=0; momentBoostWindow=0;momentBoostArmed=false;cleanDriftTime=0; raceElapsed=0;
   styleCombo = 1; styleBank = 0; totalStyle = 0; styleIdle = 0; driftTime = 0;
-  v61ApexAwards = 0;v62FlowBest=0;v63SwitchbackTotal=0;
+  v61ApexAwards = 0;v62FlowBest=0;v63SwitchbackTotal=0;v65PracticeAttempts=0;v65PracticeHits=0;
   screenShake = 0; flash = 0; collisionCooldown = 0;
   speed=0;currentGear='LOW';driveGear='D';motionDirection=1;reverseWindow=0;nitroLatch=false;gearDWasHeld=false;gearRWasHeld=false;rpm=800;
   gameOver = false; paused = false; raceActive = false; countdownTimer = 0; countdownValue = 3;
@@ -2539,13 +2541,36 @@ function v62OnApexAward(apex){
 const V64_COACH=Object.freeze({bucketSegments:40,maxCorners:64,displaySeconds:4.5});
 const v64CornerHistory=new Map();
 let v64CoachReport=null,v64CoachTimer=0;
+// V65 counts clean attempts against the already-saved best exit speed.
+let v65PracticeAttempts=0,v65PracticeHits=0;
 function v64RenderCoach(){
   const element=document.getElementById('corner-coach');
   const active=!!v64CoachReport&&v64CoachTimer>0;
   element.hidden=!active;
   if(active)element.textContent=v64CoachReport.label;
 }
-function v64ResetCoachDisplay(){v64CoachReport=null;v64CoachTimer=0;v64RenderCoach();}
+// The practice target is never inferred from steering or an unrelated route.
+function v65TargetForRun(run){
+  if(!run||!run.stage||!Number.isFinite(run.started))return null;
+  const direction=Math.sign(run.direction||0);
+  if(!direction)return null;
+  const startSegment=Math.floor(run.started/SEGMENT_LENGTH);
+  const key=`${run.stage}:${direction}:${Math.floor(startSegment/V64_COACH.bucketSegments)}`;
+  return {key,best:v64CornerHistory.get(key)?.bestExit??null};
+}
+function v65RenderTarget(){
+  const el=document.getElementById('corner-target');
+  const run=v61Apex;
+  const active=!!run&&run.clean&&roadGrip>=.8&&!crashSequence
+    &&driveGear==='D'&&motionDirection===1;
+  const target=active?v65TargetForRun(run):null;
+  el.hidden=!target;
+  if(target){
+    el.textContent=target.best===null?'CORNER DRILL · 首次過彎建立基準'
+      :`CORNER DRILL · 目標出彎 ≥ ${target.best} KM/H`;
+  }
+}
+function v64ResetCoachDisplay(){v64CoachReport=null;v64CoachTimer=0;v64RenderCoach();v65RenderTarget();}
 function v64CoachTick(dt){
   if(v64CoachTimer<=0)return;
   v64CoachTimer=Math.max(0,v64CoachTimer-Math.max(0,dt));
@@ -2561,9 +2586,15 @@ function v64RecordCorner(apex){
   const previous=v64CornerHistory.get(key);
   const entry=Math.round(apex.entrySpeed),exit=Math.round(apex.exitSpeed);
   const prevExit=previous?.lastExit??null,bestExit=Math.max(exit,previous?.bestExit??0);
+  // Compare against the target frozen *before* this award updates the best.
+  const target=previous?.bestExit??null;
+  const goalMet=target===null?null:exit>=target;
+  if(target!==null){v65PracticeAttempts++;if(goalMet)v65PracticeHits++;}
   const delta=prevExit===null?null:exit-prevExit;
   const comparison=delta===null?'首次紀錄':delta>0?`較上次 +${delta}`:delta<0?`較上次 ${delta}`:'與上次相同';
-  const label=`入 ${entry} → 出 ${exit} KM/H · ${comparison} · 最佳 ${bestExit}`;
+  const goal=target===null?'首次挑戰':goalMet?'目標達成':'再練一次';
+  const practice=target===null?'建立練習基準':`目標 ${target} · ${goal} ${v65PracticeHits}/${v65PracticeAttempts}`;
+  const label=`入 ${entry} → 出 ${exit} KM/H · ${comparison} · 最佳 ${bestExit} · ${practice}`;
   // Keep a fixed maximum of remembered bend locations, without storage or
   // unrelated stage comparisons. Re-touch places the entry at the end.
   if(previous)v64CornerHistory.delete(key);
@@ -2571,10 +2602,10 @@ function v64RecordCorner(apex){
     v64CornerHistory.delete(v64CornerHistory.keys().next().value);
   }
   v64CornerHistory.set(key,{lastExit:exit,bestExit});
-  v64CoachReport={key,entry,exit,delta,best:bestExit,label};
+  v64CoachReport={key,entry,exit,delta,best:bestExit,target,goalMet,label};
   v64CoachTimer=V64_COACH.displaySeconds;
-  v64RenderCoach();
-  return {key,entry,exit,delta,best:bestExit};
+  v64RenderCoach();v65RenderTarget();
+  return {key,entry,exit,delta,best:bestExit,target,goalMet};
 }
 // V52 TAIPEI CLOSE PASS: a visible, genuinely close, genuinely fast, collision-free pass earns a small score. No shake, no combo coupling.
 const V52_CLOSEPASS=Object.freeze({candidateLife:4,minSpeed:150,minClosing:45,gapMin:.012,gapMax:.09,tightGap:.045,points:Object.freeze([120,240]),chainWindow:3,chainStep:.25,chainCap:3,fxLife:.8,shake:0,chargeReward:0});
@@ -6484,6 +6515,7 @@ function updateDrivingHUD(){
   const magnitude=Math.abs(strongest),entry=Math.round(v52SafeCornerSpeed(strongest));
   document.getElementById('corner-name').textContent=magnitude<.55?'↑ 前方直線':`${strongest>0?'↗ 右':'↖ 左'}${magnitude>3?'急彎':magnitude>1.5?'中彎':'緩彎'}`;
   document.getElementById('corner-speed').textContent=magnitude<.55?'保持油門 · 注意車流':`建議入彎 ${entry} KM/H · ${speed>entry+15?`超速 +${Math.round(speed-entry)} · 提防推頭`:speed>entry?`接近極限 · 控制方向`:'保持路線'}`;
+  v65RenderTarget();
   document.getElementById('drive-state').textContent=isDrifting?`DRIFT · ${driftTime.toFixed(1)} s · x${styleCombo.toFixed(1)}`:boosting?'NITRO · 氮氣推進':exitBoost>0?'MOMENT BOOST · 小噴':momentBoostWindow>0?'MOMENT READY · 放油再補油':roadGrip<.8?'OFF ROAD · 回到路面':'GRIP · 循跡中';
 }
 const radioActions=document.getElementById('radio-actions');
