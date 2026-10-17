@@ -1810,6 +1810,7 @@ function setStage(level, column, announce=true, detail='STAGE REACHED', entryCho
   if(!preserveLane){steer=0;resetDrivingState();}
   roadGrip = 1; pendingChoice = 'left'; choiceLocked = false; lastForkChoice = '';
   stageTransition = null; checkpointPassed = false; checkpointBonus = 0;
+  v61ResetApex();
   forkChoice.classList.remove('show');
   if(announce) showStageCard(detail);
   drawRouteMap(); updateHUD();
@@ -1825,6 +1826,7 @@ function resetGame(){
   score=0; timeLeft=v34Mode==='arcade'?dipSettings.time:stageTimeBudget(selectedRoute.level,selectedRoute.column)+20;
   resetDrivingState(); nitro=0;nitroStock=0;boostRemaining=0;nitroWasHeld=false;driftChargeRate=0; boosting=false; boostKick=0;shiftCutTimer=0;shiftPunch=0;lateralVelocity=0; brakeEntry=0; brakeWasHeld=false; exitBoost=0; momentBoostWindow=0;momentBoostArmed=false;cleanDriftTime=0; raceElapsed=0;
   styleCombo = 1; styleBank = 0; totalStyle = 0; styleIdle = 0; driftTime = 0;
+  v61ApexAwards = 0;
   screenShake = 0; flash = 0; collisionCooldown = 0;
   speed=0;currentGear='LOW';driveGear='D';motionDirection=1;reverseWindow=0;nitroLatch=false;gearDWasHeld=false;gearRWasHeld=false;rpm=800;
   gameOver = false; paused = false; raceActive = false; countdownTimer = 0; countdownValue = 3;
@@ -2435,6 +2437,46 @@ function bankStyle(){
   styleMessage(`STYLE x${styleCombo.toFixed(1)}`, `+${gained} BANKED`);
   styleBank = 0; styleCombo = 1; driftTime = 0;
 }
+// V61 APEX CHALLENGE: skill scoring against existing road curvature.
+// Does not alter throttle, grip, drift, nitro or collision behaviour.
+const V61_APEX=Object.freeze({
+  entryCurve:1.5,exitCurve:.55,minTravelSegments:30,
+  minEntrySpeed:120,minExitSpeed:125,minDriftSeconds:.38,
+  cleanPoints:240,driftPoints:650
+});
+let v61Apex=null,v61ApexAwards=0;
+function v61ResetApex(){v61Apex=null;}
+function v61ApexStep(dt,curve){
+  if(crashSequence||driveGear!=='D'||motionDirection!==1){
+    v61ResetApex();return null;
+  }
+  const magnitude=Math.abs(curve);
+  if(!v61Apex){
+    if(magnitude>=V61_APEX.entryCurve&&speed>=V61_APEX.minEntrySpeed
+      &&roadGrip>=.8&&collisionCooldown<=0){
+      v61Apex={stage:currentNode.id,started:playerZ,maxCurve:magnitude,
+        minSpeed:speed,driftSeconds:0,clean:true};
+    }
+    return null;
+  }
+  const run=v61Apex;
+  if(run.stage!==currentNode.id||playerZ<run.started){v61ResetApex();return null;}
+  run.maxCurve=Math.max(run.maxCurve,magnitude);
+  run.minSpeed=Math.min(run.minSpeed,speed);
+  run.driftSeconds+=isDrifting?dt:0;
+  if(roadGrip<.8||collisionCooldown>0)run.clean=false;
+  if(magnitude>V61_APEX.exitCurve)return null;
+  v61ResetApex();
+  if(!run.clean||run.maxCurve<V61_APEX.entryCurve
+    ||playerZ-run.started<V61_APEX.minTravelSegments*SEGMENT_LENGTH
+    ||run.minSpeed<V61_APEX.minEntrySpeed
+    ||speed<V61_APEX.minExitSpeed)return null;
+  const drift=run.driftSeconds>=V61_APEX.minDriftSeconds;
+  const points=drift?V61_APEX.driftPoints:V61_APEX.cleanPoints;
+  score+=points;v61ApexAwards++;
+  styleMessage(drift?'PERFECT APEX!':'CLEAN CORNER!',`+ ${points} POINTS · ${drift?'DRIFT EXIT':'CLEAN LINE'}`);
+  return {grade:drift?'perfect':'clean',points,curve:run.maxCurve};
+}
 // V52 TAIPEI CLOSE PASS: a visible, genuinely close, genuinely fast, collision-free pass earns a small score. No shake, no combo coupling.
 const V52_CLOSEPASS=Object.freeze({candidateLife:4,minSpeed:150,minClosing:45,gapMin:.012,gapMax:.09,tightGap:.045,points:Object.freeze([120,240]),chainWindow:3,chainStep:.25,chainCap:3,fxLife:.8,shake:0,chargeReward:0});
 let closePassChain=0,closePassTimer=0,closePassFx=[],closePassTotal=0;
@@ -2523,6 +2565,7 @@ function triggerCrash(car, hit, isObstacle=false){
     addParticle(hx + rand(-20, 20), hy + rand(-10, 10), rand(-150, 150), rand(-180, -30), rand(0.25, 0.65), rand(3, 7), 'spark');
   }
   closePassChain=0;closePassTimer=0;closePassFx=[];clearClosePassCandidates();
+  v61ResetApex();
   crashSequence={t:0,anim:0,duration:V52_FLOW.crashDuration,impactSpeed:speed,side:pushDir};
   resetDrivingState();
   exitBoost=0;cleanDriftTime=0;lateralVelocity=0;boosting=false;boostRemaining=0;nitroLatch=false;reverseWindow=0;
@@ -2777,6 +2820,8 @@ function update(dt){
 
   speed=clamp(speed,0,COMPETITION.boostSpeed);
   playerZ=Math.max(0,playerZ+speed*WORLD_SPEED*dt*motionDirection);
+  // V61: passive corner-skill evaluation; never modifies speed or steering.
+  v61ApexStep(dt,seg.curve);
   if(v34Mode!=='cruise') timeLeft=Math.max(0,timeLeft-dt);
 
   v52ApproachTick();
@@ -4757,7 +4802,7 @@ function drawMiramarWheel(x,y,s){
 }
 
 // V40 competition rules: V39 simulation core + V40 drift calibration; art never changes physics.
-const COMPETITION=Object.freeze({version:'54.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
+const COMPETITION=Object.freeze({version:'55.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
 // V52 arcade-flow rules (independent): shorter crash interruption, stronger re-entry, Taiwan-style approach signage.
 const V52_FLOW=Object.freeze({
   crashDuration:2.9,crashAnimScale:4.1/2.9,recoverySpeed:118,recoveryGrace:1.6,
