@@ -51,7 +51,7 @@ assert.equal(result.started,true);
 assert.equal(result.secondStart,true,'explicit restart should replace session');
 assert.equal(result.loopBefore,0);
 assert.equal(result.evidence.length,45);
-assert.equal(result.evidence.schema,'outrun-taipei.v76.player-drive.1');
+assert.equal(result.evidence.schema,'taipei-driving.v76.player-drive.1');
 assert.equal(result.evidence.first.mode,'v69');
 assert.equal(result.evidence.first.route,'4D');
 assert.equal(result.evidence.first.t,0.017);
