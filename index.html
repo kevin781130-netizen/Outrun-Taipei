@@ -5163,6 +5163,52 @@ function v69ExitSettle(dt,desired,command,grip=roadGrip){
  yawRate*=Math.exp(-dt*V69_SETTLE.yawRate*strength);
  return Math.abs(before-desired)-Math.abs(lateralVelocity-desired);
 }
+// V70 cruise-only A/B laboratory. No additional physical tuning.
+// Official arcade/sprint driving always uses V69 with record namespace 61.0.
+// Statistics are bounded to two in-memory aggregates, never persisted or sent.
+let v70LabEnabled=false,v70ExitMode='v69';
+const v70LabStats={v68:{frames:0,totalLat:0,peakLat:0},v69:{frames:0,totalLat:0,peakLat:0}};
+function v70UseV69(){return v34Mode!=='cruise'||v70ExitMode==='v69';}
+function v70CanLab(){return v34Mode==='cruise'&&!inRadioScreen;}
+function v70ToggleLab(){
+ if(!v70CanLab())return false;
+ v70LabEnabled=!v70LabEnabled;v70RenderLab();return v70LabEnabled;
+}
+function v70SelectExitMode(mode){
+ if(!v70CanLab()||!v70LabEnabled||!['v68','v69'].includes(mode))return false;
+ if(v70ExitMode!==mode){v70ExitMode=mode;v69ResetSettle();}
+ v70RenderLab();return true;
+}
+function v70ToggleExitMode(){return v70SelectExitMode(v70ExitMode==='v69'?'v68':'v69');}
+function v70ClearLabStats(){
+ for(const bucket of Object.values(v70LabStats)){
+  bucket.frames=0;bucket.totalLat=0;bucket.peakLat=0;
+ }
+ v70RenderLab();
+}
+function v70RenderLab(){
+ const panel=document.getElementById('v70-lab'),launcher=document.getElementById('v70-lab-btn');
+ if(!panel||!launcher)return;
+ launcher.disabled=!v70CanLab();
+ launcher.setAttribute('aria-pressed',String(v70LabEnabled&&v70CanLab()));
+ panel.hidden=!(v70LabEnabled&&v70CanLab()&&gameStarted&&!gameOver);
+ if(panel.hidden)return;
+ if(raceActive&&!paused&&!crashSequence){
+  const bucket=v70LabStats[v70ExitMode],abs=Math.abs(lateralVelocity);
+  bucket.frames++;bucket.totalLat+=abs;bucket.peakLat=Math.max(bucket.peakLat,abs);
+ }
+ const fmt=(x,n=2)=>Number.isFinite(x)?x.toFixed(n):'—';
+ document.getElementById('v70-lab-mode').textContent=v70ExitMode==='v69'?'V69 SETTLE ON':'V68 SETTLE OFF';
+ document.getElementById('v70-lab-metrics').textContent=
+  `YAW ${fmt(driftAngle,1)}° · SLIP ${fmt(slipAngle,1)}° · LAT ${fmt(lateralVelocity)}`;
+ document.getElementById('v70-lab-state').textContent=
+  `${driftState.toUpperCase()} · GRIP ${fmt(roadGrip)} · ${Math.round(speed)} KM/H`;
+ const describe=id=>{
+  const x=v70LabStats[id];
+  return `${id.toUpperCase()} ${x.frames} · 平均|LAT| ${fmt(x.frames?x.totalLat/x.frames:0)} · 峰 ${fmt(x.peakLat)}`;
+ };
+ document.getElementById('v70-lab-summary').textContent=describe('v68')+' / '+describe('v69');
+}
 function stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
  const helper=inputHeld('ShiftLeft')||inputHeld('ShiftRight')||gamepadInput.drift;
  if(helper&&!helperWasHeld&&!isDrifting&&speed>DRIFT51.entryMinSpeed&&driveGear==='D'&&motionDirection===1){helperPulse=.085;brakeEntry=.78;}
