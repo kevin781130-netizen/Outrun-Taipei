@@ -5168,11 +5168,13 @@ function v69ExitSettle(dt,desired,command,grip=roadGrip){
 // Statistics are bounded to two in-memory aggregates, never persisted or sent.
 let v70LabEnabled=false,v70ExitMode='v69';
 const v70LabStats={v68:{frames:0,totalLat:0,peakLat:0},v69:{frames:0,totalLat:0,peakLat:0}};
-function v70UseV69(){return v34Mode!=='cruise'||v70ExitMode==='v69';}
+function v70UseV69(){return v34Mode!=='cruise'||!v70LabEnabled||v70ExitMode==='v69';}
 function v70CanLab(){return v34Mode==='cruise'&&!inRadioScreen;}
 function v70ToggleLab(){
  if(!v70CanLab())return false;
- v70LabEnabled=!v70LabEnabled;v70RenderLab();return v70LabEnabled;
+ v70LabEnabled=!v70LabEnabled;
+ if(!v70LabEnabled){v70ExitMode='v69';v69ResetSettle();}
+ v70RenderLab();return v70LabEnabled;
 }
 function v70SelectExitMode(mode){
  if(!v70CanLab()||!v70LabEnabled||!['v68','v69'].includes(mode))return false;
