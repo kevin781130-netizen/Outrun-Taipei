@@ -27,7 +27,7 @@ function hash(s){
 function fingerprints(html){
  const sections={
   drift:['function stepBrakeDrift(','function stepArcadeMotion(','3c7f4df0'],
-  motion:['function stepArcadeMotion(','function playerVisualTransform(','76c045e4'],
+  motion:['function stepArcadeMotion(','function playerVisualTransform(','bf971c0f'],
   rules:['const DRIFT51=Object.freeze(','const V52_CORNER=Object.freeze(','4d7079af']
  };
  const result={};

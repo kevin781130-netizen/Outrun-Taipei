@@ -57,6 +57,10 @@
   #v70-lab p{margin:4px 0;overflow-wrap:anywhere}#v70-lab .v70-actions{display:flex;gap:5px;flex-wrap:wrap;margin:6px 0}
   #v70-lab #v70-lab-mode{color:#8fffe7;font-weight:900}#v70-lab .v70-muted{color:#91b5bc;font-size:9px}
   @media(max-width:760px){#v70-lab{left:5px;top:47px;width:min(178px,48vw);padding:6px 7px;font-size:9px;max-height:calc(100% - 125px)}#v70-lab header{font-size:10px}#v70-lab button{padding:4px 5px;font-size:9px}}
+  /* V76: small, opt-in local recording controls inside the existing lab. */
+  #v76-rec-status{font-variant-numeric:tabular-nums;color:#b5eeff}
+  #v76-rec-toggle[aria-pressed="true"]{background:#712329;border-color:#ff9c9c;color:#fff}
+  #v76-rec-export:disabled,#v76-rec-delete:disabled{opacity:.45;cursor:default}
   /* POPUPS & ALERTS */
   #style-pop{position:absolute;left:50%;top:74px;transform:translateX(-50%) scale(.9);z-index:7;pointer-events:none;text-align:center;opacity:0;transition:opacity .12s,transform .12s;text-shadow:0 3px 0 #000,0 0 16px rgba(255,45,117,.8)}
   #style-pop.show{opacity:1;transform:translateX(-50%) scale(1)}
@@ -224,6 +228,13 @@
       </div>
       <p id="v70-lab-summary">全程樣本：V68 0 / V69 0</p>
       <p id="v71-lab-summary" aria-label="有效出彎比較">有效出彎 0 次（需完整 0.42 秒、中立轉向）</p>
+      <div class="v70-actions" aria-label="V76 本機駕駛錄影">
+        <button type="button" id="v76-rec-toggle" aria-pressed="false">● 開始錄製</button>
+        <button type="button" id="v76-rec-export" disabled>下載 JSON</button>
+        <button type="button" id="v76-rec-delete" disabled>刪除錄影</button>
+      </div>
+      <p id="v76-rec-status" role="status" aria-live="off">V76 本機錄製：未啟動（最多 90 秒、60 Hz）</p>
+      <p class="v70-muted">只在你按「開始錄製」後擷取操作；資料只留在本頁記憶體，主動下載 JSON 才會儲存檔案。不會自動上傳。</p>
       <p class="v70-muted">K 顯示/隱藏 · 僅自由巡航 · 20 Hz 全程遙測；出彎比較僅計完整 0.42 秒、中立轉向，非同輸入配對測試。</p>
     </section>
     <div id="style-pop"><div id="style-main">DRIFT x2</div><div id="style-sub">+450 STYLE</div></div>
@@ -1832,6 +1843,7 @@ function showStageCard(detail='ROUTE START'){
 }
 
 function setStage(level, column, announce=true, detail='STAGE REACHED', entryChoice=null, preserveLane=false){
+  v76RecordStop('route-changed');
   stageLevel = level; stageColumn = column; currentNode = STAGES[level][column];
   applyRouteLayout(level, column);
   buildStage(currentNode);stageLandmarkPlan=planLandmarks(); initTraffic();
@@ -1848,6 +1860,7 @@ function setStage(level, column, announce=true, detail='STAGE REACHED', entryCho
 }
 
 function resetGame(){
+  v76RecordDiscard();
   gameStarted=false;clearTimeout(resultTimer);resultTimer=null;
   raceBoardKey=arcadeBoardKey();
   closePassChain=0;closePassTimer=0;closePassFx=[];closePassTotal=0;
@@ -2032,7 +2045,7 @@ function restoreOverlayContent(){
 function togglePause(){
   if(!gameStarted || gameOver || inRadioScreen) return;
   paused = !paused; clearInputs(); lastTime = performance.now();
-  if(paused)v71ResetExitWindow();
+  if(paused){v71ResetExitWindow();v76RecordStop('paused');}
   document.getElementById('pause-btn').textContent = paused ? '繼續 P' : '暫停 P';
   if(!paused) resumeAudio();
   updateAudio();
@@ -2882,7 +2895,7 @@ function update(dt){
     updateHUD(); return;
   }
   if(countdownTimer < 3.5){ countdownTimer += dt; if(countdownTimer >= 3.5) countdownEl.classList.remove('show'); }
-  if(crashSequence){ updateCrash(dt); return; }
+  if(crashSequence){v76RecordStop('crash');updateCrash(dt); return; }
   v62FlowTick(dt);
 
   // Player input
@@ -5175,12 +5188,12 @@ function v70CanLab(){return v34Mode==='cruise'&&!inRadioScreen;}
 function v70ToggleLab(){
  if(!v70CanLab())return false;
  v70LabEnabled=!v70LabEnabled;
- if(!v70LabEnabled){v70ExitMode='v69';v69ResetSettle();v71ResetExitWindow();}
+ if(!v70LabEnabled){v76RecordStop('lab-closed');v70ExitMode='v69';v69ResetSettle();v71ResetExitWindow();}
  v70RenderLab();return v70LabEnabled;
 }
 function v70SelectExitMode(mode){
  if(!v70CanLab()||!v70LabEnabled||!['v68','v69'].includes(mode))return false;
- if(v70ExitMode!==mode){v70ExitMode=mode;v69ResetSettle();v71ResetExitWindow();}
+ if(v70ExitMode!==mode){v76RecordStop('mode-changed');v70ExitMode=mode;v69ResetSettle();v71ResetExitWindow();}
  v70RenderLab();return true;
 }
 function v70ToggleExitMode(){return v70SelectExitMode(v70ExitMode==='v69'?'v68':'v69');}
@@ -5215,7 +5228,105 @@ function v70RenderLab(sample=false){
  document.getElementById('v70-lab-summary').textContent='全程 · '+describe('v68')+' / '+describe('v69');
  const describeExit=id=>{const x=v71ExitStats[id];return id.toUpperCase()+' '+x.exits+' 次 · 出彎平均|LAT| '+fmt(x.exits?x.totalMeanLat/x.exits:0)+' · 峰 '+fmt(x.peakLat);};
  document.getElementById('v71-lab-summary').textContent='有效 0.42s 出彎 · '+describeExit('v68')+' / '+describeExit('v69');
+ v76RenderRecorder();
 }
+
+// V76 opt-in, bounded, local-only player-drive capture. Not a replay bot.
+// No localStorage, network upload, telemetry server, gameplay input or physics changes.
+const V76_MAX_FRAMES=5400;
+let v76Clip=null,v76Recording=false;
+function v76CanRecord(){
+ return v70LabEnabled&&v70CanLab()&&gameStarted&&raceActive&&!gameOver
+  &&!paused&&!crashSequence&&driveGear==='D'&&motionDirection===1;
+}
+function v76RecordStart(){
+ if(!v76CanRecord())return false;
+ v76Clip={schema:'taipei-driving.v76.player-drive.1',build:'V76',
+  mode:v70ExitMode,route:currentNode.id,sampleRateHz:60,limitSeconds:90,
+  reason:null,frames:[],summary:{driftStarts:0,countersteerStarts:0,
+    recoverToGrip:0,activeSteerGrip:0,peakAbsLateral:0}};
+ v76Recording=true;v76RenderRecorder();return true;
+}
+function v76RecordStop(reason='manual'){
+ if(!v76Recording)return false;
+ v76Recording=false;if(v76Clip)v76Clip.reason=reason;
+ v76RenderRecorder();return true;
+}
+function v76RecordDiscard(){
+ v76Recording=false;v76Clip=null;v76RenderRecorder();
+}
+function v76RecordToggle(){
+ return v76Recording?v76RecordStop('manual'):v76RecordStart();
+}
+function v76RecordSample(dt,curve){
+ if(!v76Recording)return;
+ if(!v76CanRecord()||v76Clip.route!==currentNode.id||v76Clip.mode!==v70ExitMode){
+  v76RecordStop('session-interrupted');return;
+ }
+ if(!Number.isFinite(dt)||dt<=0||!Number.isFinite(lateralVelocity))return;
+ const frames=v76Clip.frames,previous=frames[frames.length-1];
+ const left=inputHeld('ArrowLeft')||inputHeld('KeyJ'),right=inputHeld('ArrowRight')||inputHeld('KeyL');
+ const rawSteer=left||right?(right?1:0)-(left?1:0):gamepadInput.steer||(gyroEnabled?gyroSteer:0);
+ const shift=inputHeld('ShiftLeft')||inputHeld('ShiftRight')||!!gamepadInput.drift;
+ const row={t:Math.round((frames.length+1)*1000/60)/1000,
+  route:currentNode.id,mode:v70ExitMode,curve:Math.round(curve*10000)/10000,
+  z:Math.round(playerZ*100)/100,x:Math.round(playerX*10000)/10000,
+  kmh:Math.round(speed*100)/100,steer:Math.round(steer*10000)/10000,
+  rawSteer:Math.round(rawSteer*1000)/1000,
+  throttle:!!(inputHeld('ArrowUp')||inputHeld('KeyW')||gamepadInput.gas),
+  brake:!!(inputHeld('ArrowDown')||inputHeld('KeyS')||gamepadInput.brake),
+  shift,drift:isDrifting,state:driftState,
+  driftDirection,yaw:Math.round(driftAngle*100)/100,
+  slip:Math.round(slipAngle*100)/100,lat:Math.round(lateralVelocity*100000)/100000,
+  grip:Math.round(roadGrip*1000)/1000,
+  qualifiedExitPending:!!v71ExitWindow};
+ frames.push(row);
+ const summary=v76Clip.summary;
+ if(row.drift&&!previous?.drift)summary.driftStarts++;
+ if(previous&&(previous.drift||previous.state==='recover')&&!row.drift&&row.state==='grip'){
+  summary.recoverToGrip++;
+  if(Math.abs(row.steer)>.12)summary.activeSteerGrip++;
+ }
+ const counter=(row.drift||row.state==='recover')&&Math.abs(row.steer)>.12
+   &&row.driftDirection!==0&&Math.sign(row.steer)===-Math.sign(row.driftDirection);
+ const wasCounter=previous&&(previous.drift||previous.state==='recover')
+   &&Math.abs(previous.steer)>.12&&previous.driftDirection!==0
+   &&Math.sign(previous.steer)===-Math.sign(previous.driftDirection);
+ if(counter&&!wasCounter)summary.countersteerStarts++;
+ summary.peakAbsLateral=Math.max(summary.peakAbsLateral,Math.abs(row.lat));
+ if(frames.length>=V76_MAX_FRAMES)v76RecordStop('limit-90s');
+}
+function v76RenderRecorder(){
+ const status=document.getElementById('v76-rec-status');
+ if(!status)return;
+ const toggle=document.getElementById('v76-rec-toggle');
+ const exportButton=document.getElementById('v76-rec-export');
+ const deleteButton=document.getElementById('v76-rec-delete');
+ const n=v76Clip?.frames.length||0;
+ const counts=v76Clip?.summary;
+ status.textContent=v76Recording
+  ?'● 錄製中 '+(n/60).toFixed(1)+' / 90 秒 · 甩尾 '+counts.driftStarts+' · 反打 '+counts.countersteerStarts
+  :v76Clip
+   ?'■ 已停止 '+(n/60).toFixed(1)+' 秒 · 甩尾 '+counts.driftStarts+
+    ' · 反打 '+counts.countersteerStarts+' · 抓地恢復 '+counts.recoverToGrip+
+    '（反打中 '+counts.activeSteerGrip+'）'
+   :'V76 本機錄製：未啟動（最多 90 秒、60 Hz）';
+ toggle.textContent=v76Recording?'■ 停止錄製':'● 開始錄製';
+ toggle.setAttribute('aria-pressed',String(v76Recording));
+ toggle.disabled=!v76Recording&&!v76CanRecord();
+ exportButton.disabled=v76Recording||!n;
+ deleteButton.disabled=!v76Clip;
+}
+function v76ExportRecord(){
+ if(v76Recording||!v76Clip||!v76Clip.frames.length)return false;
+ const filename='taipei-driving-v76-'+v76Clip.route+'-'+v76Clip.mode+'.json';
+ const payload={...v76Clip,exportNote:'Locally downloaded by explicit user action. No automatic upload. Synthetic tests and personal recordings must be compared separately.'};
+ const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
+ const a=document.createElement('a');a.href=url;a.download=filename;
+ a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ return true;
+}
+
 // V71: comparable exit-focused observations, not another physics assist.
 // Only completed, uninterrupted neutral-steer 0.42s windows are scored.
 const V71_EXIT=Object.freeze({window:.42,neutralSteer:.12,minSpeed:70,minGrip:.8});
@@ -5382,6 +5493,7 @@ function stepArcadeMotion(dt,curve,accelHeld=true,brakeHeld=false){
  if(isDrifting&&driftState!=='recover')speed=Math.max(0,speed-(.32+Math.abs(slipAngle)*.011)*dt);
  if(excess>0&&Math.abs(curve)>.8)speed=Math.max(0,speed-excess*(isDrifting?.012:V52_CORNER.scrubGrip)*dt);
  v71SampleExitWindow(dt);
+ v76RecordSample(dt,curve);
 }
 function playerVisualTransform(){const p=v51DriftVisualPose();return {yaw:p.yaw,travelYaw:driftAngle-slipAngle,mode:'rigid-3d-sideways',scaleX:p.scaleX,shearX:0,offsetX:p.offsetX,intensity:p.intensity};}
 function drawSlideTrails(){
@@ -6694,6 +6806,7 @@ function soloLength(l,c){const r=routeLayout(l,c);return (l===4?r.FINISH_LINE:r.
 function getBestTime(){return bestTimes[bestRecordKey()]?bestTimes[bestRecordKey()].toFixed(2)+' s':'—';}
 function recordReward(cleared){driverStats.runs++;if(cleared)driverStats.clears++;driverStats.style+=Math.floor(totalStyle);persistV39();}
 function finishSolo(cleared){
+  v76RecordStop('finished');
   bankStyle();raceActive=false;gameOver=true;boosting=false;isDrifting=false;crashSequence=null;clearInputs();carSelect.disabled=false;
   const k=bestRecordKey(),old=bestTimes[k];let newBest=false;
   if(cleared&&(!old||raceElapsed<old)){bestTimes[k]=raceElapsed;newBest=true;persistV39();}
@@ -6777,6 +6890,9 @@ document.getElementById('v70-lab-btn').addEventListener('click',v70ToggleLab);
 document.getElementById('v70-lab-close').addEventListener('click',v70ToggleLab);
 document.getElementById('v70-lab-switch').addEventListener('click',v70ToggleExitMode);
 document.getElementById('v70-lab-clear').addEventListener('click',v70ClearLabStats);
+document.getElementById('v76-rec-toggle').addEventListener('click',v76RecordToggle);
+document.getElementById('v76-rec-export').addEventListener('click',v76ExportRecord);
+document.getElementById('v76-rec-delete').addEventListener('click',v76RecordDiscard);
 updateModeUI();updateRadioChoice();v70RenderLab();
 
 
