@@ -222,8 +222,9 @@
         <button type="button" id="v70-lab-switch">切換 V68 / V69 · B</button>
         <button type="button" id="v70-lab-clear">清除記錄</button>
       </div>
-      <p id="v70-lab-summary">樣本：V68 0 / V69 0</p>
-      <p class="v70-muted">K 顯示/隱藏 · 僅自由巡航 · 20 Hz 本頁統計；請在相同路段與速度比較。</p>
+      <p id="v70-lab-summary">全程樣本：V68 0 / V69 0</p>
+      <p id="v71-lab-summary" aria-label="有效出彎比較">有效出彎 0 次（需完整 0.42 秒、中立轉向）</p>
+      <p class="v70-muted">K 顯示/隱藏 · 僅自由巡航 · 20 Hz 全程遙測；出彎比較僅計完整 0.42 秒、中立轉向，非同輸入配對測試。</p>
     </section>
     <div id="style-pop"><div id="style-main">DRIFT x2</div><div id="style-sub">+450 STYLE</div></div>
     <div id="flow-chain" role="status" aria-live="off"><strong id="flow-chain-count">FLOW ×1</strong><span id="flow-chain-time">16.0s</span></div>
@@ -2031,6 +2032,7 @@ function restoreOverlayContent(){
 function togglePause(){
   if(!gameStarted || gameOver || inRadioScreen) return;
   paused = !paused; clearInputs(); lastTime = performance.now();
+  if(paused)v71ResetExitWindow();
   document.getElementById('pause-btn').textContent = paused ? '繼續 P' : '暫停 P';
   if(!paused) resumeAudio();
   updateAudio();
@@ -5173,16 +5175,17 @@ function v70CanLab(){return v34Mode==='cruise'&&!inRadioScreen;}
 function v70ToggleLab(){
  if(!v70CanLab())return false;
  v70LabEnabled=!v70LabEnabled;
- if(!v70LabEnabled){v70ExitMode='v69';v69ResetSettle();}
+ if(!v70LabEnabled){v70ExitMode='v69';v69ResetSettle();v71ResetExitWindow();}
  v70RenderLab();return v70LabEnabled;
 }
 function v70SelectExitMode(mode){
  if(!v70CanLab()||!v70LabEnabled||!['v68','v69'].includes(mode))return false;
- if(v70ExitMode!==mode){v70ExitMode=mode;v69ResetSettle();}
+ if(v70ExitMode!==mode){v70ExitMode=mode;v69ResetSettle();v71ResetExitWindow();}
  v70RenderLab();return true;
 }
 function v70ToggleExitMode(){return v70SelectExitMode(v70ExitMode==='v69'?'v68':'v69');}
 function v70ClearLabStats(){
+ v71ClearExitStats();
  for(const bucket of Object.values(v70LabStats)){
   bucket.frames=0;bucket.totalLat=0;bucket.peakLat=0;
  }
@@ -5209,7 +5212,46 @@ function v70RenderLab(sample=false){
   const x=v70LabStats[id];
   return `${id.toUpperCase()} ${x.frames} · 平均|LAT| ${fmt(x.frames?x.totalLat/x.frames:0)} · 峰 ${fmt(x.peakLat)}`;
  };
- document.getElementById('v70-lab-summary').textContent=describe('v68')+' / '+describe('v69');
+ document.getElementById('v70-lab-summary').textContent='全程 · '+describe('v68')+' / '+describe('v69');
+ const describeExit=id=>{const x=v71ExitStats[id];return id.toUpperCase()+' '+x.exits+' 次 · 出彎平均|LAT| '+fmt(x.exits?x.totalMeanLat/x.exits:0)+' · 峰 '+fmt(x.peakLat);};
+ document.getElementById('v71-lab-summary').textContent='有效 0.42s 出彎 · '+describeExit('v68')+' / '+describeExit('v69');
+}
+// V71: comparable exit-focused observations, not another physics assist.
+// Only completed, uninterrupted neutral-steer 0.42s windows are scored.
+const V71_EXIT=Object.freeze({window:.42,neutralSteer:.12,minSpeed:70,minGrip:.8});
+const v71ExitStats={v68:{exits:0,totalMeanLat:0,peakLat:0},v69:{exits:0,totalMeanLat:0,peakLat:0}};
+let v71ExitWindow=null;
+function v71ResetExitWindow(){v71ExitWindow=null;}
+function v71ClearExitStats(){
+ v71ResetExitWindow();
+ for(const x of Object.values(v71ExitStats)){x.exits=0;x.totalMeanLat=0;x.peakLat=0;}
+}
+function v71ArmExitWindow(){
+ v71ResetExitWindow();
+ if(!v70LabEnabled||!v70CanLab()||!gameStarted||!raceActive||paused||crashSequence
+   ||motionDirection!==1||driveGear!=='D'||roadGrip<V71_EXIT.minGrip
+   ||speed<V71_EXIT.minSpeed||Math.abs(steer)>V71_EXIT.neutralSteer)return false;
+ v71ExitWindow={route:currentNode.id,mode:v70ExitMode,remaining:V71_EXIT.window,
+   area:0,duration:0,peak:0};
+ return true;
+}
+function v71SampleExitWindow(dt){
+ const x=v71ExitWindow;
+ if(!x||!Number.isFinite(dt)||dt<=0)return;
+ if(!v70LabEnabled||!v70CanLab()||!gameStarted||!raceActive||paused||crashSequence
+   ||motionDirection!==1||driveGear!=='D'||roadGrip<V71_EXIT.minGrip
+   ||speed<V71_EXIT.minSpeed||isDrifting||driftState!=='grip'
+   ||Math.abs(steer)>V71_EXIT.neutralSteer||currentNode.id!==x.route
+   ||v70ExitMode!==x.mode||!Number.isFinite(lateralVelocity)){v71ResetExitWindow();return;}
+ const period=Math.min(dt,x.remaining),absolute=Math.abs(lateralVelocity);
+ x.area+=absolute*period;x.duration+=period;x.peak=Math.max(x.peak,absolute);
+ x.remaining=Math.max(0,x.remaining-period);
+ if(x.remaining<=1e-7){
+  const bucket=v71ExitStats[x.mode];
+  bucket.exits++;bucket.totalMeanLat+=x.area/x.duration;
+  bucket.peakLat=Math.max(bucket.peakLat,x.peak);
+  v71ResetExitWindow();
+ }
 }
 function stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
  const helper=inputHeld('ShiftLeft')||inputHeld('ShiftRight')||gamepadInput.drift;
@@ -5261,7 +5303,7 @@ function stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
       momentBoostWindow=Math.max(momentBoostWindow,DRIFT51.momentWindow);momentBoostArmed=!accelHeld;
       styleMessage('MOMENT BOOST READY','反打收尾 · 放油再補油觸發小噴');
      }
-    isDrifting=false;driftState='grip';driftDirection=0;cleanDriftTime=0;counterTime=0;neutralTime=0;v69ArmExitSettle();
+    isDrifting=false;driftState='grip';driftDirection=0;cleanDriftTime=0;counterTime=0;neutralTime=0;v69ArmExitSettle();v71ArmExitWindow();
    }
   }else{
    driftState=driftAge<DRIFT51.entryRamp?'entry':'drift';
@@ -5339,6 +5381,7 @@ function stepArcadeMotion(dt,curve,accelHeld=true,brakeHeld=false){
  chassisPitch=lerp(chassisPitch,targetPitch,1-Math.exp(-dt*13));
  if(isDrifting&&driftState!=='recover')speed=Math.max(0,speed-(.32+Math.abs(slipAngle)*.011)*dt);
  if(excess>0&&Math.abs(curve)>.8)speed=Math.max(0,speed-excess*(isDrifting?.012:V52_CORNER.scrubGrip)*dt);
+ v71SampleExitWindow(dt);
 }
 function playerVisualTransform(){const p=v51DriftVisualPose();return {yaw:p.yaw,travelYaw:driftAngle-slipAngle,mode:'rigid-3d-sideways',scaleX:p.scaleX,shearX:0,offsetX:p.offsetX,intensity:p.intensity};}
 function drawSlideTrails(){
