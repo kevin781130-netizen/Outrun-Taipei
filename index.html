@@ -3053,7 +3053,7 @@ function updateHUD(){
   document.getElementById('hud-route-label').textContent = `STAGE ${String(stageLevel+1).padStart(2,'0')} / 05  ·  LV ${currentNode.difficulty.toFixed(1)}`;
   hudTime.classList[timeLeft < 14 ? 'add' : 'remove']('urgent');
   hudTime.textContent=v34Mode==='cruise'?'∞':timeLeft.toFixed(1);
-  updateNitroHUD(); updateDrivingHUD();v62RenderFlowHUD();v70RenderLab();
+  updateNitroHUD(); updateDrivingHUD();v62RenderFlowHUD();v70RenderLab(true);
   hudScore.textContent = pad(score);
   hudStage.textContent = stageTransition ? `${currentNode.id} → ${stageTransition.next.id} • ${stageTransition.next.name}` : `${currentNode.id} • ${currentNode.name}`;
   speedNumber.textContent = String(Math.round(speed)).padStart(3,'0');
@@ -5188,14 +5188,14 @@ function v70ClearLabStats(){
  }
  v70RenderLab();
 }
-function v70RenderLab(){
+function v70RenderLab(sample=false){
  const panel=document.getElementById('v70-lab'),launcher=document.getElementById('v70-lab-btn');
  if(!panel||!launcher)return;
  launcher.disabled=!v70CanLab();
  launcher.setAttribute('aria-pressed',String(v70LabEnabled&&v70CanLab()));
  panel.hidden=!(v70LabEnabled&&v70CanLab()&&gameStarted&&!gameOver);
  if(panel.hidden)return;
- if(raceActive&&!paused&&!crashSequence){
+ if(sample&&raceActive&&!paused&&!crashSequence){
   const bucket=v70LabStats[v70ExitMode],abs=Math.abs(lateralVelocity);
   bucket.frames++;bucket.totalLat+=abs;bucket.peakLat=Math.max(bucket.peakLat,abs);
  }
