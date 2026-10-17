@@ -49,6 +49,14 @@
   #flow-chain.show{opacity:1}#flow-chain strong{color:#fff;font-family:var(--hud-font);font-size:18px;font-style:italic}#flow-chain span{font-variant-numeric:tabular-nums}
   @media(max-width:760px){#flow-chain{right:6px;bottom:114px;padding:3px 6px;gap:5px;font-size:9px}#flow-chain strong{font-size:14px}}
 
+  /* V70 optional telemetry: unobtrusive until explicitly enabled. */
+  #v70-lab{position:absolute;left:10px;top:71px;z-index:12;width:min(224px,36vw);padding:9px 10px;background:rgba(4,16,28,.93);border:1px solid #66d5d4;border-radius:9px;color:#d9f9f2;box-shadow:0 8px 24px #0009;font:800 11px/1.48 ui-monospace,monospace;pointer-events:auto;max-height:calc(100% - 140px);overflow:auto}
+  #v70-lab header{display:flex;justify-content:space-between;align-items:center;gap:6px;color:#ffe397;letter-spacing:.08em;font-size:12px;margin-bottom:7px}
+  #v70-lab button{background:#102e3f;color:#dbfff1;border:1px solid #5babab;border-radius:6px;padding:5px 7px;font-size:10px;font-weight:900;cursor:pointer;touch-action:manipulation}
+  #v70-lab button:focus-visible{outline:2px solid #ffd200;outline-offset:2px}
+  #v70-lab p{margin:4px 0;overflow-wrap:anywhere}#v70-lab .v70-actions{display:flex;gap:5px;flex-wrap:wrap;margin:6px 0}
+  #v70-lab #v70-lab-mode{color:#8fffe7;font-weight:900}#v70-lab .v70-muted{color:#91b5bc;font-size:9px}
+  @media(max-width:760px){#v70-lab{left:5px;top:47px;width:min(178px,48vw);padding:6px 7px;font-size:9px;max-height:calc(100% - 125px)}#v70-lab header{font-size:10px}#v70-lab button{padding:4px 5px;font-size:9px}}
   /* POPUPS & ALERTS */
   #style-pop{position:absolute;left:50%;top:74px;transform:translateX(-50%) scale(.9);z-index:7;pointer-events:none;text-align:center;opacity:0;transition:opacity .12s,transform .12s;text-shadow:0 3px 0 #000,0 0 16px rgba(255,45,117,.8)}
   #style-pop.show{opacity:1;transform:translateX(-50%) scale(1)}
@@ -205,6 +213,18 @@
     <div id="draft-hud">⚡ SLIPSTREAM · <span data-rule="topSpeed"></span> KM/H CAP</div>
     <div id="radio-hud"><div id="radio-dot"></div><span id="radio-name">FM 80.0 • SUNSET LOOP</span></div>
 
+    <section id="v70-lab" aria-label="甩尾實驗室" hidden>
+      <header><span>🔬 DRIFT LAB</span><button type="button" id="v70-lab-close" aria-label="關閉實驗室">✕</button></header>
+      <p>出彎模型：<strong id="v70-lab-mode">V69 SETTLE</strong></p>
+      <p id="v70-lab-metrics">YAW 0° · SLIP 0° · LAT 0</p>
+      <p id="v70-lab-state">GRIP · 0 KM/H</p>
+      <div class="v70-actions">
+        <button type="button" id="v70-lab-switch">切換 V68 / V69 · B</button>
+        <button type="button" id="v70-lab-clear">清除記錄</button>
+      </div>
+      <p id="v70-lab-summary">樣本：V68 0 / V69 0</p>
+      <p class="v70-muted">K 顯示/隱藏 · 僅自由巡航 · 20 Hz 本頁統計；請在相同路段與速度比較。</p>
+    </section>
     <div id="style-pop"><div id="style-main">DRIFT x2</div><div id="style-sub">+450 STYLE</div></div>
     <div id="flow-chain" role="status" aria-live="off"><strong id="flow-chain-count">FLOW ×1</strong><span id="flow-chain-time">16.0s</span></div>
     <div id="passenger-bubble">LET'S GO! 🌴</div>
@@ -572,6 +592,7 @@ body{background:radial-gradient(ellipse at 50% 20%,#152a41,#050c14 65%);}
 
   <div id="utility-bar">
     <button class="btn" id="pause-btn">暫停 P</button>
+    <button class="btn" id="v70-lab-btn" type="button" title="自由巡航專用的甩尾動態觀測">🔬 DRIFT LAB K</button>
     <button class="btn" id="garage-btn">🔧 改車 G</button>
     <button class="btn" id="atlas-btn">路線 T</button>
     <button class="btn" id="service-btn">⚙️ 設定</button>
@@ -2387,6 +2408,8 @@ window.addEventListener('keydown', e => {
   }
 
   if(!e.repeat&&!paused&&(e.code==='KeyA'||e.code==='KeyZ'))enqueueDriveGear(e.code==='KeyA'?'D':'R');
+  if(!e.repeat && e.code==='KeyK'){v70ToggleLab();return;}
+  if(!e.repeat && e.code==='KeyB'&&v70LabEnabled&&v34Mode==='cruise'){v70ToggleExitMode();return;}
   if(!e.repeat && e.code==='KeyT'){ toggleAtlas(); return; }
   if(!e.repeat && (e.code === 'Space' || e.code === 'KeyE')) toggleGear();
   if(!e.repeat && e.code === 'KeyM') toggleRadio();
@@ -3030,7 +3053,7 @@ function updateHUD(){
   document.getElementById('hud-route-label').textContent = `STAGE ${String(stageLevel+1).padStart(2,'0')} / 05  ·  LV ${currentNode.difficulty.toFixed(1)}`;
   hudTime.classList[timeLeft < 14 ? 'add' : 'remove']('urgent');
   hudTime.textContent=v34Mode==='cruise'?'∞':timeLeft.toFixed(1);
-  updateNitroHUD(); updateDrivingHUD();v62RenderFlowHUD();
+  updateNitroHUD(); updateDrivingHUD();v62RenderFlowHUD();v70RenderLab(true);
   hudScore.textContent = pad(score);
   hudStage.textContent = stageTransition ? `${currentNode.id} → ${stageTransition.next.id} • ${stageTransition.next.name}` : `${currentNode.id} • ${currentNode.name}`;
   speedNumber.textContent = String(Math.round(speed)).padStart(3,'0');
@@ -5140,6 +5163,54 @@ function v69ExitSettle(dt,desired,command,grip=roadGrip){
  yawRate*=Math.exp(-dt*V69_SETTLE.yawRate*strength);
  return Math.abs(before-desired)-Math.abs(lateralVelocity-desired);
 }
+// V70 cruise-only A/B laboratory. No additional physical tuning.
+// Official arcade/sprint driving always uses V69 with record namespace 61.0.
+// Statistics are bounded to two in-memory aggregates, never persisted or sent.
+let v70LabEnabled=false,v70ExitMode='v69';
+const v70LabStats={v68:{frames:0,totalLat:0,peakLat:0},v69:{frames:0,totalLat:0,peakLat:0}};
+function v70UseV69(){return v34Mode!=='cruise'||!v70LabEnabled||v70ExitMode==='v69';}
+function v70CanLab(){return v34Mode==='cruise'&&!inRadioScreen;}
+function v70ToggleLab(){
+ if(!v70CanLab())return false;
+ v70LabEnabled=!v70LabEnabled;
+ if(!v70LabEnabled){v70ExitMode='v69';v69ResetSettle();}
+ v70RenderLab();return v70LabEnabled;
+}
+function v70SelectExitMode(mode){
+ if(!v70CanLab()||!v70LabEnabled||!['v68','v69'].includes(mode))return false;
+ if(v70ExitMode!==mode){v70ExitMode=mode;v69ResetSettle();}
+ v70RenderLab();return true;
+}
+function v70ToggleExitMode(){return v70SelectExitMode(v70ExitMode==='v69'?'v68':'v69');}
+function v70ClearLabStats(){
+ for(const bucket of Object.values(v70LabStats)){
+  bucket.frames=0;bucket.totalLat=0;bucket.peakLat=0;
+ }
+ v70RenderLab();
+}
+function v70RenderLab(sample=false){
+ const panel=document.getElementById('v70-lab'),launcher=document.getElementById('v70-lab-btn');
+ if(!panel||!launcher)return;
+ launcher.disabled=!v70CanLab();
+ launcher.setAttribute('aria-pressed',String(v70LabEnabled&&v70CanLab()));
+ panel.hidden=!(v70LabEnabled&&v70CanLab()&&gameStarted&&!gameOver);
+ if(panel.hidden)return;
+ if(sample&&raceActive&&!paused&&!crashSequence){
+  const bucket=v70LabStats[v70ExitMode],abs=Math.abs(lateralVelocity);
+  bucket.frames++;bucket.totalLat+=abs;bucket.peakLat=Math.max(bucket.peakLat,abs);
+ }
+ const fmt=(x,n=2)=>Number.isFinite(x)?x.toFixed(n):'—';
+ document.getElementById('v70-lab-mode').textContent=v70ExitMode==='v69'?'V69 SETTLE ON':'V68 SETTLE OFF';
+ document.getElementById('v70-lab-metrics').textContent=
+  `YAW ${fmt(driftAngle,1)}° · SLIP ${fmt(slipAngle,1)}° · LAT ${fmt(lateralVelocity)}`;
+ document.getElementById('v70-lab-state').textContent=
+  `${driftState.toUpperCase()} · GRIP ${fmt(roadGrip)} · ${Math.round(speed)} KM/H`;
+ const describe=id=>{
+  const x=v70LabStats[id];
+  return `${id.toUpperCase()} ${x.frames} · 平均|LAT| ${fmt(x.frames?x.totalLat/x.frames:0)} · 峰 ${fmt(x.peakLat)}`;
+ };
+ document.getElementById('v70-lab-summary').textContent=describe('v68')+' / '+describe('v69');
+}
 function stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
  const helper=inputHeld('ShiftLeft')||inputHeld('ShiftRight')||gamepadInput.drift;
  if(helper&&!helperWasHeld&&!isDrifting&&speed>DRIFT51.entryMinSpeed&&driveGear==='D'&&motionDirection===1){helperPulse=.085;brakeEntry=.78;}
@@ -5251,7 +5322,7 @@ function stepArcadeMotion(dt,curve,accelHeld=true,brakeHeld=false){
  lateralVelocity=lerp(lateralVelocity,desiredLateral,1-Math.exp(-dt*(isDrifting?DRIFT51.driftLateralResponse:17.6)));
  v67CountersteerCatch(dt,steer);
  v68RecoveryRegrip(dt,desiredLateral);
- v69ExitSettle(dt,desiredLateral,steer);
+ if(v70UseV69())v69ExitSettle(dt,desiredLateral,steer);else v69ResetSettle();
  const idx=clamp(Math.floor(playerZ/SEGMENT_LENGTH),0,Math.max(0,segments.length-1)),corridors=roadCorridors(idx);
  const lane=corridors.reduce((best,q)=>Math.abs(playerX-q.center)<Math.abs(playerX-best.center)?q:best,corridors[0]||{center:0,half:roadFactor()});
  const usable=Math.max(.12,lane.half-PLAYER_HALF_WIDTH),edgeUse=Math.abs(playerX-lane.center)/usable;
@@ -6659,8 +6730,11 @@ function updateV39HUD(){
  document.getElementById('corner-name').style.color=brakeVisual>.5?'#ff9b75':'#ffe1a4';
 }
 updateV39HUD();
-
-updateModeUI();updateRadioChoice();
+document.getElementById('v70-lab-btn').addEventListener('click',v70ToggleLab);
+document.getElementById('v70-lab-close').addEventListener('click',v70ToggleLab);
+document.getElementById('v70-lab-switch').addEventListener('click',v70ToggleExitMode);
+document.getElementById('v70-lab-clear').addEventListener('click',v70ClearLabStats);
+updateModeUI();updateRadioChoice();v70RenderLab();
 
 
 // ============================================================================
