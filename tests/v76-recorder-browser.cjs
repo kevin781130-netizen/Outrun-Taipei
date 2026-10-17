@@ -128,12 +128,18 @@ async function main(){
   await page.screenshot({path:path.join(output,'v78-local-ab-preview.png')});
   const invalid=JSON.parse(JSON.stringify(json));invalid.mode='v69';invalid.route='5C';
   invalid.frames=invalid.frames.map(x=>({...x,mode:'v69',route:'5C'}));
+  // Changing the same <input type=file> should be observed explicitly,
+  // rather than waiting for a text change that may be skipped after rendering.
+  await page.locator('#v78-file-v69').setInputFiles([]);
   await page.locator('#v78-file-v69').setInputFiles({
    name:'invalid-route.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(invalid))});
-  await page.waitForFunction(()=>document.getElementById('v78-compare-status')
-   .textContent.includes('不同路線'));
-  assert.equal(await page.locator('#v78-compare-results').isVisible(),false,
-   'different routes must not claim comparability');
+  await page.waitForFunction(()=>window.__v76TestAudit(
+   'v78Clips.v69?.route === "5C" || v78LastError.length > 0'),null,{timeout:12000});
+  const rejected=await run('({status:document.getElementById("v78-compare-status").textContent,route:v78Clips.v69?.route,error:v78LastError,visible:!document.getElementById("v78-compare-results").hidden})');
+  console.log('V79 wrong-route rejection diagnostics:',JSON.stringify(rejected));
+  assert.equal(rejected.route,'5C','real native JSON input must import mismatched route');
+  assert.match(rejected.status,/不同路線/,'must actively reject unrelated routes');
+  assert.equal(rejected.visible,false,'different routes must not claim comparability');
   assert.equal(await page.locator('#v79-bins').isVisible(),false,
    'position report must disappear when new import fails V78 checks');
   await page.locator('#v78-compare-clear').click();
