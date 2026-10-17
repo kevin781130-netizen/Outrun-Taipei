@@ -51,8 +51,8 @@ const v=JSON.parse(game.run(`(()=>{
     beforeNewRace,reset,again,capped,version:COMPETITION.version,
     scoreKey:bestRecordKey()});
 })()`));
-assert.equal(v.version,'60.0','score and physics rules unchanged from V63');
-assert(v.scoreKey.endsWith(':60.0'));
+assert.equal(v.version,'61.0','score and physics rules unchanged from V63');
+assert(v.scoreKey.endsWith(':61.0'));
 assert.equal(v.first.apex.entrySpeed,190);
 assert.equal(v.first.apex.exitSpeed,170);
 assert.equal(v.first.apex.cornerStart,200);
