@@ -5068,7 +5068,7 @@ function v51SteeringProfile(speedNow,drifting=false){
   };
 }
 // V66: driver-steered inward bite under grip, not bend-following autopilot.
-// Arcade input/replay test concept; NOT a validated OutRunners ROM formula.
+// Arcade input/replay test concept; NOT a validated original-game formula.
 const V66_LINE=Object.freeze({minCurve:.50,fullCurve:2.4,steerDeadzone:.10,maxBite:.18});
 function v66DriftLineBite(steerNow,curve,grip=roadGrip){
  if(!isDrifting||grip<.8||Math.abs(curve)<V66_LINE.minCurve
