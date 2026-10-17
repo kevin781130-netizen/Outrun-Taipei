@@ -44,6 +44,10 @@
   /* RADIO STEREO DISPLAY */
   #radio-hud{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);z-index:6;pointer-events:none;background:rgba(7,14,24,.85);border:1px solid rgba(55,232,255,.3);border-radius:20px;padding:4px 14px;display:flex;align-items:center;gap:8px;font-size:10px;font-weight:900;letter-spacing:.12em;color:#d5e7f2}
   #radio-dot{width:8px;height:8px;border-radius:50%;background:#00e5ff;box-shadow:0 0 8px #00e5ff}
+  /* V62 FLOW CHAIN lives at the lower-right, away from the speed cluster. */
+  #flow-chain{position:absolute;right:11px;bottom:12px;z-index:6;pointer-events:none;opacity:0;transition:opacity .15s;display:flex;align-items:center;gap:7px;padding:5px 10px;border-radius:9px;background:rgba(5,16,30,.89);border:1px solid rgba(255,210,0,.65);color:#ffefac;font-size:11px;font-weight:900;letter-spacing:.07em;box-shadow:0 4px 12px rgba(0,0,0,.35)}
+  #flow-chain.show{opacity:1}#flow-chain strong{color:#fff;font-family:var(--hud-font);font-size:18px;font-style:italic}#flow-chain span{font-variant-numeric:tabular-nums}
+  @media(max-width:760px){#flow-chain{right:6px;bottom:7px;padding:3px 6px;gap:5px;font-size:9px}#flow-chain strong{font-size:14px}}
 
   /* POPUPS & ALERTS */
   #style-pop{position:absolute;left:50%;top:74px;transform:translateX(-50%) scale(.9);z-index:7;pointer-events:none;text-align:center;opacity:0;transition:opacity .12s,transform .12s;text-shadow:0 3px 0 #000,0 0 16px rgba(255,45,117,.8)}
@@ -198,6 +202,7 @@
     <div id="radio-hud"><div id="radio-dot"></div><span id="radio-name">FM 80.0 • SUNSET LOOP</span></div>
 
     <div id="style-pop"><div id="style-main">DRIFT x2</div><div id="style-sub">+450 STYLE</div></div>
+    <div id="flow-chain" role="status" aria-live="off"><strong id="flow-chain-count">FLOW ×1</strong><span id="flow-chain-time">16.0s</span></div>
     <div id="passenger-bubble">LET'S GO! 🌴</div>
     <div id="countdown">3</div>
 
@@ -1810,7 +1815,7 @@ function setStage(level, column, announce=true, detail='STAGE REACHED', entryCho
   if(!preserveLane){steer=0;resetDrivingState();}
   roadGrip = 1; pendingChoice = 'left'; choiceLocked = false; lastForkChoice = '';
   stageTransition = null; checkpointPassed = false; checkpointBonus = 0;
-  v61ResetApex();
+  v61ResetApex();v62BreakFlow();
   forkChoice.classList.remove('show');
   if(announce) showStageCard(detail);
   drawRouteMap(); updateHUD();
@@ -1826,7 +1831,7 @@ function resetGame(){
   score=0; timeLeft=v34Mode==='arcade'?dipSettings.time:stageTimeBudget(selectedRoute.level,selectedRoute.column)+20;
   resetDrivingState(); nitro=0;nitroStock=0;boostRemaining=0;nitroWasHeld=false;driftChargeRate=0; boosting=false; boostKick=0;shiftCutTimer=0;shiftPunch=0;lateralVelocity=0; brakeEntry=0; brakeWasHeld=false; exitBoost=0; momentBoostWindow=0;momentBoostArmed=false;cleanDriftTime=0; raceElapsed=0;
   styleCombo = 1; styleBank = 0; totalStyle = 0; styleIdle = 0; driftTime = 0;
-  v61ApexAwards = 0;
+  v61ApexAwards = 0;v62FlowBest=0;
   screenShake = 0; flash = 0; collisionCooldown = 0;
   speed=0;currentGear='LOW';driveGear='D';motionDirection=1;reverseWindow=0;nitroLatch=false;gearDWasHeld=false;gearRWasHeld=false;rpm=800;
   gameOver = false; paused = false; raceActive = false; countdownTimer = 0; countdownValue = 3;
@@ -2477,6 +2482,41 @@ function v61ApexStep(dt,curve){
   styleMessage(drift?'PERFECT APEX!':'CLEAN CORNER!',`+ ${points} POINTS · ${drift?'DRIFT EXIT':'CLEAN LINE'}`);
   return {grade:drift?'perfect':'clean',points,curve:run.maxCurve};
 }
+// V62 FLOW CHAIN: link consecutive earned V61 apex ratings within a short
+// driving window. Bonus affects SCORE only; never touches handling or nitro.
+const V62_FLOW=Object.freeze({windowSeconds:16,maxChain:4,bonusStep:120});
+let v62FlowCount=0,v62FlowTime=0,v62FlowBest=0;
+function v62RenderFlowHUD(){
+  const el=document.getElementById('flow-chain');
+  el.classList.toggle('show',v62FlowCount>0&&v62FlowTime>0);
+  if(v62FlowCount>0){
+    document.getElementById('flow-chain-count').textContent=`FLOW ×${v62FlowCount}`;
+    document.getElementById('flow-chain-time').textContent=`${v62FlowTime.toFixed(1)}s`;
+  }
+}
+function v62BreakFlow(){v62FlowCount=0;v62FlowTime=0;v62RenderFlowHUD();}
+function v62FlowTick(dt){
+  if(v62FlowCount===0)return;
+  v62FlowTime=Math.max(0,v62FlowTime-Math.max(0,dt));
+  if(v62FlowTime===0)v62BreakFlow();
+}
+function v62OnApexAward(apex){
+  // A valid award can only come from the V61 qualified-corner state machine.
+  if(!apex||!['clean','perfect'].includes(apex.grade))return null;
+  const linked=v62FlowCount>0&&v62FlowTime>0;
+  v62FlowCount=linked?Math.min(V62_FLOW.maxChain,v62FlowCount+1):1;
+  v62FlowTime=V62_FLOW.windowSeconds;
+  v62FlowBest=Math.max(v62FlowBest,v62FlowCount);
+  const bonus=(v62FlowCount-1)*V62_FLOW.bonusStep;
+  score+=bonus;
+  // Retain the original APEX grade on the first corner (V61 popup).
+  if(v62FlowCount>1)styleMessage(
+    `FLOW ×${v62FlowCount} · ${apex.grade==='perfect'?'PERFECT':'CLEAN'}`,
+    `+${apex.points} APEX · +${bonus} CHAIN`
+  );
+  v62RenderFlowHUD();
+  return {chain:v62FlowCount,bonus,total:apex.points+bonus};
+}
 // V52 TAIPEI CLOSE PASS: a visible, genuinely close, genuinely fast, collision-free pass earns a small score. No shake, no combo coupling.
 const V52_CLOSEPASS=Object.freeze({candidateLife:4,minSpeed:150,minClosing:45,gapMin:.012,gapMax:.09,tightGap:.045,points:Object.freeze([120,240]),chainWindow:3,chainStep:.25,chainCap:3,fxLife:.8,shake:0,chargeReward:0});
 let closePassChain=0,closePassTimer=0,closePassFx=[],closePassTotal=0;
@@ -2565,7 +2605,7 @@ function triggerCrash(car, hit, isObstacle=false){
     addParticle(hx + rand(-20, 20), hy + rand(-10, 10), rand(-150, 150), rand(-180, -30), rand(0.25, 0.65), rand(3, 7), 'spark');
   }
   closePassChain=0;closePassTimer=0;closePassFx=[];clearClosePassCandidates();
-  v61ResetApex();
+  v61ResetApex();v62BreakFlow();
   crashSequence={t:0,anim:0,duration:V52_FLOW.crashDuration,impactSpeed:speed,side:pushDir};
   resetDrivingState();
   exitBoost=0;cleanDriftTime=0;lateralVelocity=0;boosting=false;boostRemaining=0;nitroLatch=false;reverseWindow=0;
@@ -2727,6 +2767,7 @@ function update(dt){
   }
   if(countdownTimer < 3.5){ countdownTimer += dt; if(countdownTimer >= 3.5) countdownEl.classList.remove('show'); }
   if(crashSequence){ updateCrash(dt); return; }
+  v62FlowTick(dt);
 
   // Player input
   const previousPlayer={x:playerX,z:playerZ};
@@ -2817,11 +2858,13 @@ function update(dt){
   }
   resolveRoadBoundary((playerZ+PLAYER_DEPTH)/SEGMENT_LENGTH);
   if(crashSequence){updateHUD();return;}
+  if(roadGrip<.8||collisionCooldown>0)v62BreakFlow();
 
   speed=clamp(speed,0,COMPETITION.boostSpeed);
   playerZ=Math.max(0,playerZ+speed*WORLD_SPEED*dt*motionDirection);
-  // V61: passive corner-skill evaluation; never modifies speed or steering.
-  v61ApexStep(dt,seg.curve);
+  // V61 scoring and V62 flow linkage remain independent of vehicle physics.
+  const apexResult=v61ApexStep(dt,seg.curve);
+  if(apexResult)v62OnApexAward(apexResult);
   if(v34Mode!=='cruise') timeLeft=Math.max(0,timeLeft-dt);
 
   v52ApproachTick();
@@ -2896,7 +2939,7 @@ function updateHUD(){
   document.getElementById('hud-route-label').textContent = `STAGE ${String(stageLevel+1).padStart(2,'0')} / 05  ·  LV ${currentNode.difficulty.toFixed(1)}`;
   hudTime.classList[timeLeft < 14 ? 'add' : 'remove']('urgent');
   hudTime.textContent=v34Mode==='cruise'?'∞':timeLeft.toFixed(1);
-  updateNitroHUD(); updateDrivingHUD();
+  updateNitroHUD(); updateDrivingHUD();v62RenderFlowHUD();
   hudScore.textContent = pad(score);
   hudStage.textContent = stageTransition ? `${currentNode.id} → ${stageTransition.next.id} • ${stageTransition.next.name}` : `${currentNode.id} • ${currentNode.name}`;
   speedNumber.textContent = String(Math.round(speed)).padStart(3,'0');
@@ -4802,7 +4845,7 @@ function drawMiramarWheel(x,y,s){
 }
 
 // V40 competition rules: V39 simulation core + V40 drift calibration; art never changes physics.
-const COMPETITION=Object.freeze({version:'55.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
+const COMPETITION=Object.freeze({version:'56.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
 // V52 arcade-flow rules (independent): shorter crash interruption, stronger re-entry, Taiwan-style approach signage.
 const V52_FLOW=Object.freeze({
   crashDuration:2.9,crashAnimScale:4.1/2.9,recoverySpeed:118,recoveryGrace:1.6,
