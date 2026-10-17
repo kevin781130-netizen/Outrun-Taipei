@@ -25,8 +25,10 @@ V60 tightens only the shared safe-speed curve and over-speed grip penalty:
 
 At curve 2.4, recommended corner entry is ~196 km/h (previously ~220).
 Above that entry speed, grip driving receives more outward push and speed
-loss. In a clean drift, the *existing* much lower drift scrub formula is
-unchanged. Straight-line speed, boost tops, acceleration and steering input
+loss. The understeer curve now adds a **bounded soft tail** after its nominal
+span (up to +20% normalized gain), so a 285 km/h hairpin still pushes more
+than the same hairpin at 260 km/h. In a clean drift, the *existing* much
+lower drift scrub formula is unchanged. Straight-line speed, boost tops, acceleration and steering input
 equations are unchanged. Settings are an initial hypothesis pending
 human feel evaluation, not a measured optimal balance.
 
