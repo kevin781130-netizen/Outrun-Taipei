@@ -53,16 +53,17 @@ const result=JSON.parse(game.run(`(()=>{
     before,after,awards,prevScore,resetAwards:v61ApexAwards,
     version:COMPETITION.version,recordKey:bestRecordKey(),boardKey:arcadeBoardKey()});
 })()`));
-assert.equal(result.version,'56.0','scoring changes require separate records');
-assert(result.recordKey.endsWith(':56.0')&&result.boardKey.endsWith(':56.0'));
+assert.equal(result.version,'57.0','scoring changes require separate records');
+assert(result.recordKey.endsWith(':57.0')&&result.boardKey.endsWith(':57.0'));
 assert.equal(result.premature,null);
 assert.equal(result.tooSoon,null);
 assert.equal(result.scoreAfterTooSoon,0,'short bend is not a score exploit');
-assert.deepEqual(JSON.parse(JSON.stringify(result.clean)),{grade:'clean',points:240,curve:2.2});
+assert.deepEqual(JSON.parse(JSON.stringify(result.clean)),{grade:'clean',points:240,curve:2.2,direction:1});
 assert.equal(result.scoreAfterClean,240);
 assert.equal(result.duplicate,null,'cannot claim same bend twice');
 assert.equal(result.scoreAfterDuplicate,240);
 assert.equal(result.perfect.grade,'perfect');
+assert.equal(result.perfect.direction,-1,'left bend returns dominant curve sign');
 assert.equal(result.perfect.points,650);
 assert.equal(result.scoreAfterPerfect,890);
 assert.equal(result.offRoad,null);
