@@ -61,6 +61,11 @@
   #v76-rec-status{font-variant-numeric:tabular-nums;color:#b5eeff}
   #v76-rec-toggle[aria-pressed="true"]{background:#712329;border-color:#ff9c9c;color:#fff}
   #v76-rec-export:disabled,#v76-rec-delete:disabled{opacity:.45;cursor:default}
+  /* V77 read-only, post-recording summary within the existing drift lab. */
+  #v77-report:not([hidden]){margin-top:7px;padding-top:7px;border-top:1px solid rgba(143,255,231,.4);line-height:1.5}
+  #v77-report strong{color:#ffe397}
+  #v77-report p{margin:3px 0}
+  #v77-report-note{color:#91b5bc;font-weight:700;font-size:10px}
   /* POPUPS & ALERTS */
   #style-pop{position:absolute;left:50%;top:74px;transform:translateX(-50%) scale(.9);z-index:7;pointer-events:none;text-align:center;opacity:0;transition:opacity .12s,transform .12s;text-shadow:0 3px 0 #000,0 0 16px rgba(255,45,117,.8)}
   #style-pop.show{opacity:1;transform:translateX(-50%) scale(1)}
@@ -234,6 +239,14 @@
         <button type="button" id="v76-rec-delete" disabled>刪除錄影</button>
       </div>
       <p id="v76-rec-status" role="status" aria-live="off">V76 本機錄製：未啟動（最多 90 秒、60 Hz）</p>
+      <section id="v77-report" aria-label="本機駕駛分析" hidden>
+        <strong>V77 本機回合分析 · 非手感評分</strong>
+        <p id="v77-report-drive"></p>
+        <p id="v77-report-counter"></p>
+        <p id="v77-report-grip"></p>
+        <p id="v77-report-motion"></p>
+        <p id="v77-report-note">只分析這次的錄製，不會自動上傳；沒有完整觀測的事件不當作零秒。</p>
+      </section>
       <p class="v70-muted">只在你按「開始錄製」後擷取操作；資料只留在本頁記憶體，主動下載 JSON 才會儲存檔案。不會自動上傳。</p>
       <p class="v70-muted">K 顯示/隱藏 · 僅自由巡航 · 20 Hz 全程遙測；出彎比較僅計完整 0.42 秒、中立轉向，非同輸入配對測試。</p>
     </section>
@@ -5249,7 +5262,8 @@ function v76RecordStart(){
 }
 function v76RecordStop(reason='manual'){
  if(!v76Recording)return false;
- v76Recording=false;if(v76Clip)v76Clip.reason=reason;
+ v76Recording=false;
+ if(v76Clip){v76Clip.reason=reason;v76Clip.analysisV77=v77AnalyzeClip(v76Clip);}
  v76RenderRecorder();return true;
 }
 function v76RecordDiscard(){
@@ -5316,6 +5330,7 @@ function v76RenderRecorder(){
  toggle.disabled=!v76Recording&&!v76CanRecord();
  exportButton.disabled=v76Recording||!n;
  deleteButton.disabled=!v76Clip;
+ v77RenderAnalysis();
 }
 function v76ExportRecord(){
  if(v76Recording||!v76Clip||!v76Clip.frames.length)return false;
@@ -5325,6 +5340,91 @@ function v76ExportRecord(){
  const a=document.createElement('a');a.href=url;a.download=filename;
  a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
  return true;
+}
+
+
+// V77 local, read-only post-drive analysis of a single player-opted-in V76 clip.
+// Observations (including absent completions) are reported, not scored.
+// Events are based on raw player intent, not AI steering or synthetic inputs.
+function v77AnalyzeClip(clip){
+ if(!clip||!Array.isArray(clip.frames)||clip.frames.length===0)return null;
+ const rows=clip.frames,frames=rows.length;
+ const dt=1/60,activeEvents=[],completed=[];
+ let pending=null,previousCounter=false,gripRecoveries=0,activeGripRecoveries=0;
+ let driftFrames=0,activeSteeringFrames=0,peakAbsLat=0,totalAbsoluteLat=0;
+ for(let i=0;i<frames;i++){
+  const row=rows[i],before=rows[i-1];
+  if(row.drift)driftFrames++;
+  if(Math.abs(row.steer)>.12)activeSteeringFrames++;
+  const abs=Math.abs(row.lat);
+  if(Number.isFinite(abs)){peakAbsLat=Math.max(peakAbsLat,abs);totalAbsoluteLat+=abs*dt;}
+  const recovered=!!before&&(before.drift||before.state==='recover')
+    &&!row.drift&&row.state==='grip';
+  if(recovered){gripRecoveries++;if(Math.abs(row.steer)>.12)activeGripRecoveries++;}
+  const counter=(row.drift||row.state==='recover')
+   &&Math.abs(row.rawSteer)>.5&&row.driftDirection!==0
+   &&Math.sign(row.rawSteer)===-Math.sign(row.driftDirection);
+  if(counter&&!previousCounter){
+   if(pending){activeEvents.push(pending);pending=null;}
+   pending={startFrame:i,direction:Math.sign(row.rawSteer),
+    steerResponseFrames:null,gripResponseFrames:null};
+  }
+  previousCounter=counter;
+  if(pending){
+   if(pending.steerResponseFrames===null&&
+      Math.sign(row.steer)===pending.direction&&Math.abs(row.steer)>=.12&&
+      Math.sign(row.rawSteer)===pending.direction){
+    pending.steerResponseFrames=i-pending.startFrame+1;
+   }
+   if(recovered){
+    pending.gripResponseFrames=i-pending.startFrame+1;
+    completed.push(pending);pending=null;
+   }
+  }
+ }
+ if(pending)activeEvents.push(pending);
+ const events=completed.concat(activeEvents);
+ const response=events.filter(e=>e.steerResponseFrames!==null)
+  .map(e=>e.steerResponseFrames*1000/60);
+ const grip=events.filter(e=>e.gripResponseFrames!==null)
+  .map(e=>e.gripResponseFrames*1000/60);
+ const avg=x=>x.length?Math.round(x.reduce((a,b)=>a+b,0)/x.length):null;
+ return {
+  schema:'taipei-driving.v77.local-analysis.1',
+  sourceSchema:clip.schema,route:clip.route,mode:clip.mode,reason:clip.reason,
+  frames,durationSeconds:Math.round(frames*1000/60)/1000,
+  driftFrames,activeSteeringFrames,
+  countersteerAttempts:events.length,
+  steerResponseObserved:response.length,meanSteerResponseMs:avg(response),
+  gripResponseObserved:grip.length,meanGripResponseMs:avg(grip),
+  recoverToGrip:gripRecoveries,activeSteerGrip:activeGripRecoveries,
+  peakAbsLateral:Math.round(peakAbsLat*1e5)/1e5,
+  totalAbsoluteLateralMotion:Math.round(totalAbsoluteLat*1e5)/1e5,
+  signedLateralDisplacement:Math.round((rows.at(-1).x-rows[0].x)*1e5)/1e5,
+  // A frame not captured is not a successful response and not a zero.
+  limitation:'Observational single-session input/physics only. Missing response is right-censored; no fair V68/V69 or subjective-quality verdict.'
+ };
+}
+function v77RenderAnalysis(){
+ const pane=document.getElementById('v77-report');
+ if(!pane)return;
+ const result=!v76Recording?v76Clip?.analysisV77:null;
+ pane.hidden=!result;
+ if(!result)return;
+ const t=(id,value)=>{document.getElementById(id).textContent=value;};
+ const show=(ms,n,total)=>total===0?'尚無反打事件'
+   :ms===null?'未在錄製範圍觀測到（0 / '+total+'）'
+   :(ms/1000).toFixed(3)+' 秒（已觀測 '+n+' / '+total+'）';
+ t('v77-report-drive','路線 '+result.route+' · '+result.mode.toUpperCase()+
+  ' · '+result.durationSeconds.toFixed(1)+' 秒 · 甩尾 '+(v76Clip.summary?.driftStarts||0)+' 次');
+ t('v77-report-counter','反打輸入 '+result.countersteerAttempts+' 次 · 方向回應：'+
+  show(result.meanSteerResponseMs,result.steerResponseObserved,result.countersteerAttempts));
+ t('v77-report-grip','反打後恢復抓地：'+
+  show(result.meanGripResponseMs,result.gripResponseObserved,result.countersteerAttempts)+
+  ' · 回正時仍轉向 '+result.activeSteerGrip+' / '+result.recoverToGrip);
+ t('v77-report-motion','峰值 |側滑| '+result.peakAbsLateral.toFixed(3)+
+  ' · 橫向運動量 '+result.totalAbsoluteLateralMotion.toFixed(3)+
+  ' · 淨位移 '+result.signedLateralDisplacement.toFixed(3));
 }
 
 // V71: comparable exit-focused observations, not another physics assist.
