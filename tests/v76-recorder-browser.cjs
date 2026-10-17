@@ -68,11 +68,11 @@ async function main(){
   const wait=page.waitForEvent('download');
   await page.locator('#v76-rec-export').click();
   const download=await wait;
-  assert.match(download.suggestedFilename(),/^outrun-taipei-v76-4D-v69\.json$/);
+  assert.match(download.suggestedFilename(),/^taipei-driving-v76-4D-v69\.json$/);
   const file=path.join(output,'user-export-sample.json');
   await download.saveAs(file);
   const json=JSON.parse(fs.readFileSync(file,'utf8'));
-  assert.equal(json.schema,'outrun-taipei.v76.player-drive.1');
+  assert.equal(json.schema,'taipei-driving.v76.player-drive.1');
   assert.equal(json.reason,'manual');assert.equal(json.route,'4D');
   assert.equal(json.mode,'v69');assert.equal(json.frames.length,stats.frames);
   assert(json.frames.some(x=>x.shift&&x.rawSteer>0));
