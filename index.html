@@ -74,6 +74,12 @@
   #v78-compare-status{color:#ffe397;overflow-wrap:anywhere}
   #v78-compare-results:not([hidden]){border-top:1px solid #356f6d;margin-top:6px;padding-top:6px}
   #v78-compare-results p{margin:3px 0;font-variant-numeric:tabular-nums}
+  /* V79: bounded position-bin comparison. */
+  #v79-bins:not([hidden]){margin-top:8px;padding-top:7px;border-top:1px solid #597f76}
+  #v79-bin-list{max-height:175px;overflow:auto;border:1px solid #37575d;border-radius:5px;padding:4px;margin-top:5px}
+  #v79-bin-list p{font-size:9px;margin:4px 1px;padding:3px;border-bottom:1px solid #31545a}
+  #v79-bin-summary{color:#ffe19d}
+  #v79-bin-note{color:#9db6ba;font-size:10px}
   /* POPUPS & ALERTS */
   #style-pop{position:absolute;left:50%;top:74px;transform:translateX(-50%) scale(.9);z-index:7;pointer-events:none;text-align:center;opacity:0;transition:opacity .12s,transform .12s;text-shadow:0 3px 0 #000,0 0 16px rgba(255,45,117,.8)}
   #style-pop.show{opacity:1;transform:translateX(-50%) scale(1)}
@@ -271,6 +277,12 @@
           <p id="v78-compare-steering"></p>
           <p id="v78-compare-coverage"></p>
         </div>
+        <section id="v79-bins" aria-label="V79 道路位置區間比較" hidden>
+          <strong>V79 同路段逐區間觀測 · 不做勝負判斷</strong>
+          <p id="v79-bin-summary"></p>
+          <div id="v79-bin-list" aria-label="逐區間的觀測或排除原因"></div>
+          <p id="v79-bin-note">每 400 距離單位一格；每版至少 4 影格、車速差不超過 15 km/h，曲率、轉向與甩尾條件相近才納入。</p>
+        </section>
         <div class="v70-actions"><button type="button" id="v78-compare-clear">清除匯入資料</button></div>
         <p id="v78-compare-note">僅本機讀取，不上傳。只比較相同路線與重疊路段；速度或彎道條件差太多會阻擋結論。兩段自由駕駛並非嚴格同輸入實驗。</p>
       </section>
@@ -5515,10 +5527,10 @@ function v78RenderComparison(){
   result=document.getElementById('v78-compare-results');
  if(!status||!result)return;
  const set=(id,value)=>document.getElementById(id).textContent=value;
- if(v78LastError){result.hidden=true;status.textContent=v78LastError;return;}
+ if(v78LastError){result.hidden=true;status.textContent=v78LastError;v79RenderBins(null);return;}
  const pair=v78AnalyzePair(v78Clips.v68,v78Clips.v69);
  result.hidden=!pair.ok;
- if(!pair.ok){status.textContent=pair.message;return;}
+ if(!pair.ok){status.textContent=pair.message;v79RenderBins(null);return;}
  const f=n=>n.toFixed(3);
  status.textContent='已讀取 V68 + V69 · 符合最低路段與速度篩選（不是嚴格配對）';
  set('v78-compare-range','路線 '+pair.route+' · 重疊路程 '+Math.round(pair.range[1]-pair.range[0])+
@@ -5531,6 +5543,7 @@ function v78RenderComparison(){
    ' / V69 '+f(pair.v69.meanAbsSteer));
  set('v78-compare-coverage','甩尾影格比例 V68 '+(pair.v68.driftRatio*100).toFixed(1)+
    '% / V69 '+(pair.v69.driftRatio*100).toFixed(1)+'% · 非同輸入因果對照');
+ v79RenderBins(pair);
 }
 function v78ClearImports(){
  v78Clips={v68:null,v69:null};v78LastError='';
@@ -5556,6 +5569,90 @@ async function v78ImportFile(mode,file){
   v78Clips[mode]=null;
   v78LastError='匯入 '+mode.toUpperCase()+' 失敗：'+(e instanceof SyntaxError?'JSON 格式無效':String(e.message||'資料無效'));
   v78RenderComparison();return false;
+ }
+}
+
+
+// V79 read-only road-Z buckets. Never normalize unrelated steering inputs
+// into a winner or alter physical driving state.
+const V79_BIN_WIDTH=400,V79_DISPLAY_CAP=20;
+function v79AnalyzeBins(pair,v68,v69){
+ if(!pair?.ok||!v68||!v69)return {ok:false,reason:'需先通過 V78 同路線基本檢查'};
+ const start=Math.ceil(pair.range[0]/V79_BIN_WIDTH)*V79_BIN_WIDTH;
+ const end=Math.floor(pair.range[1]/V79_BIN_WIDTH)*V79_BIN_WIDTH;
+ if(end-start<V79_BIN_WIDTH)return {ok:false,reason:'缺少完整的 400 距離單位區間'};
+ const n=Math.floor((end-start)/V79_BIN_WIDTH);
+ const buckets=Array.from({length:n},(_,i)=>({z0:start+i*V79_BIN_WIDTH,
+  z1:start+(i+1)*V79_BIN_WIDTH,v68:[],v69:[]}));
+ for(const [mode,clip] of [['v68',v68],['v69',v69]]){
+  for(const frame of clip.frames){
+   const k=Math.floor((frame.z-start)/V79_BIN_WIDTH);
+   if(k>=0&&k<n)buckets[k][mode].push(frame);
+  }
+ }
+ const avg=(xs,fn)=>xs.reduce((sum,x)=>sum+fn(x),0)/xs.length;
+ const profile=xs=>{
+  if(xs.length<4)return null;
+  const bend=xs.filter(x=>Math.abs(x.curve)>=.8),
+    plus=bend.filter(x=>x.curve>0).length,minus=bend.length-plus;
+  const type=bend.length>=3&&bend.length>=Math.ceil(xs.length*.4)
+   &&Math.max(plus,minus)>=Math.ceil(bend.length*.75)
+    ?plus>minus?'右彎':'左彎'
+    :bend.length<=Math.floor(xs.length*.15)?'直線':'混合彎';
+  return {samples:xs.length,type,
+   speed:avg(xs,x=>x.kmh),absLat:avg(xs,x=>Math.abs(x.lat)),
+   absSteer:avg(xs,x=>Math.abs(x.steer)),signedSteer:avg(xs,x=>x.steer),
+   curveMagnitude:avg(xs,x=>Math.abs(x.curve)),
+   driftRatio:xs.filter(x=>x.drift).length/xs.length};
+ };
+ let eligible=0;
+ const bins=buckets.map(bucket=>{
+  const a=profile(bucket.v68),b=profile(bucket.v69);
+  let reason=null;
+  if(!a||!b)reason='每版至少 4 個影格';
+  else if(a.type==='混合彎'||b.type==='混合彎'||a.type!==b.type)
+   reason='彎道類型或左右方向不一致';
+  else if(Math.abs(a.curveMagnitude-b.curveMagnitude)>.35)
+   reason='同區間彎道曲率分布差距過大';
+  else if(Math.abs(a.speed-b.speed)>15)reason='區間車速相差超過 15 km/h';
+  else if(Math.abs(a.absSteer-b.absSteer)>.25||
+    Math.abs(a.signedSteer-b.signedSteer)>.4)reason='轉向操作差距過大';
+  else if(Math.abs(a.driftRatio-b.driftRatio)>.35)
+   reason='甩尾操作比例差距過大';
+  if(!reason)eligible++;
+  return {z0:bucket.z0,z1:bucket.z1,eligible:!reason,reason,
+   type:a?.type===b?.type?a?.type:'不一致',v68:a,v69:b};
+ });
+ return {ok:true,route:pair.route,width:V79_BIN_WIDTH,total:bins.length,
+  eligible,excluded:bins.length-eligible,bins,causal:false,
+  disclaimer:'兩次自由駕駛即使同路段也非同輸入實驗，數據不代表手感優劣'};
+}
+function v79RenderBins(pair){
+ const panel=document.getElementById('v79-bins');
+ if(!panel)return;
+ const out=pair?.ok?v79AnalyzeBins(pair,v78Clips.v68,v78Clips.v69):null;
+ panel.hidden=!out?.ok;
+ const list=document.getElementById('v79-bin-list');
+ list.textContent='';
+ if(!out?.ok)return;
+ document.getElementById('v79-bin-summary').textContent=
+  '路線 '+out.route+' · 合格描述 '+out.eligible+' / '+out.total+
+  ' 格 · 排除 '+out.excluded+' 格 · 不判定優劣';
+ for(const bin of out.bins.slice(0,V79_DISPLAY_CAP)){
+  const row=document.createElement('p');
+  const fmt=n=>n.toFixed(2);
+  row.textContent=Math.round(bin.z0)+'–'+Math.round(bin.z1)+' · '+
+   (bin.eligible
+    ?bin.type+' · |側滑| V68 '+fmt(bin.v68.absLat)+' / V69 '+fmt(bin.v69.absLat)+
+     ' · 車速 '+fmt(bin.v68.speed)+' / '+fmt(bin.v69.speed)+
+     ' · |轉向| '+fmt(bin.v68.absSteer)+' / '+fmt(bin.v69.absSteer)
+    :'排除：'+bin.reason);
+  list.appendChild(row);
+ }
+ if(out.total>V79_DISPLAY_CAP){
+  const more=document.createElement('p');
+  more.textContent='另有 '+(out.total-V79_DISPLAY_CAP)+' 格未展開；總計含全部區間。';
+  list.appendChild(more);
  }
 }
 
