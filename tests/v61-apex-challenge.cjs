@@ -58,7 +58,7 @@ assert(result.recordKey.endsWith(':57.0')&&result.boardKey.endsWith(':57.0'));
 assert.equal(result.premature,null);
 assert.equal(result.tooSoon,null);
 assert.equal(result.scoreAfterTooSoon,0,'short bend is not a score exploit');
-assert.deepEqual(JSON.parse(JSON.stringify(result.clean)),{grade:'clean',points:240,curve:2.2,direction:1});
+assert.deepEqual(JSON.parse(JSON.stringify(result.clean)),{grade:'clean',points:240,curve:2.2,direction:1,entrySpeed:190,exitSpeed:190,cornerStart:260,routeId:'1A'});
 assert.equal(result.scoreAfterClean,240);
 assert.equal(result.duplicate,null,'cannot claim same bend twice');
 assert.equal(result.scoreAfterDuplicate,240);
