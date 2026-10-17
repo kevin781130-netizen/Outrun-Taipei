@@ -77,7 +77,7 @@ function replay(game,cfg){
 }
 function validate(result,cfg){
  assert.equal(result.route,'1A');
- assert.equal(result.competitionVersion,'56.0');
+ assert.equal(result.competitionVersion,'57.0');
  assert.equal(result.rows.length,108);
  for(const row of result.rows)for(const [field,value] of Object.entries(row)){
   if(typeof value==='number')assert(Number.isFinite(value),cfg.name+'/'+field+' must be finite');
