@@ -11,7 +11,7 @@ const out=JSON.parse(game.run(`(()=>{
     route,mode,z:12000+i*(opts.step??65),kmh:opts.kmh??185,
     lat:mode==='v69'?.22:.31,steer:mode==='v69'?.25:.32,
     rawSteer:0,curve:opts.curve??1.2,x:i*.01,
-    drift:i%3===0,state:i%3===0?'entry':i%3===1?'recover':'grip'}))};
+    drift:i%3===0,state:i%4===0?'entry':i%4===1?'drift':i%4===2?'recover':'grip'}))};
  }
  const v68=make('v68'),v69=make('v69');
  const a=v78ValidateClip(v68,'v68'),b=v78ValidateClip(v69,'v69');
