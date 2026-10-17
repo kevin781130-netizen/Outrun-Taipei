@@ -65,6 +65,19 @@ async function main(){
   await page.screenshot({path:path.join(output,'v76-recorder-desktop.png')});
   await page.locator('#v76-rec-toggle').click();
   assert.equal(await page.locator('#v76-rec-toggle').getAttribute('aria-pressed'),'false');
+  assert.equal(await page.locator('#v77-report').isVisible(),true,
+   'analysis should appear after manual stop');
+  const localAnalysis=await run('v76Clip.analysisV77');
+  assert.equal(localAnalysis.schema,'taipei-driving.v77.local-analysis.1');
+  assert.equal(localAnalysis.frames,stats.frames);
+  assert.equal(localAnalysis.route,'4D');
+  assert.equal(localAnalysis.mode,'v69');
+  assert.equal(localAnalysis.reason,'manual');
+  assert(Number.isFinite(localAnalysis.totalAbsoluteLateralMotion));
+  assert(localAnalysis.countersteerAttempts>=0);
+  assert(localAnalysis.steerResponseObserved<=localAnalysis.countersteerAttempts);
+  assert(localAnalysis.gripResponseObserved<=localAnalysis.countersteerAttempts);
+  await page.screenshot({path:path.join(output,'v77-local-analysis-desktop.png')});
   const wait=page.waitForEvent('download');
   await page.locator('#v76-rec-export').click();
   const download=await wait;
@@ -75,16 +88,20 @@ async function main(){
   assert.equal(json.schema,'taipei-driving.v76.player-drive.1');
   assert.equal(json.reason,'manual');assert.equal(json.route,'4D');
   assert.equal(json.mode,'v69');assert.equal(json.frames.length,stats.frames);
+  assert.deepEqual(json.analysisV77,localAnalysis,
+   'export includes exactly the visible on-device analysis');
   assert(json.frames.some(x=>x.shift&&x.rawSteer>0));
   assert(json.frames.some(x=>x.rawSteer<0));
   assert(json.frames.every(x=>Number.isFinite(x.lat)&&Number.isFinite(x.kmh)));
   assert.deepEqual(unexpectedRequests,[],'recorder must not POST or contact outside hosts');
   await page.locator('#v76-rec-delete').click();
   assert.equal(await run('v76Clip===null&&!v76Recording'),true,'delete clears in-memory recording');
+  assert.equal(await page.locator('#v77-report').isVisible(),false,
+   'delete must also hide analysis without retaining hidden data');
   assert.equal(await page.locator('#v76-rec-export').isDisabled(),true);
   assert.deepEqual(errors,[]);
   report.status='passed';
-  Object.assign(report,{frames:stats.frames,route:stats.route,mode:stats.mode,
+  Object.assign(report,{frames:stats.frames,route:stats.route,mode:stats.mode,localAnalysis,
    summary:json.summary,bytes:fs.statSync(file).size,errors,unexpectedRequests});
   console.log('V76 real Chromium: explicitly started/recorded/drifted/countersteered/stopped/downloaded JSON/deleted, no upload');
  }catch(e){report.error=e.stack||String(e);throw e;}
