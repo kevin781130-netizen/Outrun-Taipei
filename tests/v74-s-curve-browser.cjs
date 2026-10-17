@@ -4,6 +4,7 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),http=require('node:http');
 const {chromium}=require('playwright');
+const {analyzeSSequence}=require('./v75-countersteer-metrics.cjs');
 const root=path.resolve(__dirname,'..');
 const source=fs.readFileSync(path.join(root,'index.html'),'utf8');
 const marker='resetGame(); updateHUD(); drawRouteMap(); render(0);';
@@ -63,7 +64,9 @@ const frameExpr=count=>`(()=>{
   update(1/60);
   const idx=Math.max(0,Math.min(segments.length-1,Math.floor(playerZ/SEGMENT_LENGTH)));
   out.push({idx,curve:segments[idx].curve,speed,playerX,playerZ,steer,
-   lateralVelocity,driftState,isDrifting,roadGrip,crash:!!crashSequence});
+   lateralVelocity,driftAngle,slipAngle,yawRate,driftState,isDrifting,
+   roadGrip,settleRemaining:v69ExitTime,exitWindowPending:!!v71ExitWindow,
+   crash:!!crashSequence});
  }
  return out;
 })()`;
@@ -75,7 +78,9 @@ const untilExpr=index=>`(()=>{
   update(1/60);frames++;
   const idx=Math.max(0,Math.min(segments.length-1,Math.floor(playerZ/SEGMENT_LENGTH)));
   out.push({idx,curve:segments[idx].curve,speed,playerX,playerZ,steer,
-   lateralVelocity,driftState,isDrifting,roadGrip,crash:!!crashSequence});
+   lateralVelocity,driftAngle,slipAngle,yawRate,driftState,isDrifting,
+   roadGrip,settleRemaining:v69ExitTime,exitWindowPending:!!v71ExitWindow,
+   crash:!!crashSequence});
  }
  if(frames===1350)throw new Error('Did not physically reach second bend');
  return out;
@@ -130,8 +135,10 @@ async function main(){
      if(row.some(x=>!Number.isFinite(x.curve)||!Number.isFinite(x.playerX)||
        !Number.isFinite(x.speed)||x.crash))
       throw new Error('Non-finite values or crash in '+label+' '+route+'/'+model);
+     const startFrame=trace.length;
      trace.push(...row);
-     phases.push({label,frames:row.length,endIndex:row.at(-1)?.idx??null,
+     phases.push({label,startFrame,endFrameExclusive:trace.length,
+      frames:row.length,endIndex:row.at(-1)?.idx??null,
       peakAbsX:row.reduce((m,x)=>Math.max(m,Math.abs(x.playerX)),0),
       driftFrames:row.filter(x=>x.isDrifting).length});
     }
@@ -187,7 +194,18 @@ async function main(){
       seenSigns.includes(Math.sign(pair.secondCurve)));
     for(let i=1;i<trace.length;i++)assert(trace[i].playerZ>=trace[i-1].playerZ,
       'cannot teleport or rewind while transitioning bends');
-    const sample={route,mode:model,pair,starting:setup,ending:end,
+    const telemetry=analyzeSSequence(trace,phases,pair,end.exitStats);
+    assert.equal(telemetry.actualRecoveryTransitions.length,2,
+      'each real keyboard drift must finish recovery once');
+    assert(telemetry.countersteerOne.steerResponse,
+      'first reversal must actually change game steering');
+    assert(telemetry.countersteerTwo.steerResponse,
+      'opposite reversal must actually change game steering');
+    assert(telemetry.countersteerOne.driftRelease,
+      'first countersteer must actually finish recovering grip');
+    assert(telemetry.countersteerTwo.driftRelease,
+      'opposite countersteer must actually finish recovering grip');
+    const sample={route,mode:model,pair,starting:setup,ending:end,telemetry,
       samples:trace.length,phases,
       firstPeakLat:Math.max(...trace.slice(0,23).map(x=>Math.abs(x.lateralVelocity))),
       secondPeakLat:Math.max(...trace.slice(-91,-50).map(x=>Math.abs(x.lateralVelocity))),
@@ -203,7 +221,13 @@ async function main(){
    actionLog.join('; '));
  }catch(e){summary.error=e.stack||String(e);throw e;}
  finally{
-  fs.writeFileSync(path.join(output,'verification.json'),JSON.stringify(summary,null,2)+'\n');
+  fs.writeFileSync(path.join(output,'verification.json'),JSON.stringify(summary,null,2)+'\\n');
+  fs.writeFileSync(path.join(output,'v75-countersteer-observations.json'),
+   JSON.stringify({status:summary.status,
+    scope:'read-only active countersteer metrics from real V74 Chromium keyboard frames',
+    comparability:'V68/V69 share scripted commands and bends, but are not human-drive trials',
+    scenarios:summary.scenarios.map(({route,mode,telemetry})=>({route,mode,telemetry}))},
+    null,2)+'\\n');
   await browser?.close();
   await new Promise(done=>server.close(done));
  }
