@@ -4757,7 +4757,7 @@ function drawMiramarWheel(x,y,s){
 }
 
 // V40 competition rules: V39 simulation core + V40 drift calibration; art never changes physics.
-const COMPETITION=Object.freeze({version:'53.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
+const COMPETITION=Object.freeze({version:'54.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
 // V52 arcade-flow rules (independent): shorter crash interruption, stronger re-entry, Taiwan-style approach signage.
 const V52_FLOW=Object.freeze({
   crashDuration:2.9,crashAnimScale:4.1/2.9,recoverySpeed:118,recoveryGrace:1.6,
@@ -4862,8 +4862,10 @@ function v51DriftVisualPose(curve=v51CurrentCurve()){
     curveCap:v51VisualCurveCap(curve)
   };
 }
-// V52 corner rules: one shared "safe speed" for physics and HUD, plus an over-speed understeer push (grip only).
-const V52_CORNER=Object.freeze({safeBase:278,safePerCurve:24,safeMin:120,pushSpan:90,pushGain:.13,pushCurveRef:2.4,pushExp:1.3,scrubGrip:.45});
+// V60 corner calibration: more progressive loss of grip in medium/tight bends.
+// Grip driving must respect the recommended speed; a controlled drift retains its
+// existing low scrub cost. The same safe-speed curve is shared by HUD and physics.
+const V52_CORNER=Object.freeze({safeBase:278,safePerCurve:34,safeMin:120,pushSpan:75,pushGain:.17,pushCurveRef:2.4,pushExp:1.3,scrubGrip:.51});
 function v52SafeCornerSpeed(curve){return clamp(V52_CORNER.safeBase-Math.abs(curve)*V52_CORNER.safePerCurve,V52_CORNER.safeMin,V52_CORNER.safeBase);}
 function v52OverspeedPush(speedNow,curve){
   const excess=Math.max(0,speedNow-v52SafeCornerSpeed(curve));if(excess<=0||!curve)return 0;
@@ -6330,7 +6332,7 @@ function updateDrivingHUD(){
   for(let i=idx+5;i<Math.min(segments.length,idx+lookahead);i++)if(Math.abs(segments[i].curve)>Math.abs(strongest))strongest=segments[i].curve;
   const magnitude=Math.abs(strongest),entry=Math.round(v52SafeCornerSpeed(strongest));
   document.getElementById('corner-name').textContent=magnitude<.55?'↑ 前方直線':`${strongest>0?'↗ 右':'↖ 左'}${magnitude>3?'急彎':magnitude>1.5?'中彎':'緩彎'}`;
-  document.getElementById('corner-speed').textContent=magnitude<.55?'保持油門 · 注意車流':`建議入彎 ${entry} KM/H · ${speed>entry+15?'先減速':'保持路線'}`;
+  document.getElementById('corner-speed').textContent=magnitude<.55?'保持油門 · 注意車流':`建議入彎 ${entry} KM/H · ${speed>entry+15?`超速 +${Math.round(speed-entry)} · 提防推頭`:speed>entry?`接近極限 · 控制方向`:'保持路線'}`;
   document.getElementById('drive-state').textContent=isDrifting?`DRIFT · ${driftTime.toFixed(1)} s · x${styleCombo.toFixed(1)}`:boosting?'NITRO · 氮氣推進':exitBoost>0?'MOMENT BOOST · 小噴':momentBoostWindow>0?'MOMENT READY · 放油再補油':roadGrip<.8?'OFF ROAD · 回到路面':'GRIP · 循跡中';
 }
 const radioActions=document.getElementById('radio-actions');
