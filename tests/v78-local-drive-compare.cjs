@@ -8,7 +8,7 @@ const out=JSON.parse(game.run(`(()=>{
   const len=opts.len??90,route=opts.route||'4D';
   return {schema:'taipei-driving.v76.player-drive.1',
    route,mode,sampleRateHz:60,frames:Array.from({length:len},(_,i)=>({
-    route,mode,z:12000+i*65,kmh:opts.kmh??185,
+    route,mode,z:12000+i*(opts.step??65),kmh:opts.kmh??185,
     lat:mode==='v69'?.22:.31,steer:mode==='v69'?.25:.32,
     rawSteer:0,curve:opts.curve??1.2,x:i*.01,
     drift:i%3===0,state:i%3===0?'entry':i%3===1?'recover':'grip'}))};
@@ -19,7 +19,7 @@ const out=JSON.parse(game.run(`(()=>{
  const route=v78AnalyzePair(a,v78ValidateClip(make('v69',{route:'4C'}),'v69'));
  const speed=v78AnalyzePair(a,v78ValidateClip(make('v69',{kmh:260}),'v69'));
  const straight=v78AnalyzePair(a,v78ValidateClip(make('v69',{curve:0}),'v69'));
- const tooShort=v78AnalyzePair(a,v78ValidateClip(make('v69',{len:31}),'v69'));
+ const tooShort=v78AnalyzePair(a,v78ValidateClip(make('v69',{len:31,step:15}),'v69'));
  const invalids={};
  for(const [name,fn] of Object.entries({
   schema:()=>v78ValidateClip({...v68,schema:'unknown'},'v68'),
