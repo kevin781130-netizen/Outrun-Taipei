@@ -4869,7 +4869,10 @@ const V52_CORNER=Object.freeze({safeBase:278,safePerCurve:34,safeMin:120,pushSpa
 function v52SafeCornerSpeed(curve){return clamp(V52_CORNER.safeBase-Math.abs(curve)*V52_CORNER.safePerCurve,V52_CORNER.safeMin,V52_CORNER.safeBase);}
 function v52OverspeedPush(speedNow,curve){
   const excess=Math.max(0,speedNow-v52SafeCornerSpeed(curve));if(excess<=0||!curve)return 0;
-  const t=Math.pow(clamp(excess/V52_CORNER.pushSpan,0,1),V52_CORNER.pushExp);
+  // Soft capped tail: a 285 km/h hairpin must push more than the same corner
+  // at 260 km/h, without allowing unlimited lateral force at extreme speed.
+  const over=excess/V52_CORNER.pushSpan;
+  const t=Math.pow(clamp(over,0,1),V52_CORNER.pushExp)+.16*clamp(over-1,0,1.25);
   return Math.sign(curve)*t*clamp(Math.abs(curve)/V52_CORNER.pushCurveRef,.25,1.35)*V52_CORNER.pushGain;
 }
 function v51SteeringProfile(speedNow,drifting=false){
