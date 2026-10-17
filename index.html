@@ -45,13 +45,15 @@
   #radio-hud{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);z-index:6;pointer-events:none;background:rgba(7,14,24,.85);border:1px solid rgba(55,232,255,.3);border-radius:20px;padding:4px 14px;display:flex;align-items:center;gap:8px;font-size:10px;font-weight:900;letter-spacing:.12em;color:#d5e7f2}
   #radio-dot{width:8px;height:8px;border-radius:50%;background:#00e5ff;box-shadow:0 0 8px #00e5ff}
   /* V62 FLOW CHAIN lives at the lower-right, away from the speed cluster. */
-  #flow-chain{position:absolute;right:11px;bottom:12px;z-index:6;pointer-events:none;opacity:0;transition:opacity .15s;display:flex;align-items:center;gap:7px;padding:5px 10px;border-radius:9px;background:rgba(5,16,30,.89);border:1px solid rgba(255,210,0,.65);color:#ffefac;font-size:11px;font-weight:900;letter-spacing:.07em;box-shadow:0 4px 12px rgba(0,0,0,.35)}
+  #flow-chain{position:absolute;right:11px;bottom:142px;z-index:6;pointer-events:none;opacity:0;transition:opacity .15s;display:flex;align-items:center;gap:7px;padding:5px 10px;border-radius:9px;background:rgba(5,16,30,.89);border:1px solid rgba(255,210,0,.65);color:#ffefac;font-size:11px;font-weight:900;letter-spacing:.07em;box-shadow:0 4px 12px rgba(0,0,0,.35)}
   #flow-chain.show{opacity:1}#flow-chain strong{color:#fff;font-family:var(--hud-font);font-size:18px;font-style:italic}#flow-chain span{font-variant-numeric:tabular-nums}
-  @media(max-width:760px){#flow-chain{right:6px;bottom:7px;padding:3px 6px;gap:5px;font-size:9px}#flow-chain strong{font-size:14px}}
+  @media(max-width:760px){#flow-chain{right:6px;bottom:114px;padding:3px 6px;gap:5px;font-size:9px}#flow-chain strong{font-size:14px}}
 
   /* POPUPS & ALERTS */
   #style-pop{position:absolute;left:50%;top:74px;transform:translateX(-50%) scale(.9);z-index:7;pointer-events:none;text-align:center;opacity:0;transition:opacity .12s,transform .12s;text-shadow:0 3px 0 #000,0 0 16px rgba(255,45,117,.8)}
   #style-pop.show{opacity:1;transform:translateX(-50%) scale(1)}
+  #corner-coach:not([hidden]){margin-top:5px;padding-top:5px;border-top:1px solid rgba(125,236,215,.42);color:#ffe39b;line-height:1.35;font-size:10px;font-weight:800;white-space:normal;max-width:225px}
+  @media(max-width:760px){#corner-coach:not([hidden]){font-size:8px;margin-top:3px;padding-top:3px;max-width:145px}}
   #style-main{font-family:var(--hud-font);font-size:clamp(24px,4.5vw,42px);font-weight:900;font-style:italic;color:#fff}
   #style-sub{font-size:13px;font-weight:900;letter-spacing:.16em;color:var(--arcade-yellow)}
 
@@ -456,7 +458,7 @@
     .atlas-layout{grid-template-columns:1.2fr 1fr;}#atlas-routes{max-height:210px;}#atlas-map{max-height:220px;}
   }
 </style>
-<div id="corner-hud"><b id="corner-name">前方直線</b><span id="corner-speed">建議入彎速度</span><br><span id="drive-state">GRIP · 循跡中</span></div>
+<div id="corner-hud"><b id="corner-name">前方直線</b><span id="corner-speed">建議入彎速度</span><br><span id="drive-state">GRIP · 循跡中</span><div id="corner-coach" aria-live="off" hidden></div></div>
 <div id="atlas-modal" role="dialog" aria-modal="true" aria-label="台北路線圖">
   <div class="atlas-head"><div><h2>TAIPEI ROUTE ATLAS</h2><small>台北・北海岸・山城 / 北向上，遊戲路線示意</small></div><button class="btn" id="atlas-close">✕ 關閉</button></div>
   <div class="atlas-layout"><svg id="atlas-map" viewBox="0 0 520 440" role="img" aria-label="台北區域與十五個遊戲路段"></svg><div id="atlas-routes"></div></div>
@@ -1815,7 +1817,7 @@ function setStage(level, column, announce=true, detail='STAGE REACHED', entryCho
   if(!preserveLane){steer=0;resetDrivingState();}
   roadGrip = 1; pendingChoice = 'left'; choiceLocked = false; lastForkChoice = '';
   stageTransition = null; checkpointPassed = false; checkpointBonus = 0;
-  v61ResetApex();v62BreakFlow();
+  v61ResetApex();v62BreakFlow();v64ResetCoachDisplay();
   forkChoice.classList.remove('show');
   if(announce) showStageCard(detail);
   drawRouteMap(); updateHUD();
@@ -2460,7 +2462,7 @@ function v61ApexStep(dt,curve){
     if(magnitude>=V61_APEX.entryCurve&&speed>=V61_APEX.minEntrySpeed
       &&roadGrip>=.8&&collisionCooldown<=0){
       v61Apex={stage:currentNode.id,started:playerZ,maxCurve:magnitude,
-        direction:Math.sign(curve),minSpeed:speed,driftSeconds:0,clean:true};
+        direction:Math.sign(curve),entrySpeed:speed,minSpeed:speed,driftSeconds:0,clean:true};
     }
     return null;
   }
@@ -2481,7 +2483,8 @@ function v61ApexStep(dt,curve){
   const points=drift?V61_APEX.driftPoints:V61_APEX.cleanPoints;
   score+=points;v61ApexAwards++;
   styleMessage(drift?'PERFECT APEX!':'CLEAN CORNER!',`+ ${points} POINTS · ${drift?'DRIFT EXIT':'CLEAN LINE'}`);
-  return {grade:drift?'perfect':'clean',points,curve:run.maxCurve,direction:run.direction};
+  return {grade:drift?'perfect':'clean',points,curve:run.maxCurve,direction:run.direction,
+    entrySpeed:run.entrySpeed,exitSpeed:speed,cornerStart:Math.floor(run.started/SEGMENT_LENGTH),routeId:run.stage};
 }
 // V62 FLOW CHAIN: link consecutive earned V61 apex ratings within a short
 // driving window. Bonus affects SCORE only; never touches handling or nitro.
@@ -2530,6 +2533,48 @@ function v62OnApexAward(apex){
   );
   v62RenderFlowHUD();
   return {chain:v62FlowCount,bonus,total:apex.points+bonus};
+}
+// V64 CORNER COACH: compare completed corners within the same route and
+// coarse bend-start section. Session-only data; no scoreboard/rule mutation.
+const V64_COACH=Object.freeze({bucketSegments:40,maxCorners:64,displaySeconds:4.5});
+const v64CornerHistory=new Map();
+let v64CoachReport=null,v64CoachTimer=0;
+function v64RenderCoach(){
+  const element=document.getElementById('corner-coach');
+  const active=!!v64CoachReport&&v64CoachTimer>0;
+  element.hidden=!active;
+  if(active)element.textContent=v64CoachReport.label;
+}
+function v64ResetCoachDisplay(){v64CoachReport=null;v64CoachTimer=0;v64RenderCoach();}
+function v64CoachTick(dt){
+  if(v64CoachTimer<=0)return;
+  v64CoachTimer=Math.max(0,v64CoachTimer-Math.max(0,dt));
+  if(v64CoachTimer===0)v64ResetCoachDisplay();
+}
+function v64RecordCorner(apex){
+  if(!apex||!['clean','perfect'].includes(apex.grade)||
+     !Number.isFinite(apex.entrySpeed)||!Number.isFinite(apex.exitSpeed)||
+     !Number.isFinite(apex.cornerStart)||!apex.routeId)return null;
+  const direction=Math.sign(apex.direction||0);
+  if(!direction)return null;
+  const key=`${apex.routeId}:${direction}:${Math.floor(apex.cornerStart/V64_COACH.bucketSegments)}`;
+  const previous=v64CornerHistory.get(key);
+  const entry=Math.round(apex.entrySpeed),exit=Math.round(apex.exitSpeed);
+  const prevExit=previous?.lastExit??null,bestExit=Math.max(exit,previous?.bestExit??0);
+  const delta=prevExit===null?null:exit-prevExit;
+  const comparison=delta===null?'首次紀錄':delta>0?`較上次 +${delta}`:delta<0?`較上次 ${delta}`:'與上次相同';
+  const label=`入 ${entry} → 出 ${exit} KM/H · ${comparison} · 最佳 ${bestExit}`;
+  // Keep a fixed maximum of remembered bend locations, without storage or
+  // unrelated stage comparisons. Re-touch places the entry at the end.
+  if(previous)v64CornerHistory.delete(key);
+  else if(v64CornerHistory.size>=V64_COACH.maxCorners){
+    v64CornerHistory.delete(v64CornerHistory.keys().next().value);
+  }
+  v64CornerHistory.set(key,{lastExit:exit,bestExit});
+  v64CoachReport={key,entry,exit,delta,best:bestExit,label};
+  v64CoachTimer=V64_COACH.displaySeconds;
+  v64RenderCoach();
+  return {key,entry,exit,delta,best:bestExit};
 }
 // V52 TAIPEI CLOSE PASS: a visible, genuinely close, genuinely fast, collision-free pass earns a small score. No shake, no combo coupling.
 const V52_CLOSEPASS=Object.freeze({candidateLife:4,minSpeed:150,minClosing:45,gapMin:.012,gapMax:.09,tightGap:.045,points:Object.freeze([120,240]),chainWindow:3,chainStep:.25,chainCap:3,fxLife:.8,shake:0,chargeReward:0});
@@ -2752,6 +2797,7 @@ function update(dt){
   if(inRadioScreen) return;
   if(!gameStarted || gameOver || paused) return;
   simulationTime += dt;
+  v64CoachTick(dt);
   stageVisualBlend=Math.max(0,stageVisualBlend-dt*.78);
   bubbleTimer = Math.max(0, bubbleTimer - dt); if(bubbleTimer === 0) bubble.classList.remove('show');
   styleTimer = Math.max(0, styleTimer - dt); if(styleTimer === 0) stylePop.classList.remove('show');
@@ -2878,7 +2924,7 @@ function update(dt){
   playerZ=Math.max(0,playerZ+speed*WORLD_SPEED*dt*motionDirection);
   // V61 scoring and V62 flow linkage remain independent of vehicle physics.
   const apexResult=v61ApexStep(dt,seg.curve);
-  if(apexResult)v62OnApexAward(apexResult);
+  if(apexResult){v62OnApexAward(apexResult);v64RecordCorner(apexResult);}
   if(v34Mode!=='cruise') timeLeft=Math.max(0,timeLeft-dt);
 
   v52ApproachTick();
