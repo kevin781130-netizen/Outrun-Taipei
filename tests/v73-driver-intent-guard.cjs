@@ -68,7 +68,7 @@ function auditInside(configs){
  const invalid=[
   {name:'offroad',result:directGate(.85,0,0,.5)},
   {name:'reverse',result:directGate(.85,0,0,1,false)},
-  {name:'still-drifting',result:directGate(.85,0,0,1,true)}
+  {name:'still-drifting',result:directGate(.85,0,0,1,true,true)}
  ];
  v34Mode='arcade';v70LabEnabled=true;v70ExitMode='v68';
  const competitive=v70UseV69();
