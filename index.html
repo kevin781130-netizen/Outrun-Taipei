@@ -4936,7 +4936,7 @@ function drawMiramarWheel(x,y,s){
 }
 
 // V40 competition rules: V39 simulation core + V40 drift calibration; art never changes physics.
-const COMPETITION=Object.freeze({version:'57.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
+const COMPETITION=Object.freeze({version:'58.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
 // V52 arcade-flow rules (independent): shorter crash interruption, stronger re-entry, Taiwan-style approach signage.
 const V52_FLOW=Object.freeze({
   crashDuration:2.9,crashAnimScale:4.1/2.9,recoverySpeed:118,recoveryGrace:1.6,
@@ -5024,9 +5024,11 @@ function v51DriftPathScale(curve){return lerp(.45,1,clamp(Math.abs(curve)/1.8,0,
 function v51DriftVisualYaw(curve=v51CurrentCurve()){
   if(!isDrifting&&driftState!=='recover')return driftAngle;
   const signedSlip=Math.sign(driftAngle||driftDirection||1)*Math.abs(slipAngle);
-  const raw=driftAngle*V51_SIDEWAYS.visualYawGain+signedSlip*V51_SIDEWAYS.visualSlipGain;
+  // V66: physical yaw already represents the heading; avoid double-counting
+  // slip, which makes the entire car look as though it slides outward.
+  const raw=driftAngle*1.04+signedSlip*.34;
   const curveCap=v51VisualCurveCap(curve);
-  const cap=Math.min(V51_SIDEWAYS.maxVisualYaw,curveCap);
+  const cap=Math.min(46,curveCap);
   return clamp(raw,-cap,cap);
 }
 function v51DriftVisualPose(curve=v51CurrentCurve()){
@@ -5034,9 +5036,10 @@ function v51DriftVisualPose(curve=v51CurrentCurve()){
   const intensity=active?clamp((Math.abs(yaw)-7)/44,0,1):0;
   return {
     yaw,
-    offsetX:-Math.sin(rad)*V51_SIDEWAYS.rearSwingPx*intensity,
+    // Keep the car centered near its actual physics lane, not the outer edge.
+    offsetX:-Math.sin(rad)*V51_SIDEWAYS.rearSwingPx*intensity*.28,
     scaleX:1+Math.abs(Math.sin(rad))*V51_SIDEWAYS.sideScaleGain*intensity,
-    shadowX:-Math.sin(rad)*V51_SIDEWAYS.shadowSkewPx*intensity,
+    shadowX:-Math.sin(rad)*V51_SIDEWAYS.shadowSkewPx*intensity*.35,
     intensity,
     curveCap:v51VisualCurveCap(curve)
   };
@@ -5063,6 +5066,17 @@ function v51SteeringProfile(speedNow,drifting=false){
     liftGrip:1+V51_HANDLING.liftGripGain*t,
     brakeRotation:V51_HANDLING.brakeRotationGain*(.30+.70*t)
   };
+}
+// V66: driver-steered inward bite under grip, not bend-following autopilot.
+// Arcade input/replay test concept; NOT a validated OutRunners ROM formula.
+const V66_LINE=Object.freeze({minCurve:.50,fullCurve:2.4,steerDeadzone:.10,maxBite:.18});
+function v66DriftLineBite(steerNow,curve,grip=roadGrip){
+ if(!isDrifting||grip<.8||Math.abs(curve)<V66_LINE.minCurve
+    ||Math.abs(steerNow)<=V66_LINE.steerDeadzone
+    ||Math.sign(steerNow)!==Math.sign(curve))return 0;
+ const bend=clamp((Math.abs(curve)-V66_LINE.minCurve)/(V66_LINE.fullCurve-V66_LINE.minCurve),0,1);
+ const command=clamp((Math.abs(steerNow)-V66_LINE.steerDeadzone)/(1-V66_LINE.steerDeadzone),0,1);
+ return Math.sign(steerNow)*V66_LINE.maxBite*bend*command;
 }
 function stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
  const helper=inputHeld('ShiftLeft')||inputHeld('ShiftRight')||gamepadInput.drift;
@@ -5169,7 +5183,7 @@ function stepArcadeMotion(dt,curve,accelHeld=true,brakeHeld=false){
  const brakeRotation=!isDrifting&&brakeHeld?steer*profile.brakeRotation:0;
  const matchingCurve=Math.sign(steer)===Math.sign(curve)?Math.min(Math.abs(curve),2.4):0;
  const turnInBite=!isDrifting?steer*matchingCurve*V51_HANDLING.turnInBite*(.35+.65*ratio):0;
- const turn=Math.min(1,speed/30)*(yawTurn+steer*baseAuthority+brakeRotation+turnInBite)*(isDrifting?1:frontGrip);
+ const turn=Math.min(1,speed/30)*(yawTurn+steer*baseAuthority+brakeRotation+turnInBite+v66DriftLineBite(steer,curve))*(isDrifting?1:frontGrip);
  const outward=curve*.032*ratio*ratio+(isDrifting?0:v52OverspeedPush(speed,curve));
  lateralVelocity=lerp(lateralVelocity,turn-outward,1-Math.exp(-dt*(isDrifting?DRIFT51.driftLateralResponse:17.6)));
  const idx=clamp(Math.floor(playerZ/SEGMENT_LENGTH),0,Math.max(0,segments.length-1)),corridors=roadCorridors(idx);
