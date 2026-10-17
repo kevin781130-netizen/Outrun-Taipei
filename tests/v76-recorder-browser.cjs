@@ -118,6 +118,13 @@ async function main(){
    'real file import needs same-route ready comparison: '+JSON.stringify(diagnostic));
   assert.equal(await page.locator('#v78-compare-results').isVisible(),true);
   assert.match(await page.locator('#v78-compare-lateral').textContent(),/V68.*V69/);
+  assert.equal(await page.locator('#v79-bins').isVisible(),true,
+   'per-position V79 analysis must be visible for accepted V78 imports');
+  const locationBins=await run('v79AnalyzeBins(v78AnalyzePair(v78Clips.v68,v78Clips.v69),v78Clips.v68,v78Clips.v69)');
+  assert.equal(locationBins.ok,true);assert(locationBins.total>=5);
+  assert(locationBins.eligible>0,'same keyboard fixture should provide eligible road bins');
+  assert(locationBins.bins.every(b=>b.eligible||typeof b.reason==='string'));
+  await page.screenshot({path:path.join(output,'v79-position-bins-desktop.png')});
   await page.screenshot({path:path.join(output,'v78-local-ab-preview.png')});
   const invalid=JSON.parse(JSON.stringify(json));invalid.mode='v69';invalid.route='5C';
   invalid.frames=invalid.frames.map(x=>({...x,mode:'v69',route:'5C'}));
@@ -127,10 +134,14 @@ async function main(){
    .textContent.includes('不同路線'));
   assert.equal(await page.locator('#v78-compare-results').isVisible(),false,
    'different routes must not claim comparability');
+  assert.equal(await page.locator('#v79-bins').isVisible(),false,
+   'position report must disappear when new import fails V78 checks');
   await page.locator('#v78-compare-clear').click();
   assert.equal(await run('v78Clips.v68===null&&v78Clips.v69===null'),true,
    'clear removes imported traces');
   assert.equal(await page.locator('#v78-compare-results').isVisible(),false);
+  assert.equal(await page.locator('#v79-bins').isVisible(),false,
+   'clear must hide binned report and release imported data');
   assert.deepEqual(unexpectedRequests,[],'recorder must not POST or contact outside hosts');
   await page.locator('#v76-rec-delete').click();
   assert.equal(await run('v76Clip===null&&!v76Recording'),true,'delete clears in-memory recording');
