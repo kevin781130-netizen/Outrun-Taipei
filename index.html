@@ -2032,6 +2032,7 @@ function restoreOverlayContent(){
 function togglePause(){
   if(!gameStarted || gameOver || inRadioScreen) return;
   paused = !paused; clearInputs(); lastTime = performance.now();
+  if(paused)v71ResetExitWindow();
   document.getElementById('pause-btn').textContent = paused ? '繼續 P' : '暫停 P';
   if(!paused) resumeAudio();
   updateAudio();
