@@ -93,6 +93,44 @@ async function main(){
   assert(json.frames.some(x=>x.shift&&x.rawSteer>0));
   assert(json.frames.some(x=>x.rawSteer<0));
   assert(json.frames.every(x=>Number.isFinite(x.lat)&&Number.isFinite(x.kmh)));
+  // V78 import fixtures are derived from a test-only synthetic copy of one
+  // real Chromium keyboard session; NOT independently recorded user runs.
+  // Equal starting conditions here validate UI plumbing, not handling merits.
+  function asModel(mode){
+   const clip=JSON.parse(JSON.stringify(json));clip.mode=mode;
+   clip.frames=clip.frames.map(row=>({...row,mode,curve:1.35}));
+   return Buffer.from(JSON.stringify(clip));
+  }
+  await page.locator('#v78-file-v68').setInputFiles({
+   name:'taipei-driving-v68.json',mimeType:'application/json',buffer:asModel('v68')});
+  await page.locator('#v78-file-v69').setInputFiles({
+   name:'taipei-driving-v69.json',mimeType:'application/json',buffer:asModel('v69')});
+  await page.waitForFunction(()=>window.__v76TestAudit('v78Clips.v68!==null&&v78Clips.v69!==null')||
+   document.getElementById('v78-compare-status').textContent.includes('失敗'),null,{timeout:8000});
+  const diagnostic=await run(`({
+   status:document.getElementById('v78-compare-status').textContent,
+   v68:!!v78Clips.v68,v69:!!v78Clips.v69,
+   err:v78LastError,comparison:v78AnalyzePair(v78Clips.v68,v78Clips.v69),
+   files:[document.getElementById('v78-file-v68').files.length,document.getElementById('v78-file-v69').files.length]
+  })`);
+  console.log('V78 real browser import diagnostics:',JSON.stringify(diagnostic));
+  assert.equal(diagnostic.comparison.ok,true,
+   'real file import needs same-route ready comparison: '+JSON.stringify(diagnostic));
+  assert.equal(await page.locator('#v78-compare-results').isVisible(),true);
+  assert.match(await page.locator('#v78-compare-lateral').textContent(),/V68.*V69/);
+  await page.screenshot({path:path.join(output,'v78-local-ab-preview.png')});
+  const invalid=JSON.parse(JSON.stringify(json));invalid.mode='v69';invalid.route='5C';
+  invalid.frames=invalid.frames.map(x=>({...x,mode:'v69',route:'5C'}));
+  await page.locator('#v78-file-v69').setInputFiles({
+   name:'invalid-route.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(invalid))});
+  await page.waitForFunction(()=>document.getElementById('v78-compare-status')
+   .textContent.includes('不同路線'));
+  assert.equal(await page.locator('#v78-compare-results').isVisible(),false,
+   'different routes must not claim comparability');
+  await page.locator('#v78-compare-clear').click();
+  assert.equal(await run('v78Clips.v68===null&&v78Clips.v69===null'),true,
+   'clear removes imported traces');
+  assert.equal(await page.locator('#v78-compare-results').isVisible(),false);
   assert.deepEqual(unexpectedRequests,[],'recorder must not POST or contact outside hosts');
   await page.locator('#v76-rec-delete').click();
   assert.equal(await run('v76Clip===null&&!v76Recording'),true,'delete clears in-memory recording');

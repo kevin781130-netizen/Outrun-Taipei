@@ -66,6 +66,14 @@
   #v77-report strong{color:#ffe397}
   #v77-report p{margin:3px 0}
   #v77-report-note{color:#91b5bc;font-weight:700;font-size:10px}
+  /* V78: local-only, non-paired driving observations. */
+  #v78-compare:not([hidden]){margin-top:7px;padding-top:8px;border-top:1px solid rgba(143,255,231,.4)}
+  #v78-compare label{display:block;color:#d5f8ee;font-size:10px;margin:5px 0}
+  #v78-compare input[type=file]{display:block;max-width:100%;font-size:9px;color:#bfecfa;margin-top:3px}
+  #v78-compare-note{font-size:10px;color:#a6bac2;line-height:1.45}
+  #v78-compare-status{color:#ffe397;overflow-wrap:anywhere}
+  #v78-compare-results:not([hidden]){border-top:1px solid #356f6d;margin-top:6px;padding-top:6px}
+  #v78-compare-results p{margin:3px 0;font-variant-numeric:tabular-nums}
   /* POPUPS & ALERTS */
   #style-pop{position:absolute;left:50%;top:74px;transform:translateX(-50%) scale(.9);z-index:7;pointer-events:none;text-align:center;opacity:0;transition:opacity .12s,transform .12s;text-shadow:0 3px 0 #000,0 0 16px rgba(255,45,117,.8)}
   #style-pop.show{opacity:1;transform:translateX(-50%) scale(1)}
@@ -246,6 +254,25 @@
         <p id="v77-report-grip"></p>
         <p id="v77-report-motion"></p>
         <p id="v77-report-note">只分析這次的錄製，不會自動上傳；沒有完整觀測的事件不當作零秒。</p>
+      </section>
+      <section id="v78-compare" aria-label="V78 本機 V68 V69 錄影比較">
+        <strong>V78 本機 V68 / V69 比較 · 不判定優劣</strong>
+        <label for="v78-file-v68">V68 駕駛 JSON
+          <input id="v78-file-v68" type="file" accept=".json,application/json" aria-label="匯入 V68 駕駛 JSON">
+        </label>
+        <label for="v78-file-v69">V69 駕駛 JSON
+          <input id="v78-file-v69" type="file" accept=".json,application/json" aria-label="匯入 V69 駕駛 JSON">
+        </label>
+        <p id="v78-compare-status" role="status">請先匯入兩段各自錄製的 JSON（每個檔案最多 8 MB）。</p>
+        <div id="v78-compare-results" hidden>
+          <p id="v78-compare-range"></p>
+          <p id="v78-compare-speed"></p>
+          <p id="v78-compare-lateral"></p>
+          <p id="v78-compare-steering"></p>
+          <p id="v78-compare-coverage"></p>
+        </div>
+        <div class="v70-actions"><button type="button" id="v78-compare-clear">清除匯入資料</button></div>
+        <p id="v78-compare-note">僅本機讀取，不上傳。只比較相同路線與重疊路段；速度或彎道條件差太多會阻擋結論。兩段自由駕駛並非嚴格同輸入實驗。</p>
       </section>
       <p class="v70-muted">只在你按「開始錄製」後擷取操作；資料只留在本頁記憶體，主動下載 JSON 才會儲存檔案。不會自動上傳。</p>
       <p class="v70-muted">K 顯示/隱藏 · 僅自由巡航 · 20 Hz 全程遙測；出彎比較僅計完整 0.42 秒、中立轉向，非同輸入配對測試。</p>
@@ -5427,6 +5454,111 @@ function v77RenderAnalysis(){
   ' · 淨位移 '+result.signedLateralDisplacement.toFixed(3));
 }
 
+
+// V78: purely local user-selected JSON comparisons, never a steering controller.
+// Reads only approved telemetry fields from two V76/V77 JSON clips; no persistence.
+const V78_MAX_FILE_BYTES=8*1024*1024;
+let v78Clips={v68:null,v69:null},v78LastError='';
+function v78ValidateClip(doc,mode){
+ if(!doc||doc.schema!=='taipei-driving.v76.player-drive.1'||
+    doc.mode!==mode||typeof doc.route!=='string'||!/^[1-5][A-E]$/.test(doc.route)||
+    doc.sampleRateHz!==60||!Array.isArray(doc.frames)||
+    doc.frames.length<30||doc.frames.length>5400)throw Error('格式、版本、模型或錄製長度不符（需 30–5400 影格）');
+ const frames=[],route=doc.route;
+ let previousZ=-Infinity;
+ for(const r of doc.frames){
+  if(!r||r.route!==route||r.mode!==mode||
+   !['grip','brake','entry','drift','recover'].includes(r.state)||
+   typeof r.drift!=='boolean'||
+   ['z','kmh','lat','steer','curve','x','rawSteer'].some(k=>!Number.isFinite(r[k]))||
+   r.z<previousZ-0.1||r.kmh<0||r.kmh>400||Math.abs(r.z)>1e9||
+   Math.abs(r.lat)>100||Math.abs(r.steer)>3||Math.abs(r.curve)>20||
+   Math.abs(r.x)>100||Math.abs(r.rawSteer)>3)
+   throw Error('錄製影格有缺漏、異常值、跨路線資料或倒退位置');
+  frames.push({z:r.z,kmh:r.kmh,lat:r.lat,steer:r.steer,curve:r.curve,drift:r.drift});
+  previousZ=r.z;
+ }
+ if(frames.at(-1).z-frames[0].z<300)throw Error('路程太短，請錄一段實際前進駕駛');
+ return {route,mode,frames};
+}
+function v78AnalyzePair(v68,v69){
+ if(!v68||!v69)return {ok:false,message:'請先分別匯入 V68 與 V69 JSON。'};
+ if(v68.route!==v69.route)return {ok:false,message:'不同路線（'+v68.route+' / '+v69.route+'），不允許比較。'};
+ const minZ=Math.max(v68.frames[0].z,v69.frames[0].z);
+ const maxZ=Math.min(v68.frames.at(-1).z,v69.frames.at(-1).z);
+ const a=v68.frames.filter(x=>x.z>=minZ&&x.z<=maxZ),
+       b=v69.frames.filter(x=>x.z>=minZ&&x.z<=maxZ);
+ if(maxZ-minZ<1200||a.length<30||b.length<30)
+  return {ok:false,message:'重疊路程或樣本不足（需至少 1200 距離單位、每版 30 影格）。'};
+ const avg=(frames,p)=>frames.reduce((sum,r)=>sum+p(r),0)/frames.length;
+ const meanSpeed=[avg(a,x=>x.kmh),avg(b,x=>x.kmh)];
+ const curveCoverage=[a.filter(x=>Math.abs(x.curve)>=.8).length,
+                      b.filter(x=>Math.abs(x.curve)>=.8).length];
+ if(Math.abs(meanSpeed[0]-meanSpeed[1])>25)
+  return {ok:false,message:'重疊路段平均車速相差超過 25 km/h，條件不可比較。'};
+ if(Math.min(...curveCoverage)<10)
+  return {ok:false,message:'重疊路段沒有足夠彎道影格（每版至少 10），不能用來分析甩尾。'};
+ const metrics=frames=>({
+  samples:frames.length,
+  speed:avg(frames,x=>x.kmh),
+  meanAbsLateral:avg(frames,x=>Math.abs(x.lat)),
+  meanAbsSteer:avg(frames,x=>Math.abs(x.steer)),
+  driftRatio:frames.filter(x=>x.drift).length/frames.length,
+  bendRatio:frames.filter(x=>Math.abs(x.curve)>=.8).length/frames.length
+ });
+ return {ok:true,route:v68.route,range:[minZ,maxZ],v68:metrics(a),v69:metrics(b),
+  // Unpaired free-drive samples; never call lower lateral drift "better".
+  disclaimer:'同路線重疊路段的描述性平均值；兩次駕駛未控制輸入、速度軌跡、交通及時間，不能判定優劣。'};
+}
+function v78RenderComparison(){
+ const status=document.getElementById('v78-compare-status'),
+  result=document.getElementById('v78-compare-results');
+ if(!status||!result)return;
+ const set=(id,value)=>document.getElementById(id).textContent=value;
+ if(v78LastError){result.hidden=true;status.textContent=v78LastError;return;}
+ const pair=v78AnalyzePair(v78Clips.v68,v78Clips.v69);
+ result.hidden=!pair.ok;
+ if(!pair.ok){status.textContent=pair.message;return;}
+ const f=n=>n.toFixed(3);
+ status.textContent='已讀取 V68 + V69 · 符合最低路段與速度篩選（不是嚴格配對）';
+ set('v78-compare-range','路線 '+pair.route+' · 重疊路程 '+Math.round(pair.range[1]-pair.range[0])+
+   ' 單位 · 影格 '+pair.v68.samples+' / '+pair.v69.samples);
+ set('v78-compare-speed','平均車速 V68 '+pair.v68.speed.toFixed(1)+
+   ' / V69 '+pair.v69.speed.toFixed(1)+' km/h');
+ set('v78-compare-lateral','平均 |側滑| V68 '+f(pair.v68.meanAbsLateral)+
+   ' / V69 '+f(pair.v69.meanAbsLateral));
+ set('v78-compare-steering','平均 |轉向| V68 '+f(pair.v68.meanAbsSteer)+
+   ' / V69 '+f(pair.v69.meanAbsSteer));
+ set('v78-compare-coverage','甩尾影格比例 V68 '+(pair.v68.driftRatio*100).toFixed(1)+
+   '% / V69 '+(pair.v69.driftRatio*100).toFixed(1)+'% · 非同輸入因果對照');
+}
+function v78ClearImports(){
+ v78Clips={v68:null,v69:null};v78LastError='';
+ for(const id of ['v78-file-v68','v78-file-v69']){
+  const control=document.getElementById(id);if(control)control.value='';
+ }
+ v78RenderComparison();
+}
+async function v78ImportFile(mode,file){
+ if(mode!=='v68'&&mode!=='v69')return false;
+ v78Clips[mode]=null;v78LastError='';
+ if(!file){v78RenderComparison();return false;}
+ if(file.size>V78_MAX_FILE_BYTES||file.size===0){
+  v78LastError='檔案必須介於 1 Byte 至 8 MB，已拒絕匯入。';
+  v78RenderComparison();return false;
+ }
+ try{
+  const parsed=JSON.parse(await file.text());
+  v78Clips[mode]=v78ValidateClip(parsed,mode);
+  v78LastError='';
+  v78RenderComparison();return true;
+ }catch(e){
+  v78Clips[mode]=null;
+  v78LastError='匯入 '+mode.toUpperCase()+' 失敗：'+(e instanceof SyntaxError?'JSON 格式無效':String(e.message||'資料無效'));
+  v78RenderComparison();return false;
+ }
+}
+
 // V71: comparable exit-focused observations, not another physics assist.
 // Only completed, uninterrupted neutral-steer 0.42s windows are scored.
 const V71_EXIT=Object.freeze({window:.42,neutralSteer:.12,minSpeed:70,minGrip:.8});
@@ -6993,6 +7125,13 @@ document.getElementById('v70-lab-clear').addEventListener('click',v70ClearLabSta
 document.getElementById('v76-rec-toggle').addEventListener('click',v76RecordToggle);
 document.getElementById('v76-rec-export').addEventListener('click',v76ExportRecord);
 document.getElementById('v76-rec-delete').addEventListener('click',v76RecordDiscard);
+for(const mode of ['v68','v69']){
+ document.getElementById('v78-file-'+mode).addEventListener('change',e=>{
+  v78ImportFile(mode,e.target.files?.[0]);
+ });
+}
+document.getElementById('v78-compare-clear').addEventListener('click',v78ClearImports);
+v78RenderComparison();
 updateModeUI();updateRadioChoice();v70RenderLab();
 
 
