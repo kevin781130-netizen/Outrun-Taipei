@@ -105,8 +105,17 @@ async function main(){
    name:'taipei-driving-v68.json',mimeType:'application/json',buffer:asModel('v68')});
   await page.locator('#v78-file-v69').setInputFiles({
    name:'taipei-driving-v69.json',mimeType:'application/json',buffer:asModel('v69')});
-  await page.waitForFunction(()=>document.getElementById('v78-compare-status')
-   .textContent.includes('符合最低路段'));
+  await page.waitForFunction(()=>window.__v76TestAudit('v78Clips.v68!==null&&v78Clips.v69!==null')||
+   document.getElementById('v78-compare-status').textContent.includes('失敗'),null,{timeout:8000});
+  const diagnostic=await run(`({
+   status:document.getElementById('v78-compare-status').textContent,
+   v68:!!v78Clips.v68,v69:!!v78Clips.v69,
+   err:v78LastError,comparison:v78AnalyzePair(v78Clips.v68,v78Clips.v69),
+   files:[document.getElementById('v78-file-v68').files.length,document.getElementById('v78-file-v69').files.length]
+  })`);
+  console.log('V78 real browser import diagnostics:',JSON.stringify(diagnostic));
+  assert.equal(diagnostic.comparison.ok,true,
+   'real file import needs same-route ready comparison: '+JSON.stringify(diagnostic));
   assert.equal(await page.locator('#v78-compare-results').isVisible(),true);
   assert.match(await page.locator('#v78-compare-lateral').textContent(),/V68.*V69/);
   await page.screenshot({path:path.join(output,'v78-local-ab-preview.png')});
