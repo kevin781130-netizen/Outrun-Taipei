@@ -6,7 +6,7 @@ assert.equal(firstMatch([{steer:0},{steer:0}],r=>r.steer>0),null,
 function inputFrame(i){
  const phases=[0,3,6,9,12,15];
  const part=phases.findLastIndex(x=>i>=x);
- const steer=part===1?-0.7:part===4?0.7:0;
+ const steer=part===1?0.7:part===4?-0.7:0;
  const curve=i<9?-1.6:1.6;
  const inDrift=(part===0||part===3)||(part===1&&i<5)||(part===4&&i<14);
  const state=inDrift?'recover':'grip';
