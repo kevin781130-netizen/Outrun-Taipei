@@ -221,13 +221,13 @@ async function main(){
    actionLog.join('; '));
  }catch(e){summary.error=e.stack||String(e);throw e;}
  finally{
-  fs.writeFileSync(path.join(output,'verification.json'),JSON.stringify(summary,null,2)+'\\n');
+  fs.writeFileSync(path.join(output,'verification.json'),JSON.stringify(summary,null,2)+'\n');
   fs.writeFileSync(path.join(output,'v75-countersteer-observations.json'),
    JSON.stringify({status:summary.status,
     scope:'read-only active countersteer metrics from real V74 Chromium keyboard frames',
     comparability:'V68/V69 share scripted commands and bends, but are not human-drive trials',
     scenarios:summary.scenarios.map(({route,mode,telemetry})=>({route,mode,telemetry}))},
-    null,2)+'\\n');
+    null,2)+'\n');
   await browser?.close();
   await new Promise(done=>server.close(done));
  }
