@@ -10,6 +10,7 @@ const fields=[
  'speed','steer','isDrifting','driftState','driftDirection','driftAge',
  'driftAngle','slipAngle','yawRate','lateralVelocity','cleanDriftTime',
  'counterTime','neutralTime','driftRearmBlocked','driftChargeRate',
+ 'v87TransferRemaining','v87TransferYaw','v87TransferSlip','v87TransferActive',
  'nitro','nitroStock','boostRemaining','momentBoostWindow',
  'momentBoostArmed','exitBoost','shiftCutTimer','score'
 ];
@@ -26,6 +27,7 @@ for(const choice of ['left','right']){
    yawRate=${side}*12;lateralVelocity=${side}*.19;
    cleanDriftTime=.57;counterTime=.09;neutralTime=.02;
    driftRearmBlocked=false;driftChargeRate=.42;
+   v87TransferRemaining=.12;v87TransferYaw=${side}*24;v87TransferSlip=${side}*11;v87TransferActive=true;
    nitro=.61;nitroStock=1;boostRemaining=.85;
    momentBoostWindow=.34;momentBoostArmed=true;exitBoost=.12;
    shiftCutTimer=.02;score=1234;

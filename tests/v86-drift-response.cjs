@@ -32,7 +32,7 @@ const data=JSON.parse(game.run(`(()=>{
  const gripBefore=run({drifting:false,legacy:true}),gripAfter=run({drifting:false});
  const rates=[];
  for(const kmh of [110,180,240]){
-  speed=kmh;driftDirection=1;driftAge=1;driftState='drift';
+  speed=kmh;isDrifting=true;driftDirection=1;driftAge=1;driftState='drift';
   const target=v84DriftCommand(.8,.4),now=v51SteeringProfile(kmh,true);
   v86DriftResponseRate=rate=>rate;
   const before=v51SteeringProfile(kmh,true);v86DriftResponseRate=response;
@@ -40,13 +40,13 @@ const data=JSON.parse(game.run(`(()=>{
  }
  return JSON.stringify({cases,gripBefore,gripAfter,rates,version:COMPETITION.version,record:bestRecordKey()});
 })()`));
-assert.equal(data.version,'86.0');assert(data.record.endsWith(':86.0'));
+assert.equal(data.version,'87.0');assert(data.record.endsWith(':87.0'));
 assert.deepEqual(data.gripAfter,data.gripBefore,'grip steering/motion stays identical');
 for(const rate of data.rates){
  assert(Math.abs(rate.now.response/rate.before.response-1.12)<1e-12,'only 12% response gain');
  for(const key of ['authority','liftGrip','brakeRotation'])assert.equal(rate.now[key],rate.before[key]);
- const expected=.8*(.26+(.20-.26)*rate.kmh/270);
- assert(Math.abs(rate.target-expected)<1e-12,'V84 sustained turn target stays unchanged');
+ const expected=.8*(1+.08*(1-.8))*(.26+(.20-.26)*rate.kmh/270);
+ assert(Math.abs(rate.target-expected)<1e-12,'V87 fine-input curve retains the bounded V84 authority');
 }
 const near=(a,b,tolerance)=>Math.abs(a-b)<=tolerance;
 for(const c of data.cases){
