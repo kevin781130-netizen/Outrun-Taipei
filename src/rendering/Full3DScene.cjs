@@ -10,6 +10,7 @@ const {createRaceWayfinding}=require('./RaceWayfinding.cjs');
 const {inLandmarkVista}=require('./ScenicVisibility.cjs');
 const {createRoadSurfaceTextures}=require('./RoadSurface.cjs');
 const {createEnvironmentLighting}=require('./EnvironmentLighting.cjs');
+const {createStreetFacadeTextures}=require('./StreetFacade.cjs');
 
 // Full WebGL road/world renderer. This is intentionally NOT a Canvas overlay.
 // World coordinates: +X right, +Y up, -Z forward. Camera is behind the car (+Z).
@@ -75,9 +76,8 @@ function createFacadeTexture(THREE){
  const size=64,data=new Uint8Array(size*size*4);
  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
   const mortar=y%8===0||(x+(Math.floor(y/8)%2)*8)%16===0;
-  const window=x%32>=7&&x%32<25&&y>=15&&y<49;
-  const value=window?90:mortar?155:235;
-  const k=(y*size+x)*4;data[k]=value;data[k+1]=window?120:value;data[k+2]=window?145:value;data[k+3]=255;
+  const value=mortar?155:235;
+  const k=(y*size+x)*4;data[k]=data[k+1]=data[k+2]=value;data[k+3]=255;
  }
  const texture=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);
  texture.encoding=THREE.sRGBEncoding;texture.needsUpdate=true;return texture;
@@ -163,10 +163,19 @@ function createFull3DScene(THREE,canvas) {
  const treesMat=material(new THREE.MeshStandardMaterial({color:0x305548,roughness:1}));
  const polesMat=material(new THREE.MeshStandardMaterial({color:0xc1c3bd,metalness:.4,roughness:.55}));
  const buildings=new THREE.InstancedMesh(boxG,buildingMat,120);
- const windows=new THREE.InstancedMesh(boxG,glassMat,120);
+ const facadeMaps=createStreetFacadeTextures(THREE);textures.push(...Object.values(facadeMaps));
+ const facadeMat=material(new THREE.MeshStandardMaterial({color:0xffffff,map:facadeMaps.color,
+  emissive:0xffd39b,emissiveMap:facadeMaps.emission,emissiveIntensity:.06,roughness:.52,metalness:.12}));
+ const roofMat=material(new THREE.MeshStandardMaterial({color:0xa2aaa2,roughness:.92}));
+ const corniceMat=material(new THREE.MeshStandardMaterial({color:0xc6c3b4,roughness:.9}));
+ const windows=new THREE.InstancedMesh(boxG,facadeMat,120);
+ const rooftops=new THREE.InstancedMesh(boxG,roofMat,120);
+ const cornices=new THREE.InstancedMesh(boxG,corniceMat,120);
+ buildings.name='V89_BuildingShells';windows.name='V89_StreetWindows';
+ rooftops.name='V89_RoofSetbacks';cornices.name='V89_Cornices';
  const trees=new THREE.InstancedMesh(coneG,treesMat,120);
  const lights=new THREE.InstancedMesh(boxG,polesMat,50);
- for(const mesh of [buildings,windows,trees,lights]){
+ for(const mesh of [buildings,windows,rooftops,cornices,trees,lights]){
   mesh.frustumCulled=false;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   scene.add(mesh);
@@ -304,7 +313,7 @@ function createFull3DScene(THREE,canvas) {
   }
   const urban=frame.archetype!=='mountain'&&frame.archetype!=='coastal';
   const routeSeed=frame.seed||1;
-  let ib=0,iw=0,it=0,il=0;
+  let ib=0,iw=0,ir=0,ic=0,it=0,il=0;
   const signCounts=Array(signs.length).fill(0);
   for(let i=5;i<COUNT;i++){
    const c=pts[i];
@@ -326,10 +335,20 @@ function createFull3DScene(THREE,canvas) {
       dummy.scale.set(width,height,width*.8);
       dummy.updateMatrix();if(ib<120){buildings.setMatrixAt(ib,dummy.matrix);
         swatch.setHex(palette[Math.floor(h*palette.length)]);buildings.setColorAt(ib,swatch);ib++;}
-      dummy.scale.set(width*.91,Math.max(1,height*.47),width*.04);
-      const facade=point(c,lateral, height*.63-.15);
-      dummy.position.set(facade.x+Math.sin(c.heading)*width*.42,facade.y,facade.z+Math.cos(c.heading)*width*.42);
-      dummy.updateMatrix();if(iw<120){windows.setMatrixAt(iw++,dummy.matrix);}
+      // Face the street normal, not the direction of travel. The panel sits
+      // inside the existing shoulder margin and spans the shell's street wall.
+      const facade=point(c,lateral-side*(width/2+.025),height*.53-.15);
+      dummy.position.set(facade.x,facade.y,facade.z);
+      dummy.scale.set(.04,height*.76,width*.68);
+      dummy.updateMatrix();if(iw<120)windows.setMatrixAt(iw++,dummy.matrix);
+      if(quality!=='LOW'){
+       const roofHeight=.7+h*.8,roof=point(c,lateral,height+roofHeight/2-.15);
+       dummy.position.set(roof.x,roof.y,roof.z);dummy.scale.set(width*.62,roofHeight,width*.46);
+       dummy.updateMatrix();if(ir<120)rooftops.setMatrixAt(ir++,dummy.matrix);
+       const cornice=point(c,lateral,height-.15);
+       dummy.position.set(cornice.x,cornice.y,cornice.z);dummy.scale.set(width*.98,.22,width*.78);
+       dummy.updateMatrix();if(ic<120)cornices.setMatrixAt(ic++,dummy.matrix);
+      }
       if(quality!=='LOW'&&absolute%6===0){
        const signIndex=Math.floor(hash(absolute*13+side*41+routeSeed)*signs.length),n=signCounts[signIndex];
        if(n<40){
@@ -353,7 +372,7 @@ function createFull3DScene(THREE,canvas) {
     }
    }
   }
-  const assignments=[[buildings,ib],[windows,iw],[trees,it],[lights,il],...signs.map((m,i)=>[m,signCounts[i]])];
+  const assignments=[[buildings,ib],[windows,iw],[rooftops,ir],[cornices,ic],[trees,it],[lights,il],...signs.map((m,i)=>[m,signCounts[i]])];
   for(const [m,count] of assignments){m.count=count;m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;}
  }
  function updateTraffic(frame,pts){
@@ -472,6 +491,7 @@ function createFull3DScene(THREE,canvas) {
   car.parts.paint.envMapIntensity=frame.night?.65:.85;
   car.parts.glazing.envMapIntensity=frame.night?.5:.7;
   glassMat.emissiveIntensity=frame.night?.7:.12;
+  facadeMat.emissiveIntensity=frame.night?(quality==='LOW'?.35:.8):.06;
   scene.background.setHex(frame.night?0x10213b:0xf4ae78);
   scene.fog.color.setHex(frame.night?0x233b58:0xd69b82);
   // A flat ground plane must never cover a descending road.
