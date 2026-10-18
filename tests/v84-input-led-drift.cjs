@@ -62,8 +62,8 @@ const out=JSON.parse(game.run(`(()=>{
  return JSON.stringify({cases,commands,direct,probes,sustained,rates,version:COMPETITION.version,
   record:bestRecordKey(),board:arcadeBoardKey()});
 })()`));
-assert.equal(out.version,'90.0');
-assert(out.record.endsWith(':90.0')&&out.board.endsWith(':90.0'));
+assert.equal(out.version,'91.0');
+assert(out.record.endsWith(':91.0')&&out.board.endsWith(':91.0'));
 assert(!out.record.endsWith(':61.0'),'old records must remain separate');
 for(const c of out.commands){
  assert.equal(c.neutral,0,'yaw alone must not pull neutral drift toward the apex');

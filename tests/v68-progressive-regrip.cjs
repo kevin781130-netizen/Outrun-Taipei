@@ -50,8 +50,8 @@ const data=JSON.parse(game.run(`(()=>{
    near,mirrorRemoved,mirrorVelocity,highSlip,invalid,noSnap,noSnapVelocity,
    enabled,disabled,stage,reset});
 })()`));
-assert.equal(data.version,'90.0');
-assert(data.board.endsWith(':90.0'),'new physical tuning must not share V67 leaderboard');
+assert.equal(data.version,'91.0');
+assert(data.board.endsWith(':91.0'),'new physical tuning must not share V67 leaderboard');
 assert(data.near.reduced>0&&data.near.reduced<.15);
 assert(data.near.after>0.3&&data.near.after<.85,'preserve direction & continuous inertia');
 assert(Math.abs(data.mirrorRemoved-data.near.reduced)<1e-12,'right/left mirror catch strengths identical');

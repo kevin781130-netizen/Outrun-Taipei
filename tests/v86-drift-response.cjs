@@ -40,7 +40,7 @@ const data=JSON.parse(game.run(`(()=>{
  }
  return JSON.stringify({cases,gripBefore,gripAfter,rates,version:COMPETITION.version,record:bestRecordKey()});
 })()`));
-assert.equal(data.version,'90.0');assert(data.record.endsWith(':90.0'));
+assert.equal(data.version,'91.0');assert(data.record.endsWith(':91.0'));
 assert.deepEqual(data.gripAfter,data.gripBefore,'grip steering/motion stays identical');
 for(const rate of data.rates){
  assert(Math.abs(rate.now.response/rate.before.response-1.12)<1e-12,'only 12% response gain');

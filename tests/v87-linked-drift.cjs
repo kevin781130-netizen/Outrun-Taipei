@@ -45,7 +45,7 @@ const result=JSON.parse(game.run(`(()=>{
  return JSON.stringify({automatic,mirror,manual,normalExit,noGas,lowSpeed,rates,gates,fine,recover,gripInput,pauseBefore,pauseAfter,
   reset:[v87TransferRemaining,v87TransferYaw,v87TransferSlip,v87TransferActive],version:COMPETITION.version});
 })()`));
-assert.equal(result.version,'90.0');
+assert.equal(result.version,'91.0');
 for(const key of ['automatic','manual']){
  const rows=result[key],flip=rows.findIndex(r=>r.dir===-1);
  assert(flip>=0,key+' must transfer into the opposite drift');
