@@ -1,0 +1,80 @@
+# Taipei sunset art slice — Unity Primary
+
+Parallel Unity source foundation, based on `feat/v79-position-binned-drive-analysis`.
+Legacy browser entry, physics, scores and deployment workflow are unchanged.
+This is a **60-second automatic camera art study**, not a port of the racing game.
+
+## Prepare
+
+From the repository root, with Node.js and Python 3.10+:
+
+```sh
+node tools/export-unity-streetfront.mjs
+python tools/export-unity-models.py
+```
+
+Optional but required before judging finished signage: install Pillow and fontTools,
+then bake signs using a legally usable Traditional Chinese font, for example a local
+Microsoft JhengHei font on Windows (check its font usage terms for your distribution):
+
+```sh
+python tools/export-unity-signs.py --font C:/Windows/Fonts/msjh.ttc
+```
+
+The font file is not copied or redistributed. Missing glyphs are errors. Without
+this step, the scene contains sign backboards and warns about missing lettering.
+
+Open `unity/TaipeiDrive` in Unity **6000.0.65f1** with WebGL Build Support.
+Use **Taipei Drive → Generate sunset art slice**, then Play.
+The builder uses built-in Standard materials; this first slice does not add URP.
+Generation replaces the open scene, so save other work first.
+Generated assets are reproducible and ignored by git; do not edit them manually.
+
+For a separate WebGL build, use **Taipei Drive → Build sunset slice for WebGL**,
+or run the editor with `-batchmode -quit -projectPath <absolute unity/TaipeiDrive>
+-executeMethod TaipeiDrive.Editor.StreetSliceBuilder.BuildWebGL -logFile <log path>`.
+Output: `Builds/WebGL-ArtSlice`. Compression is disabled for simple static hosting.
+This does not publish or overwrite `GAME-TEST-LAB/outrun-taipei/`.
+
+## What is implemented
+
+- Reuse of three existing engine-independent Taipei facade plans: arcade canopy,
+  awnings, balcony bars, outdoor AC, rain pipes and fictional shop signage.
+- Offline conversion of four already checked-in Quaternius CC0 glTF modules.
+  RH/LH conversion, winding, UV orientation, source normals, material groups and
+  transparent/double-sided surfaces are handled explicitly.
+- Textures and notices copied from the existing licensed source; no new downloads.
+- Near/far facade prefabs, LOD culling, shared instanced materials, metre-scale
+  placement and a protected 16m carriageway, pavement, dashed lines, warm key light,
+  distance fog, shadows and a stable 60-second reference camera.
+- Mesh provenance manifest and deterministic GUIDs for authored Unity scripts.
+
+## Limits and acceptance
+
+No Unity Editor is available in the authoring environment. **C# compilation,
+PlayMode, WebGL build, performance and visual acceptance have NOT been run.**
+No new deployed visual URL exists. Existing canonical legacy URL remains:
+https://kevin781130-netizen.github.io/GAME-TEST-LAB/outrun-taipei/
+
+This first slice uses base-color textures and scalar metallic/roughness only;
+source vertex colors and secondary UV streams are not imported.
+ORM texture-channel conversion, textured asphalt, sky/environment reflections,
+hero car, actual driving, collision and scoring migration remain future work.
+The three building variants are a controlled art benchmark, not a complete city.
+
+Before accepting art quality, build and deploy to a separate preview URL, confirm
+the source commit, inspect street-facing facade orientation, texture UVs, signage,
+near/far transitions and ground contact; measure draw calls, memory and frame time
+on desktop and actual target phones. A generated scene is not visual verification.
+
+## Validation
+
+```sh
+python -m unittest discover -s tests -p test_unity_model_export.py -v
+node tests/quaternius-taipei-streetfront.cjs
+git diff --check
+```
+
+Third-party sources: `assets/third_party/quaternius-downtown/README.md` and
+`QUATERNIUS_LICENSE.txt`. Unity runtime code belongs to the repository's Apache-2.0
+license; imported Quaternius models remain CC0-1.0.
