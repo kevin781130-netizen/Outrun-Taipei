@@ -692,7 +692,7 @@ body{background:radial-gradient(ellipse at 50% 20%,#152a41,#050c14 65%);}
     </div>
   </div>
   <div id="build-version" role="status" aria-label="目前遊戲版本">
-    <span>CURRENT TEST BUILD</span><strong>V56.0</strong><span>V85 PAINT & LIGHT · 車漆反光與場景光照 · PLAYTEST</span>
+    <span>CURRENT TEST BUILD</span><strong>V56.0</strong><span>V86 DRIFT RESPONSE · 甩尾修線反應微調 · PLAYTEST</span>
   </div>
 </div>
 
@@ -2966,7 +2966,7 @@ function update(dt){
 
   const steerTarget=left||right?(right?1:0)-(left?1:0):gamepadInput.steer||(gyroEnabled?gyroSteer:0);
   const steeringProfile=v51SteeringProfile(speed,isDrifting);
-  const steerRate=Math.abs(steerTarget)>.001?steeringProfile.response:V51_HANDLING.steerRelease;
+  const steerRate=Math.abs(steerTarget)>.001?steeringProfile.response:v86DriftResponseRate(V51_HANDLING.steerRelease,isDrifting);
   steer=lerp(steer,steerTarget,1-Math.exp(-dt*steerRate));
   const segIndex=clamp(Math.floor(playerZ/SEGMENT_LENGTH),0,segments.length-1),seg=segments[segIndex];
   raceElapsed+=dt;stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,seg.curve);
@@ -5026,7 +5026,7 @@ function drawMiramarWheel(x,y,s){
 }
 
 // V40 competition rules: V39 simulation core + V40 drift calibration; art never changes physics.
-const COMPETITION=Object.freeze({version:'84.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
+const COMPETITION=Object.freeze({version:'86.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
 // V52 arcade-flow rules (independent): shorter crash interruption, stronger re-entry, Taiwan-style approach signage.
 const V52_FLOW=Object.freeze({
   crashDuration:2.9,crashAnimScale:4.1/2.9,recoverySpeed:118,recoveryGrace:1.6,
@@ -5147,11 +5147,14 @@ function v52OverspeedPush(speedNow,curve){
   const t=Math.pow(clamp(over,0,1),V52_CORNER.pushExp)+.16*clamp(over-1,0,1.25);
   return Math.sign(curve)*t*clamp(Math.abs(curve)/V52_CORNER.pushCurveRef,.25,1.35)*V52_CORNER.pushGain;
 }
+// V86 changes response time only: the V84 lateral target/turn authority stays intact.
+const V86_DRIFT_RESPONSE=Object.freeze({gain:1.12});
+function v86DriftResponseRate(rate,drifting){return drifting?rate*V86_DRIFT_RESPONSE.gain:rate;}
 function v51SteeringProfile(speedNow,drifting=false){
   const t=clamp(speedNow/COMPETITION.topSpeed,0,1);
   const highSpeedEase=t*t*(3-2*t);
   return {
-    response:lerp(V51_HANDLING.steerResponseLow,V51_HANDLING.steerResponseHigh,highSpeedEase)*(drifting?1.15:1),
+    response:v86DriftResponseRate(lerp(V51_HANDLING.steerResponseLow,V51_HANDLING.steerResponseHigh,highSpeedEase)*(drifting?1.15:1),drifting),
     authority:lerp(V51_HANDLING.authorityLow,V51_HANDLING.authorityHigh,highSpeedEase),
     liftGrip:1+V51_HANDLING.liftGripGain*t,
     brakeRotation:V51_HANDLING.brakeRotationGain*(.30+.70*t)
@@ -5231,7 +5234,7 @@ function v69ExitSettle(dt,desired,command,grip=roadGrip){
  return Math.abs(before-desired)-Math.abs(lateralVelocity-desired);
 }
 // V70 cruise-only A/B laboratory. No additional physical tuning.
-// Official arcade/sprint uses V69 recovery; V84 trajectory has record namespace 84.0.
+// Official arcade/sprint uses V69 recovery; V86 response tuning has record namespace 86.0.
 // Statistics are bounded to two in-memory aggregates, never persisted or sent.
 let v70LabEnabled=false,v70ExitMode='v69';
 const v70LabStats={v68:{frames:0,totalLat:0,peakLat:0},v69:{frames:0,totalLat:0,peakLat:0}};
@@ -5817,7 +5820,7 @@ function stepArcadeMotion(dt,curve,accelHeld=true,brakeHeld=false){
  const turn=Math.min(1,speed/30)*turnCommand*(isDrifting?1:frontGrip);
  const outward=curve*.032*ratio*ratio+(isDrifting?0:v52OverspeedPush(speed,curve));
  const desiredLateral=turn-outward;
- lateralVelocity=lerp(lateralVelocity,desiredLateral,1-Math.exp(-dt*(isDrifting?DRIFT51.driftLateralResponse:17.6)));
+ lateralVelocity=lerp(lateralVelocity,desiredLateral,1-Math.exp(-dt*v86DriftResponseRate(isDrifting?DRIFT51.driftLateralResponse:17.6,isDrifting)));
  v67CountersteerCatch(dt,steer);
  v68RecoveryRegrip(dt,desiredLateral);
  if(v70UseV69())v69ExitSettle(dt,desiredLateral,steer);else v69ResetSettle();
