@@ -88,8 +88,8 @@ for(const item of first){
  assert.deepEqual(v68.unchanged,v69.unchanged);
  assert.deepEqual({score:v68.unchanged.score,nitro:v68.unchanged.nitro,
   stock:v68.unchanged.stock,rules:v68.unchanged.rules},
-  {score:true,nitro:true,stock:true,rules:'90.0'});
- assert(v68.unchanged.record.endsWith(':90.0'));
+  {score:true,nitro:true,stock:true,rules:'91.0'});
+ assert(v68.unchanged.record.endsWith(':91.0'));
  for(const mode of [v68,v69]){
   assert.equal(mode.exit.count,1);
   assert(mode.exit.meanAbsLat>=0&&mode.exit.peakAbsLat>=mode.exit.meanAbsLat);
@@ -110,7 +110,7 @@ fs.writeFileSync(destination,JSON.stringify({
  controlled:'same source code, route, starting state, constant input (neutral steer/throttle), dt',
  warning:'synthetic recovery start; not actual live player inputs, not a causal or perceptual quality verdict',
  dt:1/60,scenarioCount:cases.length,routes:routes.length,pairedDifferences:changed,
- source:'current index.html',competitionVersion:'90.0',comparisons:report
+ source:'current index.html',competitionVersion:'91.0',comparisons:report
 },null,2)+'\n');
 console.log('V72 paired replay: '+cases.length+' pairs on '+routes.length+
  ' routes, repeat deterministic, '+changed+' observed lateral deltas; '+destination);

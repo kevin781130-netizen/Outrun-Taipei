@@ -91,7 +91,7 @@ async function main(){
  const summary={status:'failed',scope:'headless local Chromium real keyboard + update + WebGL',
   testSource:'game index.html (test-only eval hook injected in HTTP response)',
   warning:'not a human playtest; not a visual/aesthetic approval of public deployment',
-  sourceRules:'90.0',scenarios:[],errors:failureLog};
+  sourceRules:'91.0',scenarios:[],errors:failureLog};
  try{
   browser=await chromium.launch({headless:true,
    args:['--enable-webgl','--enable-unsafe-swiftshader','--use-angle=swiftshader'],
@@ -128,7 +128,7 @@ async function main(){
       return {route:currentNode.id,index:Math.floor(playerZ/SEGMENT_LENGTH),
        score,record:bestRecordKey(),rules:COMPETITION.version};
      })()`);
-    assert.equal(setup.route,route);assert.equal(setup.rules,'90.0');
+    assert.equal(setup.route,route);assert.equal(setup.rules,'91.0');
     const trace=[],phases=[];
     async function collect(label,expression){
      const row=await run(expression);
@@ -178,7 +178,7 @@ async function main(){
       gpuCanvas:!!document.getElementById('v56-full-3d-canvas')
     })`);
     assert.equal(end.route,route,'stage may not switch inside S-curve sequence');
-    assert.equal(end.rules,'90.0');
+    assert.equal(end.rules,'91.0');
     assert.equal(end.record,setup.record,'record namespace unchanged');
     assert.equal(end.gameOver,false);
     assert.equal(end.threeReady,true);assert.equal(end.gpuCanvas,true);

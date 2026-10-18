@@ -692,7 +692,7 @@ body{background:radial-gradient(ellipse at 50% 20%,#152a41,#050c14 65%);}
     </div>
   </div>
   <div id="build-version" role="status" aria-label="目前遊戲版本">
-    <span>CURRENT TEST BUILD</span><strong>V56.0</strong><span>V90 DRIFT LINE · 車頭帶線／微幅修線 · PLAYTEST</span>
+    <span>CURRENT TEST BUILD</span><strong>V56.0</strong><span>V91 OPEN ROAD · 道路加寬／錯位車流 · PLAYTEST</span>
   </div>
 </div>
 
@@ -1844,6 +1844,66 @@ function transitionProgressNow(){
   return stageTransition ? clamp((playerZ / SEGMENT_LENGTH - STAGE_END) / TRANSITION_LENGTH, 0, 1) : 0;
 }
 
+// V91: wider shared corridors and deterministic staggered traffic.
+const V91_TRAFFIC=Object.freeze({roadScale:1.08,minGap:2400,spawnAhead:28000,wander:.025,followSeconds:1.1});
+function v91TrafficHome(car){
+ if(!Number.isFinite(car.flowHome))car.flowHome=clamp(car.x,-.70*roadFactor(),.70*roadFactor());
+ if(!Number.isFinite(car.flowCruise))car.flowCruise=Math.max(0,car.targetSpeed||car.speed||0);
+}
+function v91InitializeTraffic(){
+ let previous=-Infinity;
+ for(const car of [...traffic].sort((a,b)=>a.z-b.z)){
+  v91TrafficHome(car);car.z=Math.max(car.z,previous+V91_TRAFFIC.minGap);
+  car.laneTarget=car.flowHome;previous=car.z;
+ }
+}
+function v91TrafficSpawnSlot(car,wanted,limit){
+ const low=playerZ+V91_TRAFFIC.spawnAhead,gap=V91_TRAFFIC.minGap;
+ if(low>limit)return null;
+ const occupied=traffic.filter(other=>other!==car&&Number.isFinite(other.z));
+ const candidates=[clamp(wanted,low,limit),low,limit];
+ for(const other of occupied)candidates.push(other.z-gap,other.z+gap);
+ let best=null,distance=Infinity;
+ for(const z of candidates){
+  if(z<low||z>limit||occupied.some(other=>Math.abs(z-other.z)<gap-1e-7))continue;
+  if(Math.abs(z-wanted)<distance){best=z;distance=Math.abs(z-wanted);}
+ }
+ return best; // No room: defer recycling instead of stacking cars at the limit.
+}
+function v91StepTraffic(dt,recycle=true){
+ if(!(dt>0))return;
+ const ordered=[...traffic].sort((a,b)=>b.z-a.z),limit=(FORK_WARN-28)*SEGMENT_LENGTH;
+ let lead=null;
+ for(const car of ordered){
+  v91TrafficHome(car);car.hitTimer=Math.max(0,(car.hitTimer||0)-dt);
+  car.previousX=car.x;car.previousZ=car.z;
+  let target=car.flowCruise;
+  if(lead)target=Math.min(target,lead.speed+Math.max(0,lead.z-car.z-V91_TRAFFIC.minGap)/(WORLD_SPEED*V91_TRAFFIC.followSeconds));
+  const change=target-car.speed;
+  car.speed=Math.max(0,car.speed+clamp(change,-80*dt,45*dt));
+  let next=car.z+car.speed*WORLD_SPEED*dt;
+  // The hard ceiling is only a last-resort forward-motion brake, never a rewind.
+  if(lead){
+   next=Math.min(next,Math.max(car.z,lead.z-V91_TRAFFIC.minGap));
+   car.speed=Math.max(0,(next-car.z)/(WORLD_SPEED*dt));
+  }
+  car.z=next;
+  car.laneTarget=car.flowHome+Math.sin(simulationTime*.35+(car.phase||0))*V91_TRAFFIC.wander*roadFactor();
+  car.x=lerp(car.x,car.laneTarget,1-Math.exp(-dt*.8));
+  if(car.z-playerZ>2600)car.near=false;
+  lead=car;
+ }
+ // Recycle after movement so every placement checks the same final-frame positions.
+ if(recycle)for(const car of traffic){
+  if(car.z-playerZ>=-1800||playerZ+V91_TRAFFIC.spawnAhead>limit)continue;
+  const wanted=playerZ+seededRange(V91_TRAFFIC.spawnAhead,56000);
+  const slot=v91TrafficSpawnSlot(car,wanted,limit);if(slot===null)continue;
+  car.z=slot;car.x=seededRange(-.65,.65)*roadFactor();car.flowHome=car.x;
+  car.laneTarget=car.x;car.speed=car.flowCruise;
+  car.previousX=car.x;car.previousZ=car.z;car.near=false;car.screenBox=null;car.cp=null;
+ }
+}
+
 function initTraffic(){
   trafficSeed=currentNode.seed*3251+stageLevel;
   traffic=[];
@@ -1884,6 +1944,7 @@ function initTraffic(){
       near: false, hitTimer: 0, screenBox: null, phase: seededRange(0, Math.PI * 2)
     });
   }
+  v91InitializeTraffic();
 }
 
 function showStageCard(detail='ROUTE START'){
@@ -2800,10 +2861,7 @@ function updateCrash(dt){
   speed = Math.max(0, c.impactSpeed * (1 - c.t / 0.75));
   playerZ += speed * WORLD_SPEED * dt;
 
-  for(const car of traffic){
-    car.z += car.speed * WORLD_SPEED * dt;
-    car.hitTimer = Math.max(0, car.hitTimer - dt);
-  }
+  v91StepTraffic(dt,false);
   if(v34Mode!=='cruise') timeLeft=Math.max(0,timeLeft-dt);
   if(timeLeft <= 0){ finishGame(false); return; }
 
@@ -3071,27 +3129,8 @@ function update(dt){
     playerZ = FINISH_LINE * SEGMENT_LENGTH; finishGame(true); return;
   }
 
-  // Traffic updates
-  const trafficLimit = (FORK_WARN - 28) * SEGMENT_LENGTH;
-  for(const car of traffic){
-    car.hitTimer = Math.max(0, car.hitTimer - dt);
-    if(car.targetSpeed && car.speed < car.targetSpeed){
-      car.speed += 45 * dt;
-    }
-    car.previousX=car.x;car.previousZ=car.z;
-    car.z += car.speed * WORLD_SPEED * dt;
-    car.x += Math.sin((simulationTime * 1000) / 1500 + car.phase) * 0.025 * dt;
-    car.laneTarget=Math.sin(simulationTime*.13+car.phase)*.58*roadFactor();
-    car.x = lerp(car.x, car.laneTarget, dt * 0.18);
-
-    const dz = car.z - playerZ;
-    if(dz < -1800 && playerZ + 24000 < trafficLimit){
-      car.z=Math.min(playerZ+seededRange(22000,56000),trafficLimit);
-      car.x=seededRange(-.65,.65)*roadFactor();car.laneTarget=seededRange(-.60,.60)*roadFactor();
-      car.previousX=car.x;car.previousZ=car.z;car.near = false; car.screenBox = null; car.cp = null;
-    }
-    if(dz > 2600) car.near = false;
-  }
+  // V91: stable lateral homes, forward headway and collision-safe far recycling.
+  v91StepTraffic(dt);
 
   if(v56Full3D){projectRoad();v57PrepareTrafficVisibility();}
   else{projectRoad();prepareTrafficSprites();}
@@ -5026,7 +5065,7 @@ function drawMiramarWheel(x,y,s){
 }
 
 // V40 competition rules: V39 simulation core + V40 drift calibration; art never changes physics.
-const COMPETITION=Object.freeze({version:'90.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
+const COMPETITION=Object.freeze({version:'91.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
 // V52 arcade-flow rules (independent): shorter crash interruption, stronger re-entry, Taiwan-style approach signage.
 const V52_FLOW=Object.freeze({
   crashDuration:2.9,crashAnimScale:4.1/2.9,recoverySpeed:118,recoveryGrace:1.6,
@@ -5236,7 +5275,7 @@ function v69ExitSettle(dt,desired,command,grip=roadGrip){
  return Math.abs(before-desired)-Math.abs(lateralVelocity-desired);
 }
 // V70 cruise-only A/B laboratory. No additional physical tuning.
-// Official arcade/sprint uses V69 recovery; V90 heading-led correction has record namespace 90.0.
+// Official arcade/sprint uses V69 recovery; V91 road/traffic and drift correction has record namespace 91.0.
 // Statistics are bounded to two in-memory aggregates, never persisted or sent.
 let v70LabEnabled=false,v70ExitMode='v69';
 const v70LabStats={v68:{frames:0,totalLat:0,peakLat:0},v69:{frames:0,totalLat:0,peakLat:0}};
@@ -5732,7 +5771,7 @@ function v90DriftCommand(command,counterAuthority,intent=command){
  const t=clamp(driftAge/V84_DRIFT_LINE.entrySeconds,0,1);
  const entry=lerp(V84_DRIFT_LINE.entryFloor,1,t*t*(3-2*t));
  const normalDirect=.238*v51SteeringProfile(speed,false).authority;
- const authority=Math.max(Math.abs(previous)*1.04,Math.abs(input)*normalDirect*1.06*entry);
+ const authority=Math.max(Math.abs(previous)*1.057,Math.abs(input)*normalDirect*1.06*entry);
  // Raw intent releases the heading aid immediately, even as steer smooths out.
  // A stale old-side nose cannot pull against a deliberate drift transfer.
  const requested=clamp((Math.abs(intent)-.10)/.40,0,1);
@@ -5919,7 +5958,7 @@ const SCENES={
  '5E':{label:'貓空・茶園纜車髮夾彎',type:'tea',lanes:2,width:.66,ground:['#446b46','#345637'],sunset:['#2f6784','#9aaa9b','#dbbba0'],night:['#0c223b','#26455e','#617e78'],accent:'#ade4ae',props:'tea',hills:135}
 };
 function scene(){return SCENES[currentNode.id];}
-function roadFactor(){return scene().width;}
+function roadFactor(){return scene().width*V91_TRAFFIC.roadScale;}
 function drivableHalf(){return roadFactor()*.98;}
 
 // Shared world geometry: rendering, placement and collision use these corridors.

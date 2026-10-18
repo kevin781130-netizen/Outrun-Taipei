@@ -40,9 +40,9 @@ const state=JSON.parse(game.run(`(()=>{
   cruiseBend,grip,drift,caution,nearLimit,normal,
   bestKey:bestRecordKey(),boardKey:arcadeBoardKey()});
 })()`));
-assert.equal(state.version,'90.0','physical tuning isolates competitive records');
+assert.equal(state.version,'91.0','physical tuning isolates competitive records');
 for(const key of ['bestKey','boardKey'])
- assert(state[key].endsWith(':90.0'),key+' must isolate previous records');
+ assert(state[key].endsWith(':91.0'),key+' must isolate previous records');
 assert.equal(state.reference[0][1],278,'straight speed recommendation unchanged');
 assert.equal(state.reference[1][1],278-.45*34);
 assert.equal(state.reference[2][1],278-1.3*34);
