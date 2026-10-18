@@ -899,6 +899,49 @@ function createRaceWayfinding(T,scene,sample,offset,doc){
 module.exports={createRaceWayfinding};
 
   },
+  "./RoadSurface.cjs": function(require, module) {
+'use strict';
+// Bounded startup-only material generation. No network, canvas or simulation RNG.
+function grain(x,y,seed){let n=(Math.imul(x,374761393)^Math.imul(y,668265263)^seed)>>>0;n=Math.imul(n^(n>>>13),1274126177)>>>0;return ((n^(n>>>16))&65535)/65535;}
+function createRoadSurfaceTextures(T,size=128){
+ if(!Number.isInteger(size)||size<16||size>256||(size&(size-1)))throw new RangeError('power-of-two surface size 16..256 required');
+ const result={};
+ for(const kind of ['asphalt','pavement']){
+  const color=new Uint8Array(size*size*4),rough=new Uint8Array(size*size*4),normal=new Uint8Array(size*size*4),height=new Float32Array(size*size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+   const n=grain(x,y,1729),i=y*size+x,k=i*4,cell=size/4;
+   const joint=kind==='pavement'&&(x%cell<1||y%cell<1);
+   let value;
+   if(kind==='asphalt'){
+    value=Math.round(47+(n-.5)*22+3*Math.sin(2*Math.PI*x/size)*Math.cos(4*Math.PI*y/size)+(n>.97?12:0));
+    color.set([value,value+2,value+4,255],k);height[i]=(n-.5)*.1;
+   }else{
+    value=Math.round((joint?94:145+grain(Math.floor(x/cell),Math.floor(y/cell),99)*14)+(n-.5)*7);
+    color.set([value,value-3,value-9,255],k);height[i]=(joint?-.18:0)+(n-.5)*.01;
+   }
+   const r=kind==='asphalt'?Math.round(234+n*12):(joint?246:224);
+   rough.set([r,r,r,255],k);
+  }
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+   const dx=height[y*size+(x+1)%size]-height[y*size+(x+size-1)%size];
+   const dy=height[((y+1)%size)*size+x]-height[((y+size-1)%size)*size+x];
+   const length=Math.hypot(dx,dy,1),k=(y*size+x)*4;
+   normal.set([Math.round((.5-dx/length*.5)*255),Math.round((.5+dy/length*.5)*255),Math.round((.5+1/length*.5)*255),255],k);
+  }
+  for(const [channel,data] of Object.entries({color,rough,normal})){
+   const texture=new T.DataTexture(data,size,size,T.RGBAFormat);
+   texture.name='V80_'+kind+'_'+channel;
+   texture.encoding=channel==='color'?T.sRGBEncoding:T.LinearEncoding;
+   texture.wrapS=texture.wrapT=T.RepeatWrapping;texture.repeat.set(4,4);
+   texture.magFilter=T.LinearFilter;texture.minFilter=T.LinearMipmapLinearFilter;
+   texture.generateMipmaps=true;texture.needsUpdate=true;result[kind+'_'+channel]=texture;
+  }
+ }
+ return result;
+}
+module.exports={createRoadSurfaceTextures};
+
+  },
   "./Full3DScene.cjs": function(require, module) {
 'use strict';
 const {createVehicle3D} = require('./Vehicle3D.cjs');
@@ -910,6 +953,7 @@ const {createTaipeiLandmarks}=require('./TaipeiLandmarks.cjs');
 const {createRaceEnvironment}=require('./RaceEnvironment.cjs');
 const {createRaceWayfinding}=require('./RaceWayfinding.cjs');
 const {inLandmarkVista}=require('./ScenicVisibility.cjs');
+const {createRoadSurfaceTextures}=require('./RoadSurface.cjs');
 
 // Full WebGL road/world renderer. This is intentionally NOT a Canvas overlay.
 // World coordinates: +X right, +Y up, -Z forward. Camera is behind the car (+Z).
@@ -982,18 +1026,6 @@ function createFacadeTexture(THREE){
  const texture=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);
  texture.encoding=THREE.sRGBEncoding;texture.needsUpdate=true;return texture;
 }
-// Small, deterministic sRGB aggregate texture. Lighting remains active, but the
-// asphalt's albedo is charcoal instead of a bright linear RGB paint color.
-function createAsphaltTexture(THREE){
- const size=64,data=new Uint8Array(size*size*4);
- for(let y=0;y<size;y++)for(let x=0;x<size;x++){
-  const grain=Math.floor(hash(y*size+x+591)*17),v=43+grain,k=(y*size+x)*4;
-  data[k]=v;data[k+1]=v+2;data[k+2]=v+4;data[k+3]=255;
- }
- const texture=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);
- texture.encoding=THREE.sRGBEncoding;texture.wrapS=texture.wrapT=THREE.RepeatWrapping;
- texture.magFilter=THREE.LinearFilter;texture.minFilter=THREE.LinearMipmapLinearFilter;texture.generateMipmaps=true;texture.needsUpdate=true;return texture;
-}
 function createSignTexture(THREE,text,color,doc){
  if(!doc?.createElement)return null;
  const c=doc.createElement('canvas');c.width=128;c.height=512;
@@ -1028,10 +1060,10 @@ function createFull3DScene(THREE,canvas) {
  renderer.toneMapping=THREE.ACESFilmicToneMapping;
  renderer.toneMappingExposure=1.0;
  let lastW=0,lastH=0,lastDpr=0;
- const asphaltTexture=createAsphaltTexture(THREE);textures.push(asphaltTexture);
+ const surfaces=createRoadSurfaceTextures(THREE);textures.push(...Object.values(surfaces));
  const roadMaterials=[
-  material(new THREE.MeshStandardMaterial({color:0xffffff,map:asphaltTexture,roughness:.98,metalness:0,side:THREE.DoubleSide})),
-  material(new THREE.MeshStandardMaterial({color:0x59616b,roughness:1,side:THREE.DoubleSide})),
+  material(new THREE.MeshStandardMaterial({color:0xffffff,map:surfaces.asphalt_color,roughnessMap:surfaces.asphalt_rough,normalMap:surfaces.asphalt_normal,normalScale:new THREE.Vector2(.28,.28),roughness:1,metalness:0,side:THREE.DoubleSide})),
+  material(new THREE.MeshStandardMaterial({color:0xffffff,map:surfaces.pavement_color,roughnessMap:surfaces.pavement_rough,normalMap:surfaces.pavement_normal,normalScale:new THREE.Vector2(.22,.22),roughness:1,metalness:0,side:THREE.DoubleSide})),
   material(new THREE.MeshBasicMaterial({color:0xecefe6,side:THREE.DoubleSide})),
   material(new THREE.MeshBasicMaterial({color:0x2ad9e7,side:THREE.DoubleSide}))
  ];
@@ -1053,7 +1085,7 @@ function createFull3DScene(THREE,canvas) {
   const r={mesh:m,positions:arr,used:0,attr,uvAttr};
   roads.push(r);return r;
  }
- roadMaterials.map(ribbon);roads[0].mesh.name='V58_Asphalt';
+ roadMaterials.map(ribbon);roads[0].mesh.name='V58_Asphalt';roads[1].mesh.name='V80_Pavement';
  const push=(r,a,b,c,d)=>{
   if(r.used+18>r.positions.length)return;
   const v=r.positions,i=r.used;
@@ -1165,12 +1197,16 @@ function createFull3DScene(THREE,canvas) {
     const left=q.center-q.half,right=q.center+q.half;
     const lf=n.center-n.half,rt=n.center+n.half;
     const w=HALF_WIDTH;
-    push(roads[1],point(here,(left-.09)*w,.015),point(here,(right+.09)*w,.015),point(there,(rt+.09)*w,.015),point(there,(lf-.09)*w,.015));
     const absolute=(Math.floor(frame.segment)||0)+i;
+    push(roads[1],point(here,(left-.09)*w,.015,absolute),point(here,(right+.09)*w,.015,absolute),point(there,(rt+.09)*w,.015,absolute+1),point(there,(lf-.09)*w,.015,absolute+1));
     push(roads[0],point(here,left*w,.028,absolute),point(here,right*w,.028,absolute),point(there,rt*w,.028,absolute+1),point(there,lf*w,.028,absolute+1));
     // painted white outside borders and neon-reflective curb piping
     for(const side of [-1,1]){
      const a=(side<0?left:right)*w,b=(side<0?lf:rt)*w;
+     // Grounded urban paving only. Never bridge a fork, water or elevated deck.
+     if(frame.archetype==='urban'&&lanes.length===1&&next.length===1){
+      push(roads[1],point(here,a+side*.24,.06,absolute),point(here,a+side*2.0,.06,absolute),point(there,b+side*2.0,.06,absolute+1),point(there,b+side*.24,.06,absolute+1));
+     }
      push(roads[2],point(here,a-.06,.04),point(here,a+.06,.04),point(there,b+.06,.04),point(there,b-.06,.04));
      push(roads[3],point(here,a+side*.12,.045),point(here,a+side*.18,.045),point(there,b+side*.18,.045),point(there,b+side*.12,.045));
     }
