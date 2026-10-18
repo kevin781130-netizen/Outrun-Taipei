@@ -645,7 +645,7 @@ body{background:radial-gradient(ellipse at 50% 20%,#152a41,#050c14 65%);}
         <span class="key">S / ↓ 煞車</span>
         <span class="key">← → / J L 轉向</span>
         <span class="key">A 前進 / Z 倒退 · N 氮氣 / Z → A</span>
-        <span class="key">SHIFT 甩尾 · N 氮氣 · 加速中可集氣 · T 路線圖</span>
+        <span class="key">SHIFT 甩尾／按住連甩 · N 氮氣 · 加速中可集氣 · T 路線圖</span>
         <span class="key">M 切換電台</span>
         <span class="key">P 暫停</span>
       </div>
@@ -660,7 +660,7 @@ body{background:radial-gradient(ellipse at 50% 20%,#152a41,#050c14 65%);}
     <button class="btn" id="garage-btn">🔧 改車 G</button>
     <button class="btn" id="atlas-btn">路線 T</button>
     <button class="btn" id="service-btn">⚙️ 設定</button>
-    <span id="route-status">Shift 滑行集氣 · Z → A 氮氣 · 統一極速 <span data-rule="topSpeed"></span> KM/H</span>
+    <span id="route-status">Shift 甩尾／按住連甩 · Z → A 氮氣 · 統一極速 <span data-rule="topSpeed"></span> KM/H</span>
     <button class="btn" id="gyro-btn">📱 體感</button>
     <button class="btn" id="fullscreen-btn">⛶ 全螢幕</button>
     <button class="btn" id="radio-btn">電台 M</button>
@@ -692,7 +692,7 @@ body{background:radial-gradient(ellipse at 50% 20%,#152a41,#050c14 65%);}
     </div>
   </div>
   <div id="build-version" role="status" aria-label="目前遊戲版本">
-    <span>CURRENT TEST BUILD</span><strong>V56.0</strong><span>V86 DRIFT RESPONSE · 甩尾修線反應微調 · PLAYTEST</span>
+    <span>CURRENT TEST BUILD</span><strong>V56.0</strong><span>V87 LINKED DRIFT · 連貫換向甩尾 · PLAYTEST</span>
   </div>
 </div>
 
@@ -3129,7 +3129,7 @@ function updateHUD(){
   
   if(v34Mode!=='arcade'){ document.getElementById('hud-route-label').textContent=v34Mode==='cruise'?'自由巡航 · T 切換路段':`單段計時 · ${raceElapsed.toFixed(2)} s`; routeStatus.textContent=v34Mode==='cruise'?'無倒數 · 自由試車 · 按 T 選路段':`個人紀錄 ${getBestTime()} · 無分岔，通過終點完成計時`; }
   else if(isDrafting) routeStatus.textContent=`尾流加速 · 上限 ${COMPETITION.topSpeed} KM/H（氮氣 ${COMPETITION.boostSpeed}）`;
-  else if(playerZ/SEGMENT_LENGTH<FORK_WARN&&!stageTransition) routeStatus.textContent=`${autoGear?'AT 自排':'MT 手排'} · ${driveGear} / ${currentGear} · Shift 滑行集氣 · Z → A 氮氣`;
+  else if(playerZ/SEGMENT_LENGTH<FORK_WARN&&!stageTransition) routeStatus.textContent=`${autoGear?'AT 自排':'MT 手排'} · ${driveGear} / ${currentGear} · Shift 甩尾／按住連甩 · Z → A 氮氣`;
   updateV39HUD();drawTachometer();
 }
 
@@ -5026,7 +5026,7 @@ function drawMiramarWheel(x,y,s){
 }
 
 // V40 competition rules: V39 simulation core + V40 drift calibration; art never changes physics.
-const COMPETITION=Object.freeze({version:'86.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
+const COMPETITION=Object.freeze({version:'87.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
 // V52 arcade-flow rules (independent): shorter crash interruption, stronger re-entry, Taiwan-style approach signage.
 const V52_FLOW=Object.freeze({
   crashDuration:2.9,crashAnimScale:4.1/2.9,recoverySpeed:118,recoveryGrace:1.6,
@@ -5066,6 +5066,7 @@ function v53OverspeedDrag(speedNow,gear,draft=0,boostingNow=false){
 }
 let helperWasHeld=false,helperPulse=0,counterTime=0,neutralTime=0;
 let driftRearmBlocked=false;
+let v87TransferRemaining=0,v87TransferYaw=0,v87TransferSlip=0,v87TransferActive=false;
 let driftState='grip',brakeHoldTime=0,brakeLoss=0,driftAge=0,driftCooldown=0,brakeVisual=0;
 let yawRate=0,slipAngle=0,coastWindow=0,previousGas=false,slideTrails=[];
 let chassisRoll=0,chassisPitch=0,visualLoad=0;
@@ -5073,6 +5074,7 @@ let trafficSeed=1;
 function seededRange(a,b){trafficSeed=(Math.imul(1664525,trafficSeed)+1013904223)>>>0;return a+(trafficSeed/4294967296)*(b-a);}
 function resetDrivingState(){
  helperWasHeld=false;helperPulse=0;counterTime=0;neutralTime=0;draftLevel=0;
+ v87TransferRemaining=0;v87TransferYaw=0;v87TransferSlip=0;v87TransferActive=false;
  driftRearmBlocked=false;driftState='grip';brakeHoldTime=0;brakeLoss=0;driftAge=0;driftCooldown=0;
  brakeEntry=0;brakeWasHeld=false;brakeVisual=0;driftAngle=0;yawRate=0;slipAngle=0;coastWindow=0;previousGas=false;
  isDrifting=false;driftDirection=0;cleanDriftTime=0;exitBoost=0;momentBoostWindow=0;momentBoostArmed=false;boostKick=0;shiftCutTimer=0;shiftPunch=0;lateralVelocity=0;slideTrails=[];chassisRoll=0;chassisPitch=0;visualLoad=0;v69ResetSettle();
@@ -5113,7 +5115,7 @@ function v51VisualCurveCap(curve){return lerp(V51_SIDEWAYS.shallowCurveYaw,V51_S
 function v51DriftPathScale(curve){return lerp(.45,1,clamp(Math.abs(curve)/1.8,0,1));}
 function v51DriftVisualYaw(curve=v51CurrentCurve()){
   if(!isDrifting&&driftState!=='recover')return driftAngle;
-  const signedSlip=Math.sign(driftAngle||driftDirection||1)*Math.abs(slipAngle);
+  const signedSlip=v87TransferActive?slipAngle:Math.sign(driftAngle||driftDirection||1)*Math.abs(slipAngle);
   // V66: physical yaw already represents the heading; avoid double-counting
   // slip, which makes the entire car look as though it slides outward.
   const raw=driftAngle*1.04+signedSlip*.34;
@@ -5234,7 +5236,7 @@ function v69ExitSettle(dt,desired,command,grip=roadGrip){
  return Math.abs(before-desired)-Math.abs(lateralVelocity-desired);
 }
 // V70 cruise-only A/B laboratory. No additional physical tuning.
-// Official arcade/sprint uses V69 recovery; V86 response tuning has record namespace 86.0.
+// Official arcade/sprint uses V69 recovery; V87 linked drift has record namespace 87.0.
 // Statistics are bounded to two in-memory aggregates, never persisted or sent.
 let v70LabEnabled=false,v70ExitMode='v69';
 const v70LabStats={v68:{frames:0,totalLat:0,peakLat:0},v69:{frames:0,totalLat:0,peakLat:0}};
@@ -5696,10 +5698,20 @@ function v71SampleExitWindow(dt){
   v71ResetExitWindow();
  }
 }
+// V87: deliberately requested transfers keep the slide alive through zero yaw.
+const V87_DRIFT_LINK=Object.freeze({hold:.10,blend:.32,minSpeed:100,fineGain:.08});
+function v87TransferIntent(sign,curve,accelHeld,brakeHeld,helper){
+ return !!sign&&accelHeld&&!brakeHeld&&speed>=V87_DRIFT_LINK.minSpeed&&roadGrip>.8
+  &&driveGear==='D'&&motionDirection===1
+  &&(helper||coastWindow>0||(Math.abs(curve)>=.35&&sign===Math.sign(curve)));
+}
+function v87FineDriftInput(input){
+ return isDrifting&&driftState!=='recover'?input*(1+V87_DRIFT_LINK.fineGain*(1-Math.abs(input))):input;
+}
 // V84: separate drift heading from lateral command; no automatic inward yaw force.
 const V84_DRIFT_LINE=Object.freeze({authorityLow:.26,authorityHigh:.20,entrySeconds:.28,entryFloor:.65});
 function v84DriftCommand(command,counterAuthority){
- const input=clamp(command,-1,1);
+ const input=v87FineDriftInput(clamp(command,-1,1));
  if(input===0)return 0;
  // Opposing steering retains its previous full command authority.
  if(input*driftDirection<0)return input*counterAuthority;
@@ -5744,16 +5756,20 @@ function stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
  let targetYaw,targetSlip=0;
  if(isDrifting){
   driftAge+=dt;
-  const counter=sign!==0&&sign!==driftDirection,neutral=sign===0;
+  let counter=sign!==0&&sign!==driftDirection;
+  const neutral=sign===0,transferIntent=v87TransferIntent(sign,curve,accelHeld,brakeHeld,helper);
   counterTime=counter?counterTime+dt:Math.max(0,counterTime-dt*3);
   neutralTime=neutral?neutralTime+dt:0;
 
-  // V40: countersteer first TRIMS the slide; only a deliberate hold exits it.
-  if(counter&&coastWindow>0&&accelHeld&&driftState!=='recover'&&counterTime>.10){
-   driftDirection=sign;counterTime=0;driftAge=.08;coastWindow=0;cleanDriftTime=0;
+  // Preserve yaw, yaw rate, slip and lateral momentum across the transfer.
+  // Recompute counter after changing side: the old flag trimmed the NEW drift.
+  if(dt>0&&counter&&transferIntent&&counterTime>=V87_DRIFT_LINK.hold&&steer*sign>.10){
+   v87TransferYaw=driftAngle;v87TransferSlip=slipAngle;v87TransferRemaining=V87_DRIFT_LINK.blend;v87TransferActive=true;
+   driftDirection=sign;counter=false;counterTime=0;neutralTime=0;coastWindow=0;cleanDriftTime=0;
+   driftState='drift';driftRearmBlocked=false;v67ResetCatch();
   }
   if(counterTime>DRIFT51.counterRecover||neutralTime>DRIFT51.neutralRecover||speed<68||roadGrip<.7||driftState==='recover'){
-   driftState='recover';driftRearmBlocked=true;targetYaw=0;targetSlip=0;
+   driftState='recover';driftRearmBlocked=true;targetYaw=0;targetSlip=0;v87TransferRemaining=0;v87TransferActive=false;
    if(Math.abs(driftAngle)<DRIFT51.rearmYaw&&Math.abs(slipAngle)<DRIFT51.rearmSlip){
     if(cleanDriftTime>.30&&roadGrip>.8&&!brakeHeld){
       momentBoostWindow=Math.max(momentBoostWindow,DRIFT51.momentWindow);momentBoostArmed=!accelHeld;
@@ -5774,18 +5790,29 @@ function stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
    const slipTrim=counter?DRIFT51.counterSlipTrim:neutral?.78:1;
    targetYaw=driftDirection*yawFull*entryEase*yawTrim;
    targetSlip=driftDirection*slipFull*entryEase*slipTrim;
+   if(counter&&transferIntent){targetYaw=driftAngle;targetSlip=slipAngle;}
+   if(v87TransferRemaining>0){
+    const t=clamp(1-v87TransferRemaining/V87_DRIFT_LINK.blend,0,1),ease=t*t*(3-2*t);
+    targetYaw=lerp(v87TransferYaw,clamp(targetYaw,-DRIFT51.maxBodyYaw,DRIFT51.maxBodyYaw),ease);
+    targetSlip=lerp(v87TransferSlip,targetSlip,ease);
+    v87TransferRemaining=Math.max(0,v87TransferRemaining-dt);
+   }
   }
  }else{
-  targetYaw=steer*(5.5+ratio*4.5);
+  v87TransferRemaining=0;v87TransferActive=false;targetYaw=steer*(5.5+ratio*4.5);
   if(!brakeHeld)driftState=brakeEntry>0?'armed':'grip';
  }
  if(targetYaw===undefined)targetYaw=0;
  targetYaw=clamp(targetYaw,-DRIFT51.maxBodyYaw,DRIFT51.maxBodyYaw);
  const omega=driftState==='recover'?DRIFT51.recoverResponse:DRIFT51.yawResponse;
+ const previousYaw=driftAngle;
  const error=driftAngle-targetYaw,c=yawRate+omega*error,decay=Math.exp(-omega*dt);
  driftAngle=clamp(targetYaw+(error+c*dt)*decay,-DRIFT51.maxBodyYaw,DRIFT51.maxBodyYaw);
+ // Keep the position step consistent with the existing 190 deg/s yaw-rate cap.
+ if(v87TransferActive)driftAngle=clamp(driftAngle,previousYaw-190*Math.max(0,dt),previousYaw+190*Math.max(0,dt));
  yawRate=clamp((yawRate-omega*c*dt)*decay,-190,190);
  slipAngle=lerp(slipAngle,targetSlip,1-Math.exp(-dt*(driftState==='recover'?DRIFT51.recoverSlipResponse:DRIFT51.slipResponse)));
+ if(v87TransferActive&&v87TransferRemaining<=0&&Math.abs(driftAngle-targetYaw)<1&&Math.abs(slipAngle-targetSlip)<1)v87TransferActive=false;
  const nitroRequested=boostRemaining>0;
  const driftEnergy=driveGear==='D'&&motionDirection===1&&isDrifting&&driftState!=='recover'&&!brakeHeld&&Math.abs(slipAngle)>2.0&&speed>=DRIFT51.entryMinSpeed&&roadGrip>.8;
  driftChargeRate=0;
