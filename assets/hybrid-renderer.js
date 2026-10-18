@@ -1294,18 +1294,40 @@ function createFull3DScene(THREE,canvas) {
 
  const tyreMat=material(new THREE.MeshStandardMaterial({color:0x10141a,roughness:.96}));
  const rearMat=material(new THREE.MeshBasicMaterial({color:0xff385d}));
+ // Shared original low-poly coachwork, contained within the old traffic envelope.
+ function trafficLoft(sections){
+  const vertices=[],indices=[];
+  for(const [z,w,topWidth,bottom,top] of sections){
+   vertices.push(-w,bottom,z,w,bottom,z,topWidth,top,z,-topWidth,top,z);
+  }
+  // Outward winding; the end caps keep the silhouette closed.
+  indices.push(0,1,2,0,2,3);
+  for(let j=0;j<sections.length-1;j++)for(let i=0;i<4;i++){
+   const a=j*4+i,b=j*4+(i+1)%4,c=b+4,d=a+4;indices.push(a,d,c,a,c,b);
+  }
+  const n=(sections.length-1)*4;indices.push(n,n+2,n+1,n,n+3,n+2);
+  for(let i=0;i<indices.length;i+=3){const b=indices[i+1];indices[i+1]=indices[i+2];indices[i+2]=b;}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();return geometry(g);
+ }
+ const trafficBody=trafficLoft([[-1.8,.70,.65,.39,.64],[-1.35,.85,.80,.34,.80],[1.35,.85,.80,.34,.80],[1.8,.76,.71,.39,.75]]);
+ const trafficCabin=trafficLoft([[-1.02,.645,.59,.725,.80],[-.58,.645,.47,.725,1.275],[.40,.645,.47,.725,1.275],[.78,.645,.59,.725,.82]]);
+ const trafficTyre=geometry(new THREE.CylinderGeometry(.32,.32,.24,12));
+ const trafficTrim=material(new THREE.MeshStandardMaterial({color:0x18212b,roughness:.68}));
+ const plateMat=material(new THREE.MeshStandardMaterial({color:0xd9e0df,roughness:.8}));
  const trafficMeshes=[];
  for(let i=0;i<MAX_CARS;i++){
-  const group=new THREE.Group();
+  const group=new THREE.Group();group.name=`V88_Traffic_${i}`;
   function part(g,m,s,p){
    const mesh=new THREE.Mesh(g,m);mesh.scale.set(...s);mesh.position.set(...p);group.add(mesh);return mesh;
   }
   const individualPaint=material(new THREE.MeshStandardMaterial({color:0xe4bc39,metalness:.38,roughness:.4}));
-  const chassis=part(boxG,individualPaint,[1.7,.46,3.6],[0,.57,0]);
-  const roof=part(boxG,glassMat,[1.29,.55,1.8],[0,1.0,-.12]);
+  const chassis=part(trafficBody,individualPaint,[1,1,1],[0,0,0]);chassis.name='traffic-body';
+  const roof=part(trafficCabin,glassMat,[1,1,1],[0,0,0]);roof.name='traffic-glass';
+  part(boxG,individualPaint,[.94,.035,.98],[0,1.2575,-.09]).name='traffic-roof-cap';
+  part(boxG,trafficTrim,[1.48,.23,.04],[0,.64,1.805]).name='traffic-rear-trim';
+  part(boxG,plateMat,[.28,.10,.015],[0,.59,1.84]).name='traffic-plate';
   for(const side of [-1,1]){
-   part(boxG,tyreMat,[.24,.64,.72],[side*.88,.36,-1.1]);
-   part(boxG,tyreMat,[.24,.64,.72],[side*.88,.36,1.1]);
+   for(const z of [-1.1,1.1]){const wheel=part(trafficTyre,tyreMat,[1,1,1],[side*.88,.36,z]);wheel.rotation.z=Math.PI/2;wheel.name='traffic-wheel';}
    part(boxG,rearMat,[.4,.12,.09],[side*.55,.65,1.82]);
   }
   group.visible=false;scene.add(group);trafficMeshes.push({group,chassis,roof,lastColor:null});

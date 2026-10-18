@@ -54,8 +54,8 @@ const d=JSON.parse(game.run(`(()=>{
     afterResetAttempt,afterNewRoute,noEarn,version:COMPETITION.version,
     bestKey:bestRecordKey(),arcadeKey:arcadeBoardKey()});
 })()`));
-assert.equal(d.version,'87.0','non-scoring coach must preserve leaderboard version');
-assert(d.bestKey.endsWith(':87.0')&&d.arcadeKey.endsWith(':87.0'));
+assert.equal(d.version,'88.0','non-scoring coach must preserve leaderboard version');
+assert(d.bestKey.endsWith(':88.0')&&d.arcadeKey.endsWith(':88.0'));
 assert.equal(d.first.live.visible,true);
 assert(d.first.live.text.includes('首次過彎建立基準'));
 assert.deepEqual(d.first.report,{key:'1A:1:5',entry:190,exit:175,delta:null,best:175,target:null,goalMet:null});

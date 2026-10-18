@@ -60,7 +60,7 @@ async function main(){
   const stats=await run('({frames:v76Clip.frames.length,recording:v76Recording,route:v76Clip.route,mode:v76Clip.mode,summary:v76Clip.summary,rules:COMPETITION.version})');
   assert(stats.frames>=70,'needs actual recorded physics frames');
   assert.equal(stats.route,'4D');assert.equal(stats.mode,'v69');
-  assert.equal(stats.rules,'87.0');assert.equal(stats.recording,true);
+  assert.equal(stats.rules,'88.0');assert.equal(stats.recording,true);
   await page.locator('#v56-full-3d-canvas').screenshot({path:path.join(output,'v76-recorder-webgl.png')});
   await page.screenshot({path:path.join(output,'v76-recorder-desktop.png')});
   await page.locator('#v76-rec-toggle').click();
