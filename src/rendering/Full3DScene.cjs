@@ -8,6 +8,7 @@ const {createTaipeiLandmarks}=require('./TaipeiLandmarks.cjs');
 const {createRaceEnvironment}=require('./RaceEnvironment.cjs');
 const {createRaceWayfinding}=require('./RaceWayfinding.cjs');
 const {inLandmarkVista}=require('./ScenicVisibility.cjs');
+const {createRoadSurfaceTextures}=require('./RoadSurface.cjs');
 
 // Full WebGL road/world renderer. This is intentionally NOT a Canvas overlay.
 // World coordinates: +X right, +Y up, -Z forward. Camera is behind the car (+Z).
@@ -80,18 +81,6 @@ function createFacadeTexture(THREE){
  const texture=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);
  texture.encoding=THREE.sRGBEncoding;texture.needsUpdate=true;return texture;
 }
-// Small, deterministic sRGB aggregate texture. Lighting remains active, but the
-// asphalt's albedo is charcoal instead of a bright linear RGB paint color.
-function createAsphaltTexture(THREE){
- const size=64,data=new Uint8Array(size*size*4);
- for(let y=0;y<size;y++)for(let x=0;x<size;x++){
-  const grain=Math.floor(hash(y*size+x+591)*17),v=43+grain,k=(y*size+x)*4;
-  data[k]=v;data[k+1]=v+2;data[k+2]=v+4;data[k+3]=255;
- }
- const texture=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);
- texture.encoding=THREE.sRGBEncoding;texture.wrapS=texture.wrapT=THREE.RepeatWrapping;
- texture.magFilter=THREE.LinearFilter;texture.minFilter=THREE.LinearMipmapLinearFilter;texture.generateMipmaps=true;texture.needsUpdate=true;return texture;
-}
 function createSignTexture(THREE,text,color,doc){
  if(!doc?.createElement)return null;
  const c=doc.createElement('canvas');c.width=128;c.height=512;
@@ -126,10 +115,10 @@ function createFull3DScene(THREE,canvas) {
  renderer.toneMapping=THREE.ACESFilmicToneMapping;
  renderer.toneMappingExposure=1.0;
  let lastW=0,lastH=0,lastDpr=0;
- const asphaltTexture=createAsphaltTexture(THREE);textures.push(asphaltTexture);
+ const surfaces=createRoadSurfaceTextures(THREE);textures.push(...Object.values(surfaces));
  const roadMaterials=[
-  material(new THREE.MeshStandardMaterial({color:0xffffff,map:asphaltTexture,roughness:.98,metalness:0,side:THREE.DoubleSide})),
-  material(new THREE.MeshStandardMaterial({color:0x59616b,roughness:1,side:THREE.DoubleSide})),
+  material(new THREE.MeshStandardMaterial({color:0xffffff,map:surfaces.asphalt_color,roughnessMap:surfaces.asphalt_rough,normalMap:surfaces.asphalt_normal,normalScale:new THREE.Vector2(.28,.28),roughness:1,metalness:0,side:THREE.DoubleSide})),
+  material(new THREE.MeshStandardMaterial({color:0xffffff,map:surfaces.pavement_color,roughnessMap:surfaces.pavement_rough,normalMap:surfaces.pavement_normal,normalScale:new THREE.Vector2(.22,.22),roughness:1,metalness:0,side:THREE.DoubleSide})),
   material(new THREE.MeshBasicMaterial({color:0xecefe6,side:THREE.DoubleSide})),
   material(new THREE.MeshBasicMaterial({color:0x2ad9e7,side:THREE.DoubleSide}))
  ];
@@ -151,7 +140,7 @@ function createFull3DScene(THREE,canvas) {
   const r={mesh:m,positions:arr,used:0,attr,uvAttr};
   roads.push(r);return r;
  }
- roadMaterials.map(ribbon);roads[0].mesh.name='V58_Asphalt';
+ roadMaterials.map(ribbon);roads[0].mesh.name='V58_Asphalt';roads[1].mesh.name='V80_Pavement';
  const push=(r,a,b,c,d)=>{
   if(r.used+18>r.positions.length)return;
   const v=r.positions,i=r.used;
@@ -263,12 +252,16 @@ function createFull3DScene(THREE,canvas) {
     const left=q.center-q.half,right=q.center+q.half;
     const lf=n.center-n.half,rt=n.center+n.half;
     const w=HALF_WIDTH;
-    push(roads[1],point(here,(left-.09)*w,.015),point(here,(right+.09)*w,.015),point(there,(rt+.09)*w,.015),point(there,(lf-.09)*w,.015));
     const absolute=(Math.floor(frame.segment)||0)+i;
+    push(roads[1],point(here,(left-.09)*w,.015,absolute),point(here,(right+.09)*w,.015,absolute),point(there,(rt+.09)*w,.015,absolute+1),point(there,(lf-.09)*w,.015,absolute+1));
     push(roads[0],point(here,left*w,.028,absolute),point(here,right*w,.028,absolute),point(there,rt*w,.028,absolute+1),point(there,lf*w,.028,absolute+1));
     // painted white outside borders and neon-reflective curb piping
     for(const side of [-1,1]){
      const a=(side<0?left:right)*w,b=(side<0?lf:rt)*w;
+     // Grounded urban paving only. Never bridge a fork, water or elevated deck.
+     if(frame.archetype==='urban'&&lanes.length===1&&next.length===1){
+      push(roads[1],point(here,a+side*.24,.06,absolute),point(here,a+side*2.0,.06,absolute),point(there,b+side*2.0,.06,absolute+1),point(there,b+side*.24,.06,absolute+1));
+     }
      push(roads[2],point(here,a-.06,.04),point(here,a+.06,.04),point(there,b+.06,.04),point(there,b-.06,.04));
      push(roads[3],point(here,a+side*.12,.045),point(here,a+side*.18,.045),point(there,b+side*.18,.045),point(there,b+side*.12,.045));
     }
