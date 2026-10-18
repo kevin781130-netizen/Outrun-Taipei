@@ -23,6 +23,7 @@ namespace TaipeiDrive.Editor
         [Serializable] public class Sign { public string id, text, subtitle; public float[] size, position; }
         [Serializable] public class Style { public string style; public Palette[] palette; public Box[] nearBoxes, farBoxes; public Sign[] signs; }
         [Serializable] public class Styles { public Style[] styles; }
+        [Serializable] public class BuildReceipt { public string result, commit, unityVersion; }
 
         private static Vector3 V(float[] a) => new Vector3(a[0], a[1], a[2]);
         private static T Read<T>(string file) => JsonUtility.FromJson<T>(File.ReadAllText(Source + file));
@@ -239,11 +240,38 @@ namespace TaipeiDrive.Editor
         [MenuItem("Taipei Drive/Build sunset slice for WebGL")]
         public static void BuildWebGL()
         {
+            string project = Path.GetDirectoryName(Application.dataPath);
+            string versionFile = File.ReadAllText(Path.Combine(project, "ProjectSettings/ProjectVersion.txt"));
+            string expected = System.Text.RegularExpressions.Regex.Match(versionFile, @"m_EditorVersion:\s*(\S+)").Groups[1].Value;
+            if (Application.unityVersion != expected)
+                throw new InvalidOperationException("Expected Unity " + expected + "; actual " + Application.unityVersion);
+            if (!BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.WebGL, BuildTarget.WebGL))
+                throw new InvalidOperationException("Install WebGL Build Support for this Unity Editor.");
+            foreach (string style in new[] { "mixed", "metal", "brick" })
+            foreach (string sign in new[] { "main", "vertical" })
+                if (!File.Exists(Source + style + "_" + sign + ".png"))
+                    throw new InvalidOperationException("Bake all six CJK sign textures before building: tools/export-unity-signs.py");
+            string buildRoot = Path.GetFullPath(Path.Combine(project, "Builds"));
+            string output = Path.GetFullPath(Argument("-taipeiOutput",
+                Path.Combine(buildRoot, "ArtSlice-" + DateTime.UtcNow.ToString("yyyyMMddTHHmmssfffffffZ"))));
+            if (!output.StartsWith(buildRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Art study output must be inside this Unity project's Builds directory.");
+            Directory.CreateDirectory(output);
+            string receipt = Path.Combine(output, "unity-build-receipt.json");
+            if (File.Exists(receipt)) File.Delete(receipt);
             Generate();
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions {
-                scenes = new[] { ScenePath }, locationPathName = "Builds/WebGL-ArtSlice", target = BuildTarget.WebGL,
+                scenes = new[] { ScenePath }, locationPathName = output, target = BuildTarget.WebGL,
                 options = BuildOptions.Development });
             if (report.summary.result != BuildResult.Succeeded) throw new Exception("WebGL build failed: " + report.summary.result);
+            File.WriteAllText(receipt, JsonUtility.ToJson(new BuildReceipt {
+                result = "Succeeded", commit = Argument("-taipeiCommit", "unknown"), unityVersion = Application.unityVersion }, true));
+        }
+        private static string Argument(string key, string fallback)
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length - 1; i++) if (args[i] == key) return args[i + 1];
+            return fallback;
         }
     }
 }
