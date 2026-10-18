@@ -63,9 +63,9 @@ const data=JSON.parse(game.run(`(()=>{
     cleared,measured,samples,pausedSamples,notPaused,afterControls,
     competitive,sprint,restored,rejectedWhenClosed,invalid,reset});
 })()`));
-assert.deepEqual(data.original,{rules:'82.0',key:data.original.key,
+assert.deepEqual(data.original,{rules:'84.0',key:data.original.key,
   hidden:true,lab:false,usingV69:true});
-assert(data.original.key.endsWith(':82.0'));
+assert(data.original.key.endsWith(':84.0'));
 assert.equal(data.open,true);
 assert.deepEqual(data.visible,{hidden:false,aria:'true',mode:'V69 SETTLE ON'});
 assert.equal(data.v68Allowed,true);
@@ -94,5 +94,5 @@ assert.deepEqual(data.restored,{closed:false,hidden:true,mode:'v69',
 assert.equal(data.rejectedWhenClosed,false);
 assert.equal(data.invalid,false);
 assert.equal(data.reset.v68,0);assert.equal(data.reset.v69,0);
-assert.equal(data.reset.rules,'82.0');
+assert.equal(data.reset.rules,'84.0');
 console.log('V70: controlled V68/V69 physics A/B, cruise-only UI, 20Hz metrics, pause, ranking, closure reset and input isolation passed');

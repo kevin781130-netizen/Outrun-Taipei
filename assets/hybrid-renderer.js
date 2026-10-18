@@ -1225,7 +1225,7 @@ function createFull3DScene(THREE,canvas) {
  const chaseRig=createChaseRig();
  const effects=createDrivingEffects(THREE);scene.add(camera);
  const contactShadow=new THREE.Mesh(geometry(new THREE.CircleGeometry(1,24)),material(new THREE.MeshBasicMaterial({color:0x071016,transparent:true,opacity:.28,depthWrite:false})));
- contactShadow.name='V58_ContactShadow';contactShadow.rotation.x=-Math.PI/2;contactShadow.scale.set(1.12,1.95,1);scene.add(contactShadow);
+ contactShadow.name='V58_ContactShadow';contactShadow.rotation.x=-Math.PI/2;contactShadow.scale.set(1.12*.97,1.95*.97,1);scene.add(contactShadow);
  const gripFrame=createDrivingVisualSnapshot();
  let lastCarColor='',renderRandomSeed=0x6f34ac19;
  function with3DOnlyRandom(callback){
@@ -1449,7 +1449,7 @@ function createFull3DScene(THREE,canvas) {
   const roadPose=roadVehiclePose(points,frame);
   car.root.rotation.set(roadPose.pitch,roadPose.yaw,0);
   car.root.position.set(driftRig.offsetX,.02,PLAYER_Z);
-  car.root.scale.set(.92,.83,.92);
+  car.root.scale.set(.92*.97,.83*.97,.92*.97); // V84: 3% smaller visual model only.
   contactShadow.position.set(driftRig.offsetX,.049,PLAYER_Z);
   contactShadow.rotation.set(-Math.PI/2+roadPose.pitch,0,roadPose.yaw+pose.yawRad);
   // Camera sits behind +Z and looks down -Z: the rear (taillights +Z)

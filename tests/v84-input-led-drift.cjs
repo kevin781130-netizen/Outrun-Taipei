@@ -1,19 +1,21 @@
 'use strict';
 const assert=require('node:assert/strict'),path=require('node:path');
 const {load}=require('./canvas-harness.cjs');
+const legacyFactory=require('./fixtures/v82-motion.cjs');
 const game=load(path.join(__dirname,'../index.html'));
 const out=JSON.parse(game.run(`(()=>{
- const gain=v82DriftTurnGain;
- function run(side,kmh,bend,command,legacy=false,dt=1/60){
+ const motion=stepArcadeMotion;
+ const legacyMotion=(${legacyFactory.toString()})();
+ function run(side,kmh,bend,command,legacy=false,dt=1/60,seconds=.8){
   v34Mode='cruise';selectedRoute=routeForId('1A');resetGame();
   gameStarted=true;raceActive=true;paused=false;gameOver=false;inRadioScreen=false;
   traffic=[];timeLeft=9999;collisionCooldown=100;
   playerX=0;playerZ=180*SEGMENT_LENGTH;speed=kmh;currentGear='HIGH';
   driveGear='D';motionDirection=1;roadGrip=1;
   for(const seg of segments)seg.curve=side*bend;
-  v82DriftTurnGain=legacy?()=>1:gain;
+  stepArcadeMotion=legacy?legacyMotion:motion;
   const rows=[];
-  try{for(let i=0;i<Math.round(.8/dt);i++){
+  try{for(let i=0;i<Math.round(seconds/dt);i++){
    keys.KeyW=true;keys.KeyS=false;keys.ShiftLeft=i===0;
    keys.ArrowRight=side>0;keys.ArrowLeft=side<0;
    // Analogue input uses the same steering smoothing and update path.
@@ -22,7 +24,7 @@ const out=JSON.parse(game.run(`(()=>{
    update(dt);
    rows.push({x:playerX,lv:lateralVelocity,yaw:driftAngle,slip:slipAngle,
     state:driftState,speed,nitro,stock:nitroStock});
-  }}finally{v82DriftTurnGain=gain;gamepadInput.steer=0;}
+  }}finally{stepArcadeMotion=motion;gamepadInput.steer=0;}
   return rows;
  }
  const cases=[];
@@ -30,32 +32,45 @@ const out=JSON.parse(game.run(`(()=>{
   cases.push({speed,bend,command,before:run(1,speed,bend,command,true),
     after:run(1,speed,bend,command),left:run(-1,speed,bend,command)});
  }
- const gains=[];isDrifting=true;driftState='drift';
- for(const age of [0,.07,.14,.28,1]){driftAge=age;gains.push(gain());}
- driftState='recover';const recovery=gain();isDrifting=false;const grip=gain();
+ const commands=[];speed=180;isDrifting=true;driftDirection=1;
+ for(const state of ['entry','drift','recover'])for(const age of [0,.14,.28,1]){
+  driftState=state;driftAge=age;
+  commands.push({state,age,neutral:v84DriftCommand(0,.4),inward:v84DriftCommand(1,.4),counter:v84DriftCommand(-1,.4)});
+ }
  // Compare direct steady-state equations at identical state, isolating opposing input.
  const direct=[];
  for(const side of [-1,1])for(const command of [-1,0,1])for(const state of ['drift','recover','grip']){
   const step=legacy=>{resetGame();playerX=0;playerZ=180*SEGMENT_LENGTH;
    speed=180;roadGrip=1;isDrifting=state!=='grip';driftState=state;driftDirection=side;
    driftAge=1;driftAngle=side*28;slipAngle=side*12;steer=side*command;lateralVelocity=0;
-   v82DriftTurnGain=legacy?()=>1:gain;
+   stepArcadeMotion=legacy?legacyMotion:motion;
    stepArcadeMotion(1/60,side*1.2,true,false);
    return {x:playerX,lv:lateralVelocity,speed,nitro};};
   direct.push({side,command,state,before:step(true),after:step(false)});
  }
- v82DriftTurnGain=gain;
+ stepArcadeMotion=motion;
+ const probes=[];
+ for(const side of [-1,1])for(const state of ['drift','recover'])for(const yaw of [10,40]){
+  resetGame();speed=180;roadGrip=1;isDrifting=true;driftState=state;driftDirection=side;
+  driftAge=1;driftAngle=side*yaw;slipAngle=side*12;steer=side;playerX=0;
+  playerZ=180*SEGMENT_LENGTH;lateralVelocity=-side*.6;
+  stepArcadeMotion(1/60,side*1.2,true,false);
+  probes.push({side,state,yaw,lv:lateralVelocity});
+ }
+ const sustained=run(1,180,1.2,1,false,1/60,2);
  const rates=[30,60,120].map(hz=>({hz,rows:run(1,180,1.2,1,false,1/hz)}));
- return JSON.stringify({cases,gains,recovery,grip,direct,rates,version:COMPETITION.version,
+ return JSON.stringify({cases,commands,direct,probes,sustained,rates,version:COMPETITION.version,
   record:bestRecordKey(),board:arcadeBoardKey()});
 })()`));
-assert.equal(out.version,'82.0');
-assert(out.record.endsWith(':82.0')&&out.board.endsWith(':82.0'));
+assert.equal(out.version,'84.0');
+assert(out.record.endsWith(':84.0')&&out.board.endsWith(':84.0'));
 assert(!out.record.endsWith(':61.0'),'old records must remain separate');
-assert.equal(out.gains.at(-1),.68);
-assert(out.gains[0]>.4&&out.gains[0]<.5);
-assert(out.gains.every((g,i)=>i===0||g>=out.gains[i-1]));
-assert.equal(out.recovery,1);assert.equal(out.grip,1);
+for(const c of out.commands){
+ assert.equal(c.neutral,0,'yaw alone must not pull neutral drift toward the apex');
+ assert.equal(c.counter,-.4,'retain full opposing steering authority');
+ assert(c.inward>=.14&&c.inward<=.22+1e-12,'bounded inward target at 180 km/h');
+ if(c.state==='recover')assert(Math.abs(c.inward-.22)<1e-12,'no yaw-force rebound in recovery');
+}
 for(const c of out.cases){
  assert(c.after.some(r=>r.state==='drift'),'actual input replay must enter drift');
  for(let i=0;i<c.after.length;i++){
@@ -66,15 +81,21 @@ for(const c of out.cases){
   assert(Object.values(a).every(v=>typeof v!=='number'||Number.isFinite(v)));
  }
  const ratio=c.after.at(-1).x/c.before.at(-1).x;
- assert(ratio>.4&&ratio<.8,'inward displacement must decrease without reversing: '+ratio);
+ assert(ratio>.03&&ratio<.8,'inward displacement must decrease without reversing: '+ratio);
 }
 for(const c of out.direct){
- if(c.state!=='drift')assert.deepEqual(c.after,c.before,'grip/recovery unchanged');
- else if(c.command===-1)assert(c.after.lv*c.side<c.before.lv*c.side,
-  'countersteer retains full opposing authority while inward yaw is reduced');
+ if(c.state==='grip')assert.deepEqual(c.after,c.before,'grip unchanged');
+ else assert(c.after.lv*c.side<c.before.lv*c.side,'reduce inward pull through drift and recovery');
+ if(c.state!=='grip'&&c.command===0)assert(c.after.lv*c.side<=0,'neutral applies only road outward push');
 }
+for(let i=0;i<out.probes.length;i+=2){
+ const a=out.probes[i],b=out.probes[i+1];
+ assert(a.lv*a.side<0,'entry must preserve outward inertia on the first step');
+ assert.equal(a.lv,b.lv,'chassis yaw must not independently steer the trajectory');
+}
+assert(out.sustained.every(r=>r.x<.5&&r.x>=0),'two-second reference corner retains room for driver correction');
 const endpoints=out.rates.map(r=>r.rows.at(-1).x);
 assert(Math.max(...endpoints)-Math.min(...endpoints)<.025,'30/60/120Hz trajectory stays close');
 const sample=out.cases.find(c=>c.speed===180&&c.bend===1.2&&c.command===1);
-console.log('V82: 18 input replay pairs, mirrored turns, preserved yaw/slip/speed/nitro, full countersteer, unchanged grip/recovery and 30/60/120 Hz passed');
-console.log(JSON.stringify({sample:{speed:180,curve:1.2,seconds:.8,beforeX:sample.before.at(-1).x,afterX:sample.after.at(-1).x},gains:out.gains,endpoints}));
+console.log('V84: 18 historical V82 replay pairs, mirrored turns, preserved yaw/slip/speed/nitro, full countersteer, neutral/recovery force correction, unchanged grip and 30/60/120 Hz passed');
+console.log(JSON.stringify({sample:{speed:180,curve:1.2,seconds:.8,beforeX:sample.before.at(-1).x,afterX:sample.after.at(-1).x},twoSecondX:out.sustained.at(-1).x,endpoints}));

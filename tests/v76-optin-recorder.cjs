@@ -69,5 +69,5 @@ assert.deepEqual(result.capped,{length:5400,reason:'limit-90s',recording:false})
 assert.equal(result.startAgain,true);
 assert.deepEqual(result.interrupted,{reason:'session-interrupted',recording:false});
 assert.equal(result.arcadeDenied,false);
-assert.equal(result.rules,'82.0');
+assert.equal(result.rules,'84.0');
 console.log('V76: recording requires consent, 60Hz bounded samples, model separation, 90s cap, pause, clear, competitive isolation passed');
