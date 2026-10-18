@@ -54,8 +54,8 @@ const result=JSON.parse(game.run(`(()=>{
     before,afterPhysics,invalid,unchanged,timeout,fresh,freshOpposite,
     beforeStage,afterStage,afterStageFirst,afterStageSecond,afterCrash,reset});
 })()`));
-assert.equal(result.version,'88.0');
-assert(result.board.endsWith(':88.0'),'new scoring rules isolated from V62');
+assert.equal(result.version,'90.0');
+assert(result.board.endsWith(':90.0'),'new scoring rules isolated from V62');
 assert.equal(result.right.apex.direction,1);
 assert.equal(result.right.flow.chain,1);
 assert.equal(result.right.streak,0);
