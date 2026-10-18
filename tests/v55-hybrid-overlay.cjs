@@ -22,7 +22,7 @@ class Node {
  lookAt(){/* camera pose not relevant to structural test */}
 }
 class Group extends Node{}
-class Geometry{dispose(){this.disposed=true;}}
+class Geometry{setAttribute(){return this;}computeVertexNormals(){}dispose(){this.disposed=true;}}
 class Material{constructor(opts){Object.assign(this,opts);}dispose(){this.disposed=true;}}
 class Mesh extends Node{constructor(g,m){super();this.geometry=g;this.material=m;}}
 class Renderer {
@@ -34,6 +34,7 @@ class Renderer {
  dispose(){this.disposed=true;}
 }
 const THREE={
+ BufferGeometry:Geometry,Float32BufferAttribute:class{constructor(v,n){this.array=v;this.itemSize=n;}},DataTexture:Material,
  Scene:Group,Group,Mesh,WebGLRenderer:Renderer,OrthographicCamera:Group,
  HemisphereLight:Group,DirectionalLight:Group,BoxGeometry:Geometry,CylinderGeometry:Geometry,
  ConeGeometry:Geometry,PlaneGeometry:Geometry,MeshPhysicalMaterial:Material,

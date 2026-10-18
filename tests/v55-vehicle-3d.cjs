@@ -27,6 +27,8 @@ class Node {
 class Group extends Node {}
 class Geometry {
   constructor(...args){this.args=args;this.disposeCount=0;registry.geometry.push(this);}
+  setAttribute(){return this;}
+  computeVertexNormals(){}
   dispose(){this.disposeCount++;}
 }
 class Material {
@@ -38,6 +40,7 @@ class Mesh extends Node {
 }
 const THREE = {
   Group, Mesh,
+  BufferGeometry:Geometry,Float32BufferAttribute:class{constructor(v,n){this.array=v;this.itemSize=n;}},DataTexture:Material,
   BoxGeometry:Geometry, CylinderGeometry:Geometry,
   ConeGeometry:Geometry, PlaneGeometry:Geometry,
   MeshStandardMaterial:Material, MeshBasicMaterial:Material, MeshPhysicalMaterial:Material,
@@ -53,7 +56,7 @@ assert.equal(car.parts.steeringPivots.length, 2);
 assert.equal(car.parts.wheelSpinners.length, 4);
 assert.equal(car.parts.exhaustFlames.length, 2);
 assert.ok(registry.mesh.length >= 30, 'assembled detailed low-poly car');
-assert.ok(registry.geometry.length <= 5, 'shared primitive geometries');
+assert.ok(registry.geometry.length <= 9, 'shared primitives plus four authored shapes');
 
 const names = [];
 car.root.traverse(node=>names.push(node.name));
