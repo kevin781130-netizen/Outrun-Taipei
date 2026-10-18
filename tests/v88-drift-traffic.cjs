@@ -3,7 +3,9 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const {load}=require('./canvas-harness.cjs');
 const game=load(path.join(__dirname,'../index.html'));
 const data=JSON.parse(game.run(`(()=>{
- const gain=v88DriftAuthorityGain;
+ const gain=v88DriftAuthorityGain,modern=v90DriftCommand;
+ // Keep this historical V88 gain-isolation regression; V90 has its own old/new replay.
+ v90DriftCommand=v84DriftCommand;
  function run(side,kmh,hz,old=false,grip=false){
   v34Mode='cruise';selectedRoute=routeForId('1A');resetGame();
   gameStarted=true;raceActive=true;paused=false;gameOver=false;inRadioScreen=false;
@@ -26,6 +28,7 @@ const data=JSON.parse(game.run(`(()=>{
  speed=180;isDrifting=true;driftAge=1;driftDirection=1;driftState='drift';
  const neutral=v84DriftCommand(0,.4),counter=v84DriftCommand(-1,.4),active=v84DriftCommand(1,.4);
  driftState='recover';const recovery=v84DriftCommand(1,.4);
+ v90DriftCommand=modern;
  return JSON.stringify({cases,gripBefore,gripAfter,neutral,counter,active,recovery});
 })()`));
 assert.deepEqual(data.gripAfter,data.gripBefore);

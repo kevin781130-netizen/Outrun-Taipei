@@ -62,8 +62,8 @@ const out=JSON.parse(game.run(`(()=>{
  return JSON.stringify({cases,commands,direct,probes,sustained,rates,version:COMPETITION.version,
   record:bestRecordKey(),board:arcadeBoardKey()});
 })()`));
-assert.equal(out.version,'88.0');
-assert(out.record.endsWith(':88.0')&&out.board.endsWith(':88.0'));
+assert.equal(out.version,'90.0');
+assert(out.record.endsWith(':90.0')&&out.board.endsWith(':90.0'));
 assert(!out.record.endsWith(':61.0'),'old records must remain separate');
 for(const c of out.commands){
  assert.equal(c.neutral,0,'yaw alone must not pull neutral drift toward the apex');
@@ -92,7 +92,8 @@ for(const c of out.direct){
 for(let i=0;i<out.probes.length;i+=2){
  const a=out.probes[i],b=out.probes[i+1];
  assert(a.lv*a.side<0,'entry must preserve outward inertia on the first step');
- assert.equal(a.lv,b.lv,'chassis yaw must not independently steer the trajectory');
+ if(a.state==='recover')assert.equal(a.lv,b.lv,'recovery retains no heading assistance');
+  else assert(Math.abs(a.lv-b.lv)<.004,'V90 heading aid remains a small bounded correction');
 }
 assert(out.sustained.every(r=>r.x<.5&&r.x>=0),'two-second reference corner retains room for driver correction');
 const endpoints=out.rates.map(r=>r.rows.at(-1).x);

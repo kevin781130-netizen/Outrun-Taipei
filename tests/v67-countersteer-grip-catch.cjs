@@ -60,8 +60,8 @@ const result=JSON.parse(game.run(`(()=>{
     first,afterOne,caught,retained,noRepeat,mirrorRemoved,mirrorVelocity,
     conditions,pauseRemoved,pauseBefore,pauseAfter,integrated,baseline,stage,reset});
 })()`));
-assert.equal(result.rules,'88.0','new handling must isolate old race records');
-assert(result.board.endsWith(':88.0'));
+assert.equal(result.rules,'90.0','new handling must isolate old race records');
+assert(result.board.endsWith(':90.0'));
 assert(result.first>0&&result.first<.08,'countersteering catches but never teleports lateral motion');
 assert(result.afterOne>0&&result.afterOne<.8,'preserve physical momentum sign');
 assert.equal(result.caught.count,1);
