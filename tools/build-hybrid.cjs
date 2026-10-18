@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
-const files = ['VehiclePoseBridge.cjs', 'Vehicle3D.cjs', 'HybridOverlay.cjs', 'DrivingVisualSnapshot.cjs', 'DriftVisualRig.cjs', 'DrivingEffects.cjs', 'ScenicVisibility.cjs', 'TaipeiLandmarks.cjs', 'RaceEnvironment.cjs', 'RaceWayfinding.cjs', 'RoadSurface.cjs', 'Full3DScene.cjs'];
+const files = ['VehiclePoseBridge.cjs', 'Vehicle3D.cjs', 'HybridOverlay.cjs', 'DrivingVisualSnapshot.cjs', 'DriftVisualRig.cjs', 'DrivingEffects.cjs', 'ScenicVisibility.cjs', 'TaipeiLandmarks.cjs', 'RaceEnvironment.cjs', 'RaceWayfinding.cjs', 'RoadSurface.cjs', 'EnvironmentLighting.cjs', 'Full3DScene.cjs'];
 function bundle() {
   const source = files.map(name => {
     const code = fs.readFileSync(path.join(root, 'src/rendering', name), 'utf8');

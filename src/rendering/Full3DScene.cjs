@@ -9,6 +9,7 @@ const {createRaceEnvironment}=require('./RaceEnvironment.cjs');
 const {createRaceWayfinding}=require('./RaceWayfinding.cjs');
 const {inLandmarkVista}=require('./ScenicVisibility.cjs');
 const {createRoadSurfaceTextures}=require('./RoadSurface.cjs');
+const {createEnvironmentLighting}=require('./EnvironmentLighting.cjs');
 
 // Full WebGL road/world renderer. This is intentionally NOT a Canvas overlay.
 // World coordinates: +X right, +Y up, -Z forward. Camera is behind the car (+Z).
@@ -105,8 +106,10 @@ function createFull3DScene(THREE,canvas) {
  const camera=new THREE.PerspectiveCamera(66,16/9,.12,490);
  camera.position.set(0,3.6,10.4);
  camera.lookAt(0,1.0,-18);
- scene.add(new THREE.HemisphereLight(0xcce9ff,0x44516a,.9));
- const sunlight=new THREE.DirectionalLight(0xffe6bf,1.25);
+ const hemisphere=new THREE.HemisphereLight(0xcce9ff,0x44516a,.9);
+ hemisphere.name='V85_SkyFill';scene.add(hemisphere);
+ const lighting=createEnvironmentLighting(THREE);
+ const sunlight=new THREE.DirectionalLight(0xffe6bf,1.25);sunlight.name='V85_KeyLight';
  sunlight.position.set(-36,80,-65);scene.add(sunlight);
  const renderer=new THREE.WebGLRenderer({canvas,alpha:false,antialias:true,powerPreference:'high-performance'});
  renderer.setPixelRatio(1);
@@ -439,6 +442,13 @@ function createFull3DScene(THREE,canvas) {
   skyMaterial.uniforms.horizon.value.set(frame.skyColors?.[2]||(frame.night?'#344861':'#f4ae78'));
   sun.visible=!frame.night;sun.position.set(camera.position.x-110,camera.position.y+40,camera.position.z-290);
   sunlight.color.setHex(frame.night?0x9dbbff:0xffc58e);
+  sunlight.intensity=frame.night?.28:1.35;
+  hemisphere.color.setHex(frame.night?0x718ebd:0xb6d5ef);
+  hemisphere.groundColor.setHex(frame.night?0x192335:0x50413c);
+  hemisphere.intensity=frame.night?.42:.62;
+  scene.environment=lighting.environment(!!frame.night,quality);
+  car.parts.paint.envMapIntensity=frame.night?.65:.85;
+  car.parts.glazing.envMapIntensity=frame.night?.5:.7;
   glassMat.emissiveIntensity=frame.night?.7:.12;
   scene.background.setHex(frame.night?0x10213b:0xf4ae78);
   scene.fog.color.setHex(frame.night?0x233b58:0xd69b82);
@@ -454,7 +464,7 @@ function createFull3DScene(THREE,canvas) {
   canvas.removeEventListener('webglcontextlost',lostHandler);
   canvas.removeEventListener('webglcontextrestored',restoredHandler);
   wayfinding.dispose();landmarks.dispose();environment.dispose();effects.dispose();car.dispose();for(const t of textures)t.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
-  renderer.dispose();
+  scene.environment=null;lighting.dispose();renderer.dispose();
  }
  return {render,dispose,prepareTrafficVisibility,get ready(){return ready&&!lost&&active},get contextLost(){return lost}};
 }
