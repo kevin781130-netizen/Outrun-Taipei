@@ -41,3 +41,9 @@ The complete npm test suite also covers existing scoring, recovery, replay,
 rendering geometry and asset constraints. Automated checks cannot establish the
 player's preferred feel. Cloud Chromium has WebGL disabled; public URL/build text
 verification is separate from GPU-rendered visual acceptance and FPS testing.
+
+## Superseded by V84
+
+The gain-only test was replaced by `tests/v84-input-led-drift.cjs`. The original
+V82/V83 motion is retained in `tests/fixtures/v82-motion.cjs` for actual historical
+comparisons. See `V84_Input_Led_Drift.md` for the input-led trajectory revision.

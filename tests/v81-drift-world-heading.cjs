@@ -17,6 +17,10 @@ for(const side of [-1,1])for(const curve of [side*1.5,0])for(const yaw of [8,28,
    lateralVelocity:-side*.5,yawDeg:side*yaw}};
  const saved=JSON.stringify(frame);
  world.render(frame,1/60);scene.updateMatrixWorld(true);
+ const scaled=scene.getObjectByName('V55_OriginalArcadeVehicle');
+ assert(Math.abs(scaled.scale.x/.92-.97)<1e-12&&Math.abs(scaled.scale.y/.83-.97)<1e-12&&Math.abs(scaled.scale.z/.92-.97)<1e-12,'V84 model is exactly 3% smaller on every axis');
+ const contact=scene.getObjectByName('V58_ContactShadow');
+ assert(Math.abs(contact.scale.x/1.12-.97)<1e-12&&Math.abs(contact.scale.y/1.95-.97)<1e-12,'road shadow follows the smaller model');
  const car=scene.getObjectByName('V55_OriginalArcadeVehicle');
  const nose=car.getObjectByName('nose').getWorldPosition(new T.Vector3());
  const tail=car.getObjectByName('trunk').getWorldPosition(new T.Vector3());
