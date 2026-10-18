@@ -456,7 +456,8 @@ module.exports = {createHybridOverlay, projectPresentation};
   },
   "./DrivingVisualSnapshot.cjs": function(require, module) {
 'use strict';
-// Reusable one-way physics -> renderer state. *Deg are degrees; +yaw points nose -X.
+// Reusable one-way gameplay -> renderer state. *Deg are degrees; +game yaw turns right.
+// Full3DScene converts that semantic sign to the -Z-facing mesh's local Y rotation.
 // lateralVelocity uses playerX units/s, not m/s. No write to source physics.
 const STATES=new Set(['grip','armed','brake','entry','drift','recover']);
 const NUMBERS=['driftAngleDeg','slipAngleDeg','lateralVelocity','roadGrip','cleanDriftTime','exitBoost','momentBoostWindow','driftCharge','yawDeg'];
@@ -1356,10 +1357,13 @@ function createFull3DScene(THREE,canvas) {
   }
   updateDrivingVisualSnapshot(driving,frame.driving||gripFrame);
   updateDriftVisualRig(driftRig,driving,Math.max(0,dt));
+  // Gameplay +yaw/+steer means nose right (+X). The mesh faces -Z, so a
+  // positive Three.js Y rotation points its nose LEFT. Convert once here;
+  // never flip lateral velocity, drift direction or the road frame to hide it.
   updateVehiclePose(pose,{
-   screenX:480,screenY:475,yawDeg:Number(frame.yawDeg)||0,
+   screenX:480,screenY:475,yawDeg:-(Number(frame.yawDeg)||0),
    rollDeg:Number(frame.rollDeg)||0,pitchDeg:Number(frame.pitchDeg)||0,
-   steer:Number(frame.steer)||0,speedKmh:Math.max(0,Number(frame.speedKmh)||0),
+   steer:-(Number(frame.steer)||0),speedKmh:Math.max(0,Number(frame.speedKmh)||0),
    scaleX:1,direction:frame.direction===-1?-1:1,
    braking:!!frame.braking,boosting:!!frame.boosting
   },Math.max(0,dt));
