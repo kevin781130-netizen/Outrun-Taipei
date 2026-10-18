@@ -1,5 +1,6 @@
 'use strict';
-// Reusable one-way physics -> renderer state. *Deg are degrees; +yaw points nose -X.
+// Reusable one-way gameplay -> renderer state. *Deg are degrees; +game yaw turns right.
+// Full3DScene converts that semantic sign to the -Z-facing mesh's local Y rotation.
 // lateralVelocity uses playerX units/s, not m/s. No write to source physics.
 const STATES=new Set(['grip','armed','brake','entry','drift','recover']);
 const NUMBERS=['driftAngleDeg','slipAngleDeg','lateralVelocity','roadGrip','cleanDriftTime','exitBoost','momentBoostWindow','driftCharge','yawDeg'];
