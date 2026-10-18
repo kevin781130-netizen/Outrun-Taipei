@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 import shutil
 import struct
+from PIL import Image
+from unity_art_materials import pack_standard
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'assets/third_party/quaternius-downtown'
@@ -77,9 +79,29 @@ def convert(path):
             image = g['textures'][texture['index']]['source']
             uri = g['images'][image]['uri']
             local_path(path.parent, uri)
+        mr = pbr.get('metallicRoughnessTexture')
+        ao = m.get('occlusionTexture')
+        def texture_uri(binding):
+            if binding is None: return ''
+            if binding.get('texCoord', 0) != 0 or binding.get('extensions'):
+                raise ValueError('Only untransformed primary UV textures supported')
+            uri = g['images'][g['textures'][binding['index']]['source']]['uri']
+            local_path(path.parent, uri)
+            return uri
+        texture_uri(texture)  # Validate the base-color UV set as well.
+        mr_uri, ao_uri = texture_uri(mr), texture_uri(ao)
+        signature = {'metallic': float(pbr.get('metallicFactor', 1)),
+                     'roughness': float(pbr.get('roughnessFactor', 1)),
+                     'strength': float(ao.get('strength', 1) if ao else 1),
+                     'mr': hashlib.sha256(local_path(path.parent, mr_uri).read_bytes()).hexdigest() if mr_uri else '',
+                     'ao': hashlib.sha256(local_path(path.parent, ao_uri).read_bytes()).hexdigest() if ao_uri else ''}
+        key = hashlib.sha256(json.dumps(signature, sort_keys=True).encode()).hexdigest()[:20]
         materials.append({'name': m['name'], 'color': pbr.get('baseColorFactor', [1, 1, 1, 1]),
                           'texture': uri, 'metallic': pbr.get('metallicFactor', 1),
                           'roughness': pbr.get('roughnessFactor', 1),
+                          'mrSource': mr_uri, 'aoSource': ao_uri,
+                          'aoStrength': ao.get('strength', 1) if ao else 1,
+                          'packedTexture': f'PBR_{key}_Mask.png' if mr or ao else '',
                           'transparent': m.get('alphaMode') == 'BLEND',
                           'doubleSided': m.get('doubleSided', False)})
     return {'name': path.stem, 'parts': parts, 'materials': materials}
@@ -88,6 +110,7 @@ def convert(path):
 def main():
     TARGET.mkdir(parents=True, exist_ok=True)
     provenance = []
+    packed_written = set()
     for name in MODELS:
         path = SOURCE / (name + '.gltf')
         model = convert(path)
@@ -95,12 +118,28 @@ def main():
         for m in model['materials']:
             if m['texture']:
                 shutil.copy2(local_path(SOURCE, m['texture']), TARGET / m['texture'])
+            if m['packedTexture'] and m['packedTexture'] not in packed_written:
+                # Preserve explicit glTF bindings; none of the current files binds AO.
+                with Image.open(local_path(SOURCE, m['mrSource'] or m['aoSource'])) as reference:
+                    mr = Image.open(local_path(SOURCE, m['mrSource'])) if m['mrSource'] else Image.new('RGB', reference.size, (255, 255, 255))
+                    ao = Image.open(local_path(SOURCE, m['aoSource'])) if m['aoSource'] else None
+                    try:
+                        packed = pack_standard(mr, m['metallic'], m['roughness'], ao, m['aoStrength'])
+                        packed.save(TARGET / m['packedTexture'])
+                        packed_written.add(m['packedTexture'])
+                    finally:
+                        mr.close()
+                        if ao is not None: ao.close()
         provenance.append({'name': name, 'source': str(path.relative_to(ROOT)),
                            'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+                           'dependencies': {file.name: hashlib.sha256(file.read_bytes()).hexdigest()
+                                            for file in sorted({local_path(SOURCE, uri) for material in model['materials']
+                                                               for uri in (material['texture'], material['mrSource'], material['aoSource']) if uri}
+                                                              | {local_path(SOURCE, b['uri']) for b in json.loads(path.read_text())['buffers']})},
                            'license': 'CC0-1.0'})
     shutil.copy2(SOURCE / 'QUATERNIUS_LICENSE.txt', TARGET / 'QUATERNIUS_LICENSE.txt')
     (TARGET / 'provenance.json').write_text(json.dumps({'models': provenance}, indent=2) + '\n')
-    print(f'Exported {len(MODELS)} CC0 model modules; base color + scalar PBR (ORM maps not converted).')
+    print(f'Exported {len(MODELS)} CC0 modules sharing {len(packed_written)} packed metallic/smoothness maps.')
 
 
 if __name__ == '__main__':

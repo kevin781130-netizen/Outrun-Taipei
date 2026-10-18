@@ -103,6 +103,7 @@ def run_build(editor, font, timeout=3600):
     log.parent.mkdir(parents=True, exist_ok=True)
     steps = [[shutil.which('node'), str(ROOT / 'tools/export-unity-streetfront.mjs')],
              [sys.executable, str(ROOT / 'tools/export-unity-models.py')],
+             [sys.executable, str(ROOT / 'tools/export-unity-surfaces.py')],
              [sys.executable, str(ROOT / 'tools/export-unity-signs.py'), '--font', str(font)]]
     for step in steps:
         subprocess.run(step, cwd=ROOT, check=True, timeout=120)

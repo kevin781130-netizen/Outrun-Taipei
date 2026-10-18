@@ -82,7 +82,7 @@ class BuildDriverTests(unittest.TestCase):
         failed = subprocess.CalledProcessError(1, ['Unity'])
         with mock.patch.object(driver, 'PROJECT', self.output), \
              mock.patch.object(driver.subprocess, 'check_output', return_value=self.commit), \
-             mock.patch.object(driver.subprocess, 'run', side_effect=[clean, clean, clean, clean, failed]):
+             mock.patch.object(driver.subprocess, 'run', side_effect=[clean, clean, clean, clean, clean, failed]):
             with self.assertRaises(subprocess.CalledProcessError):
                 driver.run_build(self.output / 'Unity.exe', self.output / 'font.ttf')
         self.assertEqual(list(self.output.rglob('build-provenance.json')), [])

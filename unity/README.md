@@ -41,6 +41,7 @@ From the repository root, with Node.js and Python 3.10+:
 ```sh
 node tools/export-unity-streetfront.mjs
 python tools/export-unity-models.py
+python tools/export-unity-surfaces.py
 ```
 
 Optional but required before judging finished signage: install Pillow and fontTools,
@@ -77,6 +78,13 @@ This does not publish or overwrite `GAME-TEST-LAB/outrun-taipei/`.
   RH/LH conversion, winding, UV orientation, source normals, material groups and
   transparent/double-sided surfaces are handled explicitly.
 - Textures and notices copied from the existing licensed source; no new downloads.
+- glTF metallic/roughness textures repacked to Unity Standard metallic (R),
+  smoothness (A), and explicit occlusion (G), imported as linear data. Texture factors
+  are applied during conversion. Identical masks share a content-derived filename
+  across models. An ORM filename alone does not enable ambient occlusion.
+- Original deterministic 512px asphalt and paving albedo/normal/mask maps, with
+  repeated metre-scale tiling instead of a single texture stretched over 800m.
+  Ground textures are generated offline and contain no baked directional shadows.
 - Near/far facade prefabs, LOD culling, shared instanced materials, metre-scale
   placement and a protected 16m carriageway, pavement, dashed lines, warm key light,
   distance fog, shadows and a stable 60-second reference camera.
@@ -89,9 +97,9 @@ PlayMode, WebGL build, performance and visual acceptance have NOT been run.**
 No new deployed visual URL exists. Existing canonical legacy URL remains:
 https://kevin781130-netizen.github.io/GAME-TEST-LAB/outrun-taipei/
 
-This first slice uses base-color textures and scalar metallic/roughness only;
-source vertex colors and secondary UV streams are not imported.
-ORM texture-channel conversion, textured asphalt, sky/environment reflections,
+Source vertex colors and secondary UV streams are not imported.
+Normal-map orientation and material appearance still need actual Unity verification.
+Sky/environment reflections,
 hero car, actual driving, collision and scoring migration remain future work.
 The three building variants are a controlled art benchmark, not a complete city.
 
@@ -113,3 +121,7 @@ Build-driver tests use synthetic files and subprocess stubs; they do not run Uni
 Third-party sources: `assets/third_party/quaternius-downtown/README.md` and
 `QUATERNIUS_LICENSE.txt`. Unity runtime code belongs to the repository's Apache-2.0
 license; imported Quaternius models remain CC0-1.0.
+
+Material channel references:
+https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#materials
+https://docs.unity3d.com/Manual/StandardShaderMaterialParameterMetallic.html

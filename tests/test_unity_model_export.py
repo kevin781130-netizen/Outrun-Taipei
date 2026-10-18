@@ -3,9 +3,11 @@ import importlib.util
 import json
 from pathlib import Path
 import struct
+import sys
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'tools'))
 spec = importlib.util.spec_from_file_location('exporter', ROOT / 'tools/export-unity-models.py')
 exporter = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(exporter)
@@ -52,6 +54,18 @@ class ModelExportTests(unittest.TestCase):
         for extra in ({'sparse': {}}, {'normalized': True}):
             with self.subTest(extra=extra), self.assertRaises(ValueError):
                 exporter.read_accessor({'accessors': [extra]}, [], 0)
+
+    def test_identical_material_masks_are_shared_across_models(self):
+        masks = {}
+        total = 0
+        for name in exporter.MODELS:
+            for material in exporter.convert(exporter.SOURCE / (name + '.gltf'))['materials']:
+                if material['packedTexture']:
+                    total += 1
+                    key = (material['mrSource'], material['aoSource'], material['metallic'], material['roughness'])
+                    masks.setdefault(key, set()).add(material['packedTexture'])
+        self.assertGreater(total, len(masks), 'fixture must exercise cross-model sharing')
+        self.assertTrue(all(len(values) == 1 for values in masks.values()))
 
 
 if __name__ == '__main__':

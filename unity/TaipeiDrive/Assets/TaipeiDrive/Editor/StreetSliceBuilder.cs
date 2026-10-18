@@ -17,7 +17,7 @@ namespace TaipeiDrive.Editor
         private const string ScenePath = Output + "TaipeiSunset.unity";
         [Serializable] public class Model { public string name; public Part[] parts; public Surface[] materials; }
         [Serializable] public class Part { public int material; public Vector3[] vertices, normals; public Vector2[] uv; public int[] triangles; }
-        [Serializable] public class Surface { public string name, texture; public float[] color; public float metallic, roughness; public bool transparent, doubleSided; }
+        [Serializable] public class Surface { public string name, texture, packedTexture; public float[] color; public float metallic, roughness; public bool transparent, doubleSided; }
         [Serializable] public class Palette { public string name, color; }
         [Serializable] public class Box { public string role, material; public float[] scale, position; }
         [Serializable] public class Sign { public string id, text, subtitle; public float[] size, position; }
@@ -46,6 +46,8 @@ namespace TaipeiDrive.Editor
 
             var asphalt = MakeMaterial("Road", new Color(.115f, .13f, .15f));
             var sidewalk = MakeMaterial("Pavement", new Color(.44f, .43f, .39f));
+            ApplyGroundSurface(asphalt, "Asphalt", new Vector2(8, 400), .35f);
+            ApplyGroundSurface(sidewalk, "Pavement", new Vector2(2.25f, 400), .25f);
             var paint = MakeMaterial("LanePaint", new Color(.83f, .79f, .62f));
             var road = new GameObject("Street - metre scale / protected 16m carriageway");
             Cube("Asphalt", road.transform, new Vector3(0, -.18f, 370), new Vector3(16, .3f, 800), asphalt);
@@ -111,7 +113,10 @@ namespace TaipeiDrive.Editor
                 var m = MakeMaterial(name + "_" + i, new Color(s.color[0], s.color[1], s.color[2], s.color[3]));
                 m.SetFloat("_Metallic", s.metallic);
                 m.SetFloat("_Glossiness", 1 - s.roughness);
-                if (!string.IsNullOrEmpty(s.texture)) m.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(Source + s.texture);
+                m.mainTexture = string.IsNullOrEmpty(s.texture) ? null : LoadTexture(s.texture, true);
+                m.SetTexture("_MetallicGlossMap", null); m.SetTexture("_OcclusionMap", null);
+                m.DisableKeyword("_METALLICGLOSSMAP");
+                if (!string.IsNullOrEmpty(s.packedTexture)) ApplyMask(m, LoadTexture(s.packedTexture, false));
                 // Standard is one-sided. Duplicate back faces for double-sided glTF parts below.
                 if (s.transparent)
                 {
@@ -124,6 +129,7 @@ namespace TaipeiDrive.Editor
                     m.renderQueue = 3000;
                 }
                 materials[i] = m;
+                EditorUtility.SetDirty(m);
             }
             for (int i = 0; i < data.parts.Length; i++)
             {
@@ -228,7 +234,48 @@ namespace TaipeiDrive.Editor
             if (m == null) { m = new Material(Shader.Find("Standard")); AssetDatabase.CreateAsset(m, path); }
             m.color = color; m.enableInstancing = true;
             m.SetFloat("_Glossiness", .15f);
+            EditorUtility.SetDirty(m);
             return m;
+        }
+        private static Texture2D LoadTexture(string file, bool srgb, bool normal = false)
+        {
+            string path = Source + file;
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null) throw new FileNotFoundException("Required material texture missing", path);
+            importer.textureType = normal ? TextureImporterType.NormalMap : TextureImporterType.Default;
+            importer.sRGBTexture = srgb;
+            importer.alphaSource = TextureImporterAlphaSource.FromInput;
+            importer.alphaIsTransparency = false;
+            importer.wrapMode = TextureWrapMode.Repeat;
+            importer.mipmapEnabled = true;
+            importer.maxTextureSize = 1024;
+            importer.textureCompression = srgb || normal ? TextureImporterCompression.Compressed : TextureImporterCompression.Uncompressed;
+            importer.SaveAndReimport();
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        }
+        private static void ApplyMask(Material material, Texture2D mask)
+        {
+            material.SetTexture("_MetallicGlossMap", mask);
+            material.EnableKeyword("_METALLICGLOSSMAP");
+            material.SetFloat("_GlossMapScale", 1);
+            material.SetFloat("_SmoothnessTextureChannel", 0);
+            material.DisableKeyword("_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A");
+            material.SetTexture("_OcclusionMap", mask);
+            material.SetFloat("_OcclusionStrength", 1);
+        }
+        private static void ApplyGroundSurface(Material material, string prefix, Vector2 repeats, float normalScale)
+        {
+            material.color = Color.white;
+            material.mainTexture = LoadTexture(prefix + "_BaseColor.png", true);
+            ApplyMask(material, LoadTexture(prefix + "_Mask.png", false));
+            material.SetTexture("_BumpMap", LoadTexture(prefix + "_Normal.png", false, true));
+            material.EnableKeyword("_NORMALMAP");
+            material.SetFloat("_BumpScale", normalScale);
+            material.mainTextureScale = repeats;
+            material.SetTextureScale("_MetallicGlossMap", repeats);
+            material.SetTextureScale("_OcclusionMap", repeats);
+            material.SetTextureScale("_BumpMap", repeats);
+            EditorUtility.SetDirty(material);
         }
         private static void Cube(string name, Transform parent, Vector3 position, Vector3 scale, Material material)
         {
