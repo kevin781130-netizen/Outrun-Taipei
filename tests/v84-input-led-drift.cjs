@@ -62,13 +62,14 @@ const out=JSON.parse(game.run(`(()=>{
  return JSON.stringify({cases,commands,direct,probes,sustained,rates,version:COMPETITION.version,
   record:bestRecordKey(),board:arcadeBoardKey()});
 })()`));
-assert.equal(out.version,'87.0');
-assert(out.record.endsWith(':87.0')&&out.board.endsWith(':87.0'));
+assert.equal(out.version,'88.0');
+assert(out.record.endsWith(':88.0')&&out.board.endsWith(':88.0'));
 assert(!out.record.endsWith(':61.0'),'old records must remain separate');
 for(const c of out.commands){
  assert.equal(c.neutral,0,'yaw alone must not pull neutral drift toward the apex');
  assert.equal(c.counter,-.4,'retain full opposing steering authority');
- assert(c.inward>=.14&&c.inward<=.22+1e-12,'bounded inward target at 180 km/h');
+ const ceiling=.22*(c.state==='recover'?1:1.08);
+ assert(c.inward>=.14&&c.inward<=ceiling+1e-12,'V88 bounded inward target at 180 km/h; recovery retains V84 ceiling');
  if(c.state==='recover')assert(Math.abs(c.inward-.22)<1e-12,'no yaw-force rebound in recovery');
 }
 for(const c of out.cases){

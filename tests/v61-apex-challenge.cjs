@@ -53,8 +53,8 @@ const result=JSON.parse(game.run(`(()=>{
     before,after,awards,prevScore,resetAwards:v61ApexAwards,
     version:COMPETITION.version,recordKey:bestRecordKey(),boardKey:arcadeBoardKey()});
 })()`));
-assert.equal(result.version,'87.0','scoring changes require separate records');
-assert(result.recordKey.endsWith(':87.0')&&result.boardKey.endsWith(':87.0'));
+assert.equal(result.version,'88.0','scoring changes require separate records');
+assert(result.recordKey.endsWith(':88.0')&&result.boardKey.endsWith(':88.0'));
 assert.equal(result.premature,null);
 assert.equal(result.tooSoon,null);
 assert.equal(result.scoreAfterTooSoon,0,'short bend is not a score exploit');
