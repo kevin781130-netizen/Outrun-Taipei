@@ -692,7 +692,7 @@ body{background:radial-gradient(ellipse at 50% 20%,#152a41,#050c14 65%);}
     </div>
   </div>
   <div id="build-version" role="status" aria-label="目前遊戲版本">
-    <span>CURRENT TEST BUILD</span><strong>V56.0</strong><span>V92 SPEED BUILD · 漸進氮氣／向內修線 · PLAYTEST</span>
+    <span>CURRENT TEST BUILD</span><strong>V56.0</strong><span>V93 FLOW BUILD · 強化修線／長路高速感 · PLAYTEST</span>
   </div>
 </div>
 
@@ -1383,15 +1383,17 @@ function toggleRadio(){
 // TAIPEI DISTRICT ROUTE NETWORK
 // ============================================================
 const ROAD_WIDTH = 2200, SEGMENT_LENGTH = 200, DRAW_DISTANCE = 320, CAMERA_HEIGHT = 1000, CAMERA_DEPTH = 0.84;
-const WORLD_SPEED = 18;
-const TRANSITION_LENGTH = 160;
+const V93_ROUTE_SCALE = 1.15;
+const WORLD_SPEED = 18 * V93_ROUTE_SCALE;
+const TRANSITION_LENGTH = Math.round(160 * V93_ROUTE_SCALE);
 const RENDER_BUFFER_SEGMENTS = DRAW_DISTANCE + 96;
 
 function routeLayout(level, column){
   const extra = Math.round(980 * (0.12 + 0.22 * level + 0.04 * column));
-  const FORK_WARN = 520 + extra, FORK_START = 580 + extra, FORK_LOCK = 780 + extra, STAGE_END = 880 + extra;
+  const stretch=n=>Math.round(n*V93_ROUTE_SCALE);
+  const FORK_WARN = stretch(520 + extra), FORK_START = stretch(580 + extra), FORK_LOCK = stretch(780 + extra), STAGE_END = stretch(880 + extra);
   const STAGE_SWITCH = STAGE_END + TRANSITION_LENGTH;
-  const FINISH_LINE = level === 4 ? STAGE_SWITCH : 840 + extra;
+  const FINISH_LINE = level === 4 ? STAGE_SWITCH : stretch(840 + extra);
   return { FORK_WARN, FORK_START, FORK_LOCK, STAGE_END, STAGE_SWITCH, FINISH_LINE, STAGE_SEGMENTS: STAGE_SWITCH + RENDER_BUFFER_SEGMENTS };
 }
 
@@ -5065,7 +5067,7 @@ function drawMiramarWheel(x,y,s){
 }
 
 // V40 competition rules: V39 simulation core + V40 drift calibration; art never changes physics.
-const COMPETITION=Object.freeze({version:'92.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
+const COMPETITION=Object.freeze({version:'93.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
 // V52 arcade-flow rules (independent): shorter crash interruption, stronger re-entry, Taiwan-style approach signage.
 const V52_FLOW=Object.freeze({
   crashDuration:2.9,crashAnimScale:4.1/2.9,recoverySpeed:118,recoveryGrace:1.6,
@@ -5284,7 +5286,7 @@ function v69ExitSettle(dt,desired,command,grip=roadGrip){
  return Math.abs(before-desired)-Math.abs(lateralVelocity-desired);
 }
 // V70 cruise-only A/B laboratory. No additional physical tuning.
-// Official arcade/sprint uses V69 recovery; V92 progressive acceleration and drift correction has record namespace 92.0.
+// Official arcade/sprint uses V69 recovery; V92 progressive acceleration and drift correction has record namespace 93.0.
 // Statistics are bounded to two in-memory aggregates, never persisted or sent.
 let v70LabEnabled=false,v70ExitMode='v69';
 const v70LabStats={v68:{frames:0,totalLat:0,peakLat:0},v69:{frames:0,totalLat:0,peakLat:0}};
@@ -5773,20 +5775,24 @@ function v84DriftCommand(command,counterAuthority){
 }
 // V90: a small correction advantage over the normal direct steering channel.
 // Heading is a bounded multiplier of requested steering, never an additive force.
-function v90DriftCommand(command,counterAuthority,intent=command){
+function v90DriftCommand(command,counterAuthority,intent=command,curve=segments[clamp(Math.floor(playerZ/SEGMENT_LENGTH),0,segments.length-1)]?.curve||0){
  const previous=v84DriftCommand(command,counterAuthority);
  if(!isDrifting||driftState==='recover'||command*driftDirection<=0)return previous;
- const input=v87FineDriftInput(clamp(command,-1,1));
+ const ratio=clamp(speed/COMPETITION.topSpeed,0,1.1);
+ const input=clamp(command,-1,1),profile=v51SteeringProfile(speed,false);
+ // V93: compare the WHOLE grip turn, including its nose-led path and corner bite.
+ // Virtual grip yaw depends on steering, so drift body angle cannot create a force.
+ const gripYaw=input*(5.5+ratio*4.5)*Math.PI/180;
+ const bite=Math.sign(input)===Math.sign(curve)?Math.min(Math.abs(curve),2.4):0;
+ const gripTurn=Math.sin(gripYaw)*DRIFT51.gripPathYaw*(.50+.72*ratio)
+  +input*.238*profile.authority+input*bite*V51_HANDLING.turnInBite*(.35+.65*ratio);
+ const grip=clamp(1-Math.max(0,speed-v52SafeCornerSpeed(curve))/210,.68,1.24);
  const t=clamp(driftAge/V84_DRIFT_LINE.entrySeconds,0,1);
  const entry=lerp(V84_DRIFT_LINE.entryFloor,1,t*t*(3-2*t));
- const normalDirect=.238*v51SteeringProfile(speed,false).authority;
- const authority=Math.max(Math.abs(previous)*1.057,Math.abs(input)*normalDirect*1.06*entry);
- // Raw intent releases the heading aid immediately, even as steer smooths out.
- // A stale old-side nose cannot pull against a deliberate drift transfer.
  const requested=clamp((Math.abs(intent)-.10)/.40,0,1);
  const heading=intent*command>0&&command*driftAngle>0?
   .06*requested*clamp(Math.abs(driftAngle)/45,0,1):0;
- return Math.sign(command)*authority*(1+heading)*1.05; // V92: ~5% stronger active inward correction.
+ return gripTurn*grip*entry*.98*(1+heading);
 }
 function stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
  const helper=inputHeld('ShiftLeft')||inputHeld('ShiftRight')||gamepadInput.drift;
@@ -5908,9 +5914,9 @@ function stepArcadeMotion(dt,curve,accelHeld=true,brakeHeld=false,steeringIntent
  const brakeRotation=!isDrifting&&brakeHeld?steer*profile.brakeRotation:0;
  const matchingCurve=Math.sign(steer)===Math.sign(curve)?Math.min(Math.abs(curve),2.4):0;
  const turnInBite=!isDrifting?steer*matchingCurve*V51_HANDLING.turnInBite*(.35+.65*ratio):0;
- // V90: retain input-led movement, with a small requested heading contribution.
+ // V93: compare complete grip motion, with a bounded requested heading contribution.
  // Recovery still uses the V84 law without heading assistance.
- const turnCommand=isDrifting?v90DriftCommand(steer,baseAuthority,steeringIntent):yawTurn+steer*baseAuthority+brakeRotation+turnInBite;
+ const turnCommand=isDrifting?v90DriftCommand(steer,baseAuthority,steeringIntent,curve):yawTurn+steer*baseAuthority+brakeRotation+turnInBite;
  const turn=Math.min(1,speed/30)*turnCommand*(isDrifting?1:frontGrip);
  const outward=curve*.032*ratio*ratio+(isDrifting?0:v52OverspeedPush(speed,curve));
  const desiredLateral=turn-outward;

@@ -26,6 +26,19 @@ const frame={curves:Array(126).fill(2),hills:Array(126).fill(0),segment:100,arch
 const saved=JSON.stringify(frame);world.render(frame,0);
 const shells=scene.getObjectByName('V89_BuildingShells'),panes=scene.getObjectByName('V89_StreetWindows'),roofs=scene.getObjectByName('V89_RoofSetbacks'),cornices=scene.getObjectByName('V89_Cornices');
 assert(shells.count>40);assert.equal(shells.count,panes.count);assert.equal(shells.count,roofs.count);assert.equal(shells.count,cornices.count);
+// V93: all architecture batches share continuous depth fade, retaining depth occlusion.
+for(const mesh of [shells,panes,roofs,cornices,...scene.children.filter(m=>m.name.startsWith('V57_StreetSign_'))]){
+ const mat=mesh.material,key=mat.isMeshStandardMaterial?'standard':'basic';
+ const shader={vertexShader:T.ShaderLib[key].vertexShader,fragmentShader:T.ShaderLib[key].fragmentShader};
+ mat.onBeforeCompile(shader);
+ assert(shader.vertexShader.includes('v93StreetFade=v93StreetAlpha;'));
+ assert(shader.fragmentShader.includes('diffuseColor.a *= v93StreetFade;'));
+ assert(mat.transparent&&mat.depthWrite,'depth occlusion retained between overlapping instances');
+ assert.equal(mat.customProgramCacheKey(),'v93-street-fade');
+ const fades=Array.from(mesh.geometry.attributes.v93StreetAlpha.array).slice(0,mesh.count);
+ assert(fades.every(a=>a>=0&&a<=1));
+ if(mesh===shells)assert(fades.some(a=>a>0&&a<1),'continuous boundary fade values are populated');
+}
 const sm=new T.Matrix4(),pm=new T.Matrix4(),rm=new T.Matrix4(),size=new T.Vector3(),pos=new T.Vector3(),q=new T.Quaternion();
 for(let i=0;i<shells.count;i++){
  shells.getMatrixAt(i,sm);panes.getMatrixAt(i,pm);roofs.getMatrixAt(i,rm);
@@ -39,6 +52,12 @@ for(let i=0;i<shells.count;i++){
  assert(roofBox.min.x>=-.5&&roofBox.max.x<=.5&&roofBox.min.z>=-.5&&roofBox.max.z<=.5,'roof retains existing footprint/fork clearance');
  assert(roofBox.max.y>.5,'setback adds a real stepped silhouette');
 }
+world.render({...frame,fraction:.999},0);
+// Absolute 105 (indices 0/1) leaves at zero alpha; absolute 108 moves from index 2 to index 0.
+const boundaryAlpha=shells.geometry.attributes.v93StreetAlpha.getX(2);
+world.render({...frame,segment:101,fraction:0},0);
+assert(Math.abs(shells.geometry.attributes.v93StreetAlpha.getX(0)-boundaryAlpha)<.001,'same absolute building fades continuously over a segment boundary');
+world.render(frame,0);
 const count=scene.children.length,geometries=[shells,panes,roofs,cornices].map(m=>m.geometry),matrices=Array.from(panes.instanceMatrix.array);
 const map=panes.material.map,glow=panes.material.emissiveMap;
 world.render({...frame,night:true},0);assert.equal(panes.material.emissiveIntensity,.8);
@@ -51,7 +70,7 @@ world.render({...frame,archetype:'mountain'},0);assert.equal(roofs.count,0);asse
 world.render({...frame,archetype:'expressway'},0);assert.equal(cornices.count,0);assert.equal(shells.count,0);
 let released=0;for(const texture of [map,glow])texture.addEventListener('dispose',()=>released++);
 world.dispose();world.dispose();assert.equal(released,2);
-// Full source audit updated for the deliberate V92 progressive speed/handling change.
+// Full source audit updated for the deliberate V93 route/handling change.
 const after=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
-assert.equal(require('node:crypto').createHash('sha256').update(after.replace('V92 SPEED BUILD · 漸進氮氣／向內修線','V88 DRIFT CONTROL · 修線加強／車流美術')).digest('hex'),'868791eb141a80c0d05bdb400f42d66c798b6ff430f91c2f814832060cc9907e','V92 reviewed gameplay source audit');
+assert.equal(require('node:crypto').createHash('sha256').update(after.replace('V93 FLOW BUILD · 強化修線／長路高速感','V88 DRIFT CONTROL · 修線加強／車流美術')).digest('hex'),'734f660889468a7558007dd2c8a8822c1ba06f6fd57a5cc54a17369e6009521f','V93 reviewed gameplay source audit');
 console.log('V89: deterministic 256 KiB facade maps, occupied windows, street-facing panels, roof footprints, quality/route counts, cached resources/disposal and reviewed gameplay source audit passed (GPU mocked).');

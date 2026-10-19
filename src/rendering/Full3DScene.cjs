@@ -156,12 +156,28 @@ function createFull3DScene(THREE,canvas) {
   return {x:center.x+lateral*s,y:center.y+height,z:center.z+lateral*c,u:lateral/8,v:segment*STEP/8};
  };
  const boxG=geometry(new THREE.BoxGeometry(1,1,1));
+ const streetAlphas=new THREE.InstancedBufferAttribute(new Float32Array(120),1);
+ streetAlphas.setUsage(THREE.DynamicDrawUsage);boxG.setAttribute('v93StreetAlpha',streetAlphas);
  const coneG=geometry(new THREE.ConeGeometry(1,1,7));
  const facadeTexture=createFacadeTexture(THREE);textures.push(facadeTexture);
  const buildingMat=material(new THREE.MeshStandardMaterial({color:0xffffff,map:facadeTexture,roughness:.92,metalness:.04}));
  const glassMat=material(new THREE.MeshStandardMaterial({color:0x547a93,roughness:.28,metalness:.35,emissive:0x101e32,emissiveIntensity:.28}));
  const treesMat=material(new THREE.MeshStandardMaterial({color:0x305548,roughness:1}));
  const polesMat=material(new THREE.MeshStandardMaterial({color:0xc1c3bd,metalness:.4,roughness:.55}));
+ // V93: spatial fade at the existing scenery boundaries, without camera shake or denser buildings.
+ function streetFade(mat){
+  mat.transparent=true;mat.depthWrite=true;
+  mat.onBeforeCompile=shader=>{
+   shader.vertexShader='attribute float v93StreetAlpha; varying float v93StreetFade;\n'+shader.vertexShader;
+   shader.vertexShader=shader.vertexShader.replace('#include <project_vertex>',
+    '#include <project_vertex>\nv93StreetFade=v93StreetAlpha;');
+   shader.fragmentShader='varying float v93StreetFade;\n'+shader.fragmentShader;
+   shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',
+    '#include <color_fragment>\ndiffuseColor.a *= v93StreetFade; if(diffuseColor.a<0.001) discard;');
+  };
+  mat.customProgramCacheKey=()=> 'v93-street-fade';
+ }
+ streetFade(buildingMat);
  const buildings=new THREE.InstancedMesh(boxG,buildingMat,120);
  const facadeMaps=createStreetFacadeTextures(THREE);textures.push(...Object.values(facadeMaps));
  const facadeMat=material(new THREE.MeshStandardMaterial({color:0xffffff,map:facadeMaps.color,
@@ -171,6 +187,7 @@ function createFull3DScene(THREE,canvas) {
  const windows=new THREE.InstancedMesh(boxG,facadeMat,120);
  const rooftops=new THREE.InstancedMesh(boxG,roofMat,120);
  const cornices=new THREE.InstancedMesh(boxG,corniceMat,120);
+ for(const mat of [facadeMat,roofMat,corniceMat])streetFade(mat);
  buildings.name='V89_BuildingShells';windows.name='V89_StreetWindows';
  rooftops.name='V89_RoofSetbacks';cornices.name='V89_Cornices';
  const trees=new THREE.InstancedMesh(coneG,treesMat,120);
@@ -199,7 +216,9 @@ function createFull3DScene(THREE,canvas) {
  const signs=TAIPEI_SIGNS.map((text,i)=>{
   const texture=createSignTexture(THREE,text,SIGN_COLORS[i],doc);if(texture)textures.push(texture);
   const mat=material(new THREE.MeshBasicMaterial({map:texture,color:texture?0xffffff:SIGN_COLORS[i],side:THREE.DoubleSide,toneMapped:false}));
+  streetFade(mat);
   const mesh=new THREE.InstancedMesh(geometry(new THREE.PlaneGeometry(1,1)),mat,40);
+  const alpha=new THREE.InstancedBufferAttribute(new Float32Array(40),1);alpha.setUsage(THREE.DynamicDrawUsage);mesh.geometry.setAttribute('v93StreetAlpha',alpha);
   mesh.name='V57_StreetSign_'+i;mesh.userData.text=text;mesh.frustumCulled=false;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(mesh);return mesh;
  });
@@ -317,6 +336,9 @@ function createFull3DScene(THREE,canvas) {
   const signCounts=Array(signs.length).fill(0);
   for(let i=5;i<COUNT;i++){
    const c=pts[i];
+   const distance=i-clamp(Number(frame.fraction)||0,0,1);
+   const smooth=(a,b,x)=>{const u=clamp((x-a)/(b-a),0,1);return u*u*(3-2*u);};
+   const fade=smooth(5,18,distance)*(1-smooth(COUNT-25,COUNT-1,distance));
    const absolute=Math.floor(frame.segment||0)+i;
    if(absolute%3!==0)continue;
    for(const side of [-1,1]){
@@ -333,7 +355,7 @@ function createFull3DScene(THREE,canvas) {
       dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
       dummy.rotation.set(0,-c.heading,0);
       dummy.scale.set(width,height,width*.8);
-      dummy.updateMatrix();if(ib<120){buildings.setMatrixAt(ib,dummy.matrix);
+      dummy.updateMatrix();if(ib<120){buildings.setMatrixAt(ib,dummy.matrix);streetAlphas.setX(ib,fade);
         swatch.setHex(palette[Math.floor(h*palette.length)]);buildings.setColorAt(ib,swatch);ib++;}
       // Face the street normal, not the direction of travel. The panel sits
       // inside the existing shoulder margin and spans the shell's street wall.
@@ -355,7 +377,7 @@ function createFull3DScene(THREE,canvas) {
         const sign=point(c,lateral-side*(width/2+.15),6.5);
         dummy.position.set(sign.x,sign.y,sign.z);
         dummy.rotation.set(0,side>0?-Math.PI/2-c.heading:Math.PI/2-c.heading,0);
-        dummy.scale.set(1.3,5.2,1);dummy.updateMatrix();signs[signIndex].setMatrixAt(n,dummy.matrix);signCounts[signIndex]++;
+        dummy.scale.set(1.3,5.2,1);dummy.updateMatrix();signs[signIndex].setMatrixAt(n,dummy.matrix);signs[signIndex].geometry.attributes.v93StreetAlpha.setX(n,fade);signCounts[signIndex]++;
        }
       }
     }else if(frame.archetype!=='expressway' && !(frame.archetype==='coastal'&&side<0)){
@@ -373,7 +395,7 @@ function createFull3DScene(THREE,canvas) {
    }
   }
   const assignments=[[buildings,ib],[windows,iw],[rooftops,ir],[cornices,ic],[trees,it],[lights,il],...signs.map((m,i)=>[m,signCounts[i]])];
-  for(const [m,count] of assignments){m.count=count;m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;}
+  for(const [m,count] of assignments){m.count=count;m.instanceMatrix.needsUpdate=true;if(m.geometry.attributes.v93StreetAlpha)m.geometry.attributes.v93StreetAlpha.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;}
  }
  function updateTraffic(frame,pts){
   for(let i=0;i<trafficMeshes.length;i++){

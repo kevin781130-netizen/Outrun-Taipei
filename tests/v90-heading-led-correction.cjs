@@ -1,6 +1,8 @@
 'use strict';
 const assert=require('node:assert/strict'),path=require('node:path');
 const game=require('./canvas-harness.cjs').load(path.join(__dirname,'../index.html'));
+// Historical tuning regression; current V93 authority is covered by v93-drift-flow.cjs.
+game.run('v90DriftCommand=('+require('./fixtures/v92-drift-command.cjs').toString()+')()');
 const data=JSON.parse(game.run(`(()=>{
  const modern=v90DriftCommand;
  function run(side,kmh,hz,old=false,grip=false){
@@ -37,7 +39,7 @@ const data=JSON.parse(game.run(`(()=>{
  }
  return JSON.stringify({cases,commands,gripBefore,gripAfter,version:COMPETITION.version});
 })()`));
-assert.equal(data.version,'92.0');assert.deepEqual(data.gripAfter,data.gripBefore,'normal driving is unchanged');
+assert.equal(data.version,'93.0');assert.deepEqual(data.gripAfter,data.gripBefore,'normal driving is unchanged');
 for(const c of data.commands){
  assert(Math.abs(c.now)>Math.abs(c.normal)*1.06,'active correction exceeds the matched normal direct steering channel');
  assert(Math.abs(c.now)>Math.abs(c.shallow),'more aligned nose gives a stronger correction');
