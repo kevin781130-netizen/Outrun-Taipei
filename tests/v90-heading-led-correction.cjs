@@ -37,7 +37,7 @@ const data=JSON.parse(game.run(`(()=>{
  }
  return JSON.stringify({cases,commands,gripBefore,gripAfter,version:COMPETITION.version});
 })()`));
-assert.equal(data.version,'91.0');assert.deepEqual(data.gripAfter,data.gripBefore,'normal driving is unchanged');
+assert.equal(data.version,'92.0');assert.deepEqual(data.gripAfter,data.gripBefore,'normal driving is unchanged');
 for(const c of data.commands){
  assert(Math.abs(c.now)>Math.abs(c.normal)*1.06,'active correction exceeds the matched normal direct steering channel');
  assert(Math.abs(c.now)>Math.abs(c.shallow),'more aligned nose gives a stronger correction');
