@@ -57,8 +57,8 @@ const result=JSON.parse(game.run(`(()=>{
     reset,before,version:COMPETITION.version,
     bestKey:bestRecordKey(),arcadeKey:arcadeBoardKey()});
 })()`));
-assert.equal(result.version,'91.0');
-assert(result.bestKey.endsWith(':91.0')&&result.arcadeKey.endsWith(':91.0'),
+assert.equal(result.version,'92.0');
+assert(result.bestKey.endsWith(':92.0')&&result.arcadeKey.endsWith(':92.0'),
   'new score awards must not overwrite V60 or V61 records');
 assert.deepEqual(result.one.flow,{chain:1,bonus:0,total:240});
 assert.deepEqual(result.two.flow,{chain:2,bonus:120,total:770});
