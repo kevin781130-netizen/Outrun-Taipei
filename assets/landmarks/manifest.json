@@ -1,0 +1,146 @@
+{
+  "revision": "V95",
+  "format": "glTF 2.0 binary",
+  "models": [
+    {
+      "kind": "gate",
+      "file": "gate.glb",
+      "bytes": 8836
+    },
+    {
+      "kind": "office",
+      "file": "office.glb",
+      "bytes": 120700
+    },
+    {
+      "kind": "liberty",
+      "file": "liberty.glb",
+      "bytes": 27540
+    },
+    {
+      "kind": "hotel",
+      "file": "hotel.glb",
+      "bytes": 89652
+    },
+    {
+      "kind": "trail",
+      "file": "trail.glb",
+      "bytes": 54632
+    },
+    {
+      "kind": "digital",
+      "file": "digital.glb",
+      "bytes": 14364
+    },
+    {
+      "kind": "guandu",
+      "file": "guandu.glb",
+      "bytes": 309696
+    },
+    {
+      "kind": "spring",
+      "file": "spring.glb",
+      "bytes": 89816
+    },
+    {
+      "kind": "wheel",
+      "file": "wheel.glb",
+      "bytes": 56516
+    },
+    {
+      "kind": "museum",
+      "file": "museum.glb",
+      "bytes": 38388
+    },
+    {
+      "kind": "dome",
+      "file": "dome.glb",
+      "bytes": 675584
+    },
+    {
+      "kind": "chimney",
+      "file": "chimney.glb",
+      "bytes": 18604
+    },
+    {
+      "kind": "fort",
+      "file": "fort.glb",
+      "bytes": 23188
+    },
+    {
+      "kind": "pier",
+      "file": "pier.glb",
+      "bytes": 45552
+    },
+    {
+      "kind": "volcano",
+      "file": "volcano.glb",
+      "bytes": 71660
+    },
+    {
+      "kind": "pavilion",
+      "file": "pavilion.glb",
+      "bytes": 20276
+    },
+    {
+      "kind": "market",
+      "file": "market.glb",
+      "bytes": 73424
+    },
+    {
+      "kind": "tech",
+      "file": "tech.glb",
+      "bytes": 51684
+    },
+    {
+      "kind": "rainbow",
+      "file": "rainbow.glb",
+      "bytes": 129760
+    },
+    {
+      "kind": "village",
+      "file": "village.glb",
+      "bytes": 37580
+    },
+    {
+      "kind": "skyline",
+      "file": "skyline.glb",
+      "bytes": 51688
+    },
+    {
+      "kind": "danjiang",
+      "file": "danjiang.glb",
+      "bytes": 72680
+    },
+    {
+      "kind": "lovers",
+      "file": "lovers.glb",
+      "bytes": 141348
+    },
+    {
+      "kind": "lighthouse",
+      "file": "lighthouse.glb",
+      "bytes": 18000
+    },
+    {
+      "kind": "teahouse",
+      "file": "teahouse.glb",
+      "bytes": 266452
+    },
+    {
+      "kind": "101",
+      "file": "101.glb",
+      "bytes": 570420
+    },
+    {
+      "kind": "gondola",
+      "file": "gondola.glb",
+      "bytes": 335348
+    },
+    {
+      "kind": "tea",
+      "file": "tea.glb",
+      "bytes": 35320
+    }
+  ]
+}

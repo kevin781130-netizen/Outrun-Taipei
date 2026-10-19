@@ -12,6 +12,7 @@ const {createRoadSurfaceTextures}=require('./RoadSurface.cjs');
 const {createEnvironmentLighting}=require('./EnvironmentLighting.cjs');
 const {createStreetFacadeTextures}=require('./StreetFacade.cjs');
 const {createStreetDetailsTextures}=require('./StreetDetails.cjs');
+const {districtAt,presentationFrame}=require('./DistrictGeography.cjs');
 
 // Full WebGL road/world renderer. This is intentionally NOT a Canvas overlay.
 // World coordinates: +X right, +Y up, -Z forward. Camera is behind the car (+Z).
@@ -341,6 +342,7 @@ function createFull3DScene(THREE,canvas) {
    r.mesh.geometry.setDrawRange(0,r.used/3);
    if(r.used){r.attr.needsUpdate=true;r.uvAttr.needsUpdate=true;}
   }
+  const geography=districtAt(frame);
   const urban=frame.archetype!=='mountain'&&frame.archetype!=='coastal';
   const routeSeed=frame.seed||1;
   let ib=0,iw=0,ir=0,ic=0,it=0,il=0,is=0,ia=0;
@@ -361,8 +363,11 @@ function createFull3DScene(THREE,canvas) {
     const landmarkZone=inLandmarkVista(frame.landmarks,absolute,side);
     if(landmarkZone)continue;
     const anchor=point(c,lateral,-.15);
-    if(urban && frame.archetype!=='expressway'){
+    const district=districtAt(frame,absolute);
+    if((district.authored?district.buildings:urban&&frame.archetype!=='expressway')&&!(district.waterSide===side&&district.waterWidth>1)){
       const height=7+h*23;
+      const streetDrop=district.deck?-(frame.deckHeights?.[i]||0)/260:0;
+      anchor.y+=streetDrop;
       dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
       dummy.rotation.set(0,-c.heading,0);
       dummy.scale.set(width,height,width*.8);
@@ -370,35 +375,35 @@ function createFull3DScene(THREE,canvas) {
         swatch.setHex(palette[Math.floor(h*palette.length)]);buildings.setColorAt(ib,swatch);ib++;}
       // Face the street normal, not the direction of travel. The panel sits
       // inside the existing shoulder margin and spans the shell's street wall.
-      const facade=point(c,lateral-side*(width/2+.025),height*.53-.15);
+      const facade=point(c,lateral-side*(width/2+.025),height*.53-.15+streetDrop);
       dummy.position.set(facade.x,facade.y,facade.z);
       dummy.scale.set(.04,height*.76,width*.68);
       dummy.updateMatrix();if(iw<120)windows.setMatrixAt(iw++,dummy.matrix);
       if(quality!=='LOW'){
        // Street-facing shop base and awning remain outside the existing shoulder.
-       const shop=point(c,lateral-side*(width/2+.035),1.3);
+       const shop=point(c,lateral-side*(width/2+.035),1.3+streetDrop);
        dummy.position.set(shop.x,shop.y,shop.z);dummy.scale.set(.05,2.6,width*.74);
        dummy.updateMatrix();if(is<120)shops.setMatrixAt(is++,dummy.matrix);
-       const awning=point(c,lateral-side*(width/2+.25),2.72);
+       const awning=point(c,lateral-side*(width/2+.25),2.72+streetDrop);
        dummy.position.set(awning.x,awning.y,awning.z);dummy.scale.set(.70,.16,width*.76);
        dummy.updateMatrix();if(ia<120)awnings.setMatrixAt(ia++,dummy.matrix);
-       const roofHeight=.7+h*.8,roof=point(c,lateral,height+roofHeight/2-.15);
+       const roofHeight=.7+h*.8,roof=point(c,lateral,height+roofHeight/2-.15+streetDrop);
        dummy.position.set(roof.x,roof.y,roof.z);dummy.scale.set(width*.62,roofHeight,width*.46);
        dummy.updateMatrix();if(ir<120)rooftops.setMatrixAt(ir++,dummy.matrix);
-       const cornice=point(c,lateral,height-.15);
+       const cornice=point(c,lateral,height-.15+streetDrop);
        dummy.position.set(cornice.x,cornice.y,cornice.z);dummy.scale.set(width*.98,.22,width*.78);
        dummy.updateMatrix();if(ic<120)cornices.setMatrixAt(ic++,dummy.matrix);
       }
       if(quality!=='LOW'&&absolute%6===0){
        const signIndex=Math.floor(hash(absolute*13+side*41+routeSeed)*signs.length),n=signCounts[signIndex];
        if(n<40){
-        const sign=point(c,lateral-side*(width/2+.15),6.5);
+        const sign=point(c,lateral-side*(width/2+.15),6.5+streetDrop);
         dummy.position.set(sign.x,sign.y,sign.z);
         dummy.rotation.set(0,side>0?-Math.PI/2-c.heading:Math.PI/2-c.heading,0);
         dummy.scale.set(1.3,5.2,1);dummy.updateMatrix();signs[signIndex].setMatrixAt(n,dummy.matrix);signs[signIndex].geometry.attributes.v93StreetAlpha.setX(n,fade);signCounts[signIndex]++;
        }
       }
-    }else if(frame.archetype!=='expressway' && !(frame.archetype==='coastal'&&side<0)){
+    }else if(!district.deck && !(district.waterSide===side&&district.waterWidth>1)){
       const height=7+h*9;
       dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
       dummy.rotation.set(0,0,0);dummy.scale.set(2.7+h*2,height,2.7+h*2);
@@ -466,12 +471,14 @@ function createFull3DScene(THREE,canvas) {
  }
  function prepareTrafficVisibility(frame,width=960,height=540){
   if(!active||lost||!ready)return [];
+  frame=presentationFrame(frame);
   const points=previewPoints(frame);updateTraffic(frame,points);
   return trafficVisibility(frame,points,width,height);
  }
  function render(frame,dt=0,width=960,height=540,quality='STANDARD'){
   if(!active||lost)return false;
   if(!frame?.curves?.length) return false;
+  frame=presentationFrame(frame);
   const points=previewPoints(frame);
   if(width!==lastW||height!==lastH){
    renderer.setSize(width,height,false);lastW=width;lastH=height;

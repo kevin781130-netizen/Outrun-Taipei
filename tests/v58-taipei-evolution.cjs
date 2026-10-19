@@ -68,7 +68,7 @@ world.render({...roadFrame,segment:101},0);
 assert.deepEqual(Array.from(uv.array.slice(0,12)),prior,'road grain stays anchored when advancing one segment');
 assert(Array.from(uv.array).every(Number.isFinite),'UVs remain finite');
 world.dispose();
-assert.equal(total,27);assert(vertices<500000,'bounded merged landmark geometry budget');
+assert.equal(total,28);assert(vertices<500000,'bounded merged landmark geometry budget');
 // Input calibration is continuous at the dead zone and symmetric; digital full
 // lock remains unchanged and keyboard driving remains covered by replay tests.
 const axis=x=>game.run(`v58SteeringAxis(${x})`);
