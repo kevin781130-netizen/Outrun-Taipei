@@ -59,8 +59,8 @@ const output=JSON.parse(game.run(`(()=>{
     inRight,inLeft,release,counter,poorGrip,grip,shallow,straight,
     poseRight,poseLeft,framesR,framesL});
 })()`));
-assert.equal(output.rules,'94.0','physical handling revision must segregate old records');
-assert(output.key.endsWith(':94.0'));
+assert.equal(output.rules,'95.0','physical handling revision must segregate old records');
+assert(output.key.endsWith(':95.0'));
 assert(output.inRight.bite>0&&output.inRight.bite<=.18);
 assert.equal(output.inLeft.bite,-output.inRight.bite,'mirrored corner steering gives equal inward bite');
 assert(output.inRight.lateral>0&&output.inLeft.lateral<0,

@@ -1,5 +1,6 @@
 'use strict';
 const {inLandmarkVista}=require('./ScenicVisibility.cjs');
+const {districtAt}=require('./DistrictGeography.cjs');
 // Surface-aware scenery and race readability. All coordinates use the road
 // tangent; every roadside object clears the full authored fork envelope.
 function createRaceEnvironment(T,scene,sample,offset,doc){
@@ -12,11 +13,13 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
   const mesh=add(new T.Mesh(g,material));mesh.frustumCulled=false;return {mesh,a,used:0};
  }
  const land=ribbon(0x526c51),water=ribbon(0x337f99),walk=ribbon(0x9b9181),deck=ribbon(0x64727e,504);
- deck.mesh.name='Race_ExpresswayDeck';
+ deck.mesh.name='Race_ExpresswayDeck';water.mesh.name='V95_DistrictWater';land.mesh.name='V95_DistrictLand';
+ const surfaceRoad=ribbon(0x45494a,504);surfaceRoad.mesh.name='V95_BelowDeckRoad';
  function quad(r,a,b,c,d){if(r.used+18>r.a.array.length)return;r.a.array.set([a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z,a.x,a.y,a.z,c.x,c.y,c.z,d.x,d.y,d.z],r.used);r.used+=18;}
  const cube=geo(new T.BoxGeometry(1,1,1)),hill=geo(new T.SphereGeometry(1,10,6));
  function pool(g,color,size){const m=add(new T.InstancedMesh(g,mat(new T.MeshStandardMaterial({color,roughness:.9})),size));m.frustumCulled=false;m.instanceMatrix.setUsage(T.DynamicDrawUsage);m.count=0;return m;}
  const rails=pool(cube,0xc3c7be,600),supports=pool(cube,0x77828a,100),hills=pool(hill,0x49705b,40);
+ const bankBlocks=pool(cube,0x919a87,40);bankBlocks.name='V95_OppositeBankBlocks';
  const markerGeo=geo(new T.PlaneGeometry(1,1));let tex=null;
  if(doc?.createElement){const c=doc.createElement('canvas');c.width=128;c.height=128;const ctx=c.getContext('2d');if(ctx){
   ctx.fillStyle='#f8d256';ctx.fillRect(0,0,128,128);ctx.fillStyle='#132632';ctx.beginPath();ctx.moveTo(28,15);ctx.lineTo(68,15);ctx.lineTo(104,64);ctx.lineTo(68,113);ctx.lineTo(28,113);ctx.lineTo(64,64);ctx.closePath();ctx.fill();
@@ -29,12 +32,12 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
  let disposed=false;
  function update(frame,points,quality){
   if(disposed)return;
-  for(const r of [land,water,walk,deck])r.used=0;
-  for(const m of [rails,supports,hills,arrows])m.count=0;
+  for(const r of [land,water,walk,deck,surfaceRoad])r.used=0;
+  for(const m of [rails,supports,hills,arrows,bankBlocks])m.count=0;
   const arch=frame.archetype,coast=arch==='coastal',highway=arch==='expressway',mountain=arch==='mountain';
   land.mesh.material.color.set(frame.groundColor||'#526c51');
   hills.material.color.set(frame.mountainColor||'#49705b');
-  water.mesh.material.color.setHex(frame.night?0x193d60:0x337f99);water.mesh.material.roughness=.38;
+  water.mesh.material.color.setHex(frame.night?0x193d60:0x337f99);water.mesh.material.roughness=.48;
   const lanesAt=i=>frame.corridors?.[Math.max(0,Math.min(125,i))]||[{center:0,half:1}];
   for(let i=0;i<points.length-1;i++){
    const absolute=(frame.segment||0)+i;
@@ -43,10 +46,26 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
     const a=offset(lanes,side,0,0),b=offset(next,side,0,0);
     const outer=side*180;
     const p=(index,x,y)=>{const p=sample(points,index,x);p.y+=y;return p;};
-    // Coastal water stays beyond the seawall. Expressway terrain sits below deck.
-    quad(coast&&side<0?water:land,p(i,a+side*1.8,-.25-height),p(i,a+outer,-.25-height),p(i+1,b+outer,-.25-height),p(i+1,b+side*1.8,-.25-height));
+    const district=districtAt(frame,absolute),following=districtAt(frame,absolute+1);
+    const wet=district.waterSide===side&&district.waterWidth>.2;
+    const ground=-.25-height;
+    if(wet){
+     const shore=6,far=Math.min(180,shore+district.waterWidth),farNext=Math.min(180,shore+following.waterWidth);
+     quad(land,p(i,a+side*1.8,ground),p(i,a+side*shore,ground),p(i+1,b+side*shore,-.25-(frame.deckHeights?.[i+1]||0)/260),p(i+1,b+side*1.8,-.25-(frame.deckHeights?.[i+1]||0)/260));
+     quad(water,p(i,a+side*shore,ground-.28),p(i,a+side*far,ground-.28),p(i+1,b+side*farNext,ground-.28),p(i+1,b+side*shore,ground-.28));
+     if(far<180)quad(land,p(i,a+side*far,ground),p(i,a+outer,ground),p(i+1,b+outer,ground),p(i+1,b+side*farNext,ground));
+    }else quad(land,p(i,a+side*1.8,ground),p(i,a+outer,ground),p(i+1,b+outer,ground),p(i+1,b+side*1.8,ground));
+    if(wet&&district.waterWidth<170&&absolute%12===0&&quality!=='LOW'){
+     const far=sample(points,i,a+side*(district.waterWidth+16));far.y-=height+1.5;
+     put(hills,far,14,4+(absolute%5),12);
+     if(absolute%24===0)put(bankBlocks,{...far,y:far.y+2},4,5+(absolute%4),5);
+    }
+    if(district.deck){
+     const y=-height-.22;
+     quad(surfaceRoad,p(i,a+side*2,y),p(i,a+side*13,y),p(i+1,b+side*13,y),p(i+1,b+side*2,y));
+    }
     quad(walk,p(i,a,-.03),p(i,a+side*1.8,-.03),p(i+1,b+side*1.8,-.03),p(i+1,b,-.03));
-    if(highway||coast||mountain){
+    if(highway||wet||(!district.authored&&coast)||(mountain&&district.kind!=='park-city')){
      const here=sample(points,i,a+side*.8),there=sample(points,i+1,b+side*.8),mid={x:(here.x+there.x)/2,y:(here.y+there.y)/2+.57,z:(here.z+there.z)/2};
      const heading=Math.atan2(there.x-here.x,-(there.z-here.z));
      put(rails,mid,.16,.32,Math.hypot(there.x-here.x,there.z-here.z)+.08,heading);
@@ -70,8 +89,8 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
     }
    }
   }
-  for(const r of [land,water,walk,deck]){r.mesh.geometry.setDrawRange(0,r.used/3);r.a.needsUpdate=true;}
-  for(const m of [rails,supports,hills,arrows])m.instanceMatrix.needsUpdate=true;
+  for(const r of [land,water,walk,deck,surfaceRoad]){r.mesh.geometry.setDrawRange(0,r.used/3);r.a.needsUpdate=true;}
+  for(const m of [rails,supports,hills,arrows,bankBlocks])m.instanceMatrix.needsUpdate=true;
  }
  return {update,dispose(){if(disposed)return;disposed=true;for(const m of meshes)scene.remove(m);for(const g of geometries)g.dispose();for(const m of materials)m.dispose();for(const t of textures)t.dispose();}};
 }

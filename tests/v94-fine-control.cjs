@@ -35,7 +35,7 @@ const data=JSON.parse(game.run(`(()=>{
  const counter=modern(-.2);driftState='recover';const recovery=modern(.2);
  return JSON.stringify({cases,taps,gains,counter,recovery,version:COMPETITION.version});
 })()`));
-assert.equal(data.version,'94.0');assert.equal(data.counter,1);assert.equal(data.recovery,1);
+assert.equal(data.version,'95.0');assert.equal(data.counter,1);assert.equal(data.recovery,1);
 for(let i=0;i<data.gains.length;i++){
  const {input,gain}=data.gains[i];assert(gain>=.85&&gain<=1);
  if(input<=.3)assert.equal(gain,.85);if(input>=.8)assert.equal(gain,1);

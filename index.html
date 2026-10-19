@@ -692,7 +692,7 @@ body{background:radial-gradient(ellipse at 50% 20%,#152a41,#050c14 65%);}
     </div>
   </div>
   <div id="build-version" role="status" aria-label="目前遊戲版本">
-    <span>CURRENT TEST BUILD</span><strong>V56.0</strong><span>V94 PRECISION BUILD · 細修線／街景質感 · PLAYTEST</span>
+    <span>CURRENT TEST BUILD</span><strong>V56.0</strong><span>V95 TAIPEI REBUILD · 地理校正／地標重建 · PLAYTEST</span>
   </div>
 </div>
 
@@ -764,6 +764,7 @@ const STAGE_LANDMARKS = {
     { seg: 170, side: -1, name: '信義百貨街玻璃建築群', height:7800, draw: (x, y, s) => drawTaipeiSkyscrapers(x, y, s * 1.7, 0), scale: 3000 }
   ],
   '5A': [
+    { seg: 60, side: -1, name: '淡江大橋河口遠景', height:9000, draw: (x,y,s)=>drawDanjiangBridgeV95(x,y,s), scale:3500 },
     { seg: 80, side: 1, name: '淡水漁人碼頭情人橋', height:6000, draw: (x, y, s) => drawLoversBridgeMarina(x, y, s * 2.0), scale: 3500 }
   ],
   '5B': [
@@ -4662,7 +4663,7 @@ function v57SceneFrame(){
   v56DrivingFrame.yawDeg=v51DriftVisualYaw();
   return {
     curves,hills,corridors,deckHeights,
-    routeId:currentNode.id,raceSigns:v58RaceSigns(),
+    routeId:currentNode.id,stageEnd:STAGE_END,raceSigns:v58RaceSigns(),
     skyColors:skyMood==='sunset'?v40Art().sky:scene().night,
     groundColor:v40Art().ground[0],mountainColor:v40Art().mountain,
     landmarks:landmarkTimeline().map((h,modelIndex)=>({id:h.id,modelIndex,name:h.name,seg:h.seg,side:h.side,heightWorld:h.heightWorld,groundDrop:h.groundDrop})),
@@ -5067,7 +5068,7 @@ function drawMiramarWheel(x,y,s){
 }
 
 // V40 competition rules: V39 simulation core + V40 drift calibration; art never changes physics.
-const COMPETITION=Object.freeze({version:'94.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
+const COMPETITION=Object.freeze({version:'95.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
 // V52 arcade-flow rules (independent): shorter crash interruption, stronger re-entry, Taiwan-style approach signage.
 const V52_FLOW=Object.freeze({
   crashDuration:2.9,crashAnimScale:4.1/2.9,recoverySpeed:118,recoveryGrace:1.6,
@@ -5286,7 +5287,7 @@ function v69ExitSettle(dt,desired,command,grip=roadGrip){
  return Math.abs(before-desired)-Math.abs(lateralVelocity-desired);
 }
 // V70 cruise-only A/B laboratory. No additional physical tuning.
-// Official arcade/sprint uses V69 recovery; V92 progressive acceleration and drift correction has record namespace 94.0.
+// Official arcade/sprint uses V69 recovery; V92 progressive acceleration and drift correction has record namespace 95.0.
 // Statistics are bounded to two in-memory aggregates, never persisted or sent.
 let v70LabEnabled=false,v70ExitMode='v69';
 const v70LabStats={v68:{frames:0,totalLat:0,peakLat:0},v69:{frames:0,totalLat:0,peakLat:0}};
@@ -6178,11 +6179,19 @@ function getLandmarkSprite(h){
  }
  return sprite;
 }
+function drawDanjiangBridgeV95(x,y,s){
+ ctx.save();ctx.translate(x,y);ctx.scale(s,s);
+ ctx.fillStyle='#b9c2c0';ctx.fillRect(-115,-10,230,6);
+ ctx.strokeStyle='#eceee8';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-26,-7);ctx.quadraticCurveTo(-8,-53,-7,-115);ctx.lineTo(-1,-123);ctx.lineTo(7,-110);ctx.lineTo(9,-8);ctx.stroke();
+ ctx.lineWidth=.8;for(let a=-110;a<=110;a+=12){ctx.beginPath();ctx.moveTo(-2,-112);ctx.lineTo(a,-10);ctx.stroke();}
+ ctx.fillStyle='#87948e';for(const a of [-106,-50,50,106])ctx.fillRect(a,-5,5,20);
+ ctx.restore();
+}
 function planLandmarks(){
  const seen=new Set(),items=(STAGE_LANDMARKS[currentNode.id]||[]).filter(h=>{if(seen.has(h.name))return false;seen.add(h.name);return true;});
  const end=v34Mode==='arcade'?(stageLevel===4?FINISH_LINE:STAGE_END):soloFinishIndex();
  const fractions=items.length===1?[.40]:items.length===2?[.22,.70]:[.16,.45,.75];let last=40;
- return items.map((h,i)=>{
+ const planned=items.map((h,i)=>{
   const sprite=getLandmarkSprite(h),height=h.height||V51_LANDMARK_AUDIT[currentNode.id]?.height||(h.name.includes('101')?19000:h.name.includes('纜車')?7200:h.name.includes('橋')?7000:7800); // V53.1: per-landmark real-world proportion (was one height per route)
   const artUnits=height*H/2/sprite.height,halfWorld=sprite.width*artUnits/W;
   const minOffset=ROAD_WIDTH*roadFactor()*1.12+halfWorld+1000,preferred=h.side??(i%2?-1:1),target=Math.round(end*fractions[i]);
@@ -6202,6 +6211,15 @@ function planLandmarks(){
   if(!best)best={seg:target,side:preferred,worldOffset:preferred*minOffset};last=best.seg;
   return {...h,...best,id:currentNode.id+':'+i,artUnits,sprite,heightWorld:height,groundDrop:currentNode.archetype==='expressway'?deckElevation(best.seg):0};
  });
+ // Northbound Chongqing corridor: Office to the west, Jingfu Gate across the
+ // Ketagalan axis to the east, Liberty Square farther southeast.
+ if(currentNode.id==='1A'&&planned.length===3){
+  const axis=planned[1].seg;
+  planned[0].seg=axis;planned[0].side=1;planned[0].worldOffset=Math.abs(planned[0].worldOffset);
+  planned[1].side=-1;planned[1].worldOffset=-Math.abs(planned[1].worldOffset);
+  planned[2].seg=axis-55;planned[2].side=1;planned[2].worldOffset=Math.abs(planned[2].worldOffset);
+ }
+ return planned;
 }
 function prepareLandmarkFrame(){
  const start=Math.floor(playerZ/SEGMENT_LENGTH);landmarkFrame={horizon:[],world:[]};landmarkDrawLog=[];
@@ -6254,7 +6272,7 @@ function drawWorldLandmarks(start){
   clipNearRoad(object.seg);
   if(object.hero)drawLandmarkInstance(object.hero,x,anchor.y,scale,'world');else if(districtSurface(object.seg,side)!=='elevated')drawDistrictProp(x,p.y,scale,object.seg,side);ctx.restore();
  }
- const upcoming=timeline.find(h=>h.seg>=start);
+ const upcoming=timeline.filter(h=>h.seg>=start).sort((a,b)=>a.seg-b.seg)[0];
  if(upcoming){const remaining=Math.max(0,(upcoming.seg*SEGMENT_LENGTH-playerZ)/WORLD_SPEED/3.6);updateLandmarkBanner(`${scene().label} · ${upcoming.name} · ${Math.round(remaining)} m`);}
  else updateLandmarkBanner(`${scene().label} · 景點已經過 · 前往${stageLevel===4?'終點':'下一街區'}`);
 }

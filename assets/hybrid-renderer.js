@@ -672,33 +672,108 @@ function inLandmarkVista(landmarks,segment,side){
 module.exports={inLandmarkVista};
 
   },
+  "./DistrictGeography.cjs": function(require, module) {
+'use strict';
+// Compressed driving corridors, with explicit land/water/deck rules per district.
+// These are authored visual relationships, not a surveyed navigation map.
+const PROFILES=Object.freeze({
+ '1A':{kind:'civic',buildings:true,relief:0,ground:'#a49b8c',heading:'northbound Chongqing South Road'},
+ '2A':{kind:'park-city',buildings:true,relief:.35,ground:'#65715b'},
+ '2B':{kind:'city-deck',buildings:true,relief:.25,ground:'#797a73',deck:true},
+ '3A':{kind:'river-to-spring',buildings:true,relief:.6,ground:'#64715b'},
+ '3B':{kind:'park-city',buildings:true,relief:.45,ground:'#697264'},
+ '3C':{kind:'dome-city',buildings:true,relief:0,ground:'#92918a'},
+ '4A':{kind:'river-town',buildings:true,relief:.30,ground:'#8b9276',waterSide:-1,waterWidth:115},
+ '4B':{kind:'volcanic-hills',buildings:false,relief:1,ground:'#738362'},
+ '4C':{kind:'river-city-deck',buildings:true,relief:.35,ground:'#747b72',deck:true},
+ '4D':{kind:'xinyi-city',buildings:true,relief:0,ground:'#858a89'},
+ '5A':{kind:'harbor',buildings:true,relief:.2,ground:'#93957e',waterSide:-1,waterWidth:125},
+ '5B':{kind:'ocean-coast',buildings:false,relief:.65,ground:'#777e6c',waterSide:-1,waterWidth:180},
+ '5C':{kind:'hill-town',buildings:true,relief:1,ground:'#71634e'},
+ '5D':{kind:'xinyi-city',buildings:true,relief:0,ground:'#858a89'},
+ '5E':{kind:'tea-hills',buildings:false,relief:1,ground:'#607b4e'}
+});
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function districtAt(frame,index=frame.segment||0){
+ const p=PROFILES[frame.routeId];
+ if(!p)return {kind:frame.archetype,buildings:frame.archetype==='urban',relief:1,ground:frame.groundColor||'#526c51',deck:frame.archetype==='expressway',waterSide:frame.archetype==='coastal'?-1:0,waterWidth:180,authored:false};
+ const out={waterSide:0,waterWidth:0,deck:false,authored:true,...p};
+ const u=clamp(index/Math.max(1,frame.stageEnd||1200),0,1);
+ if(frame.routeId==='3A'){
+  const t=clamp((u-.34)/.18,0,1),river=1-t*t*(3-2*t);
+  out.waterSide=river>.001?-1:0;out.waterWidth=95*river;
+  out.kind=river>.5?'guandu-river':'beitou-spring-town';
+ }
+ // Huandong has a bounded Keelung River view only toward the Raohe approach.
+ if(frame.routeId==='4C'&&u>.56){out.waterSide=-1;out.waterWidth=80;}
+ return out;
+}
+function presentationFrame(frame){
+ if(!PROFILES[frame.routeId])return frame;
+ const geo=districtAt(frame),deck=frame.deckHeights||[],origin=deck[0]||0;
+ const hills=(frame.hills||[]).map((y,i)=>{
+  const deckDelta=((deck[i]||0)-origin)/260;
+  return (y-deckDelta)*geo.relief+deckDelta;
+ });
+ return {...frame,hills,groundColor:geo.ground};
+}
+const HEIGHTS=Object.freeze({gate:8,office:14,liberty:7,hotel:22,museum:12,trail:9,digital:19,guandu:12,spring:6,wheel:24,dome:12,chimney:13,fort:8,pier:5,volcano:19,pavilion:8,market:10,tech:25,rainbow:11,village:6,skyline:30,lovers:14,danjiang:25,lighthouse:13,teahouse:12,'101':68,gondola:22,tea:9});
+function landmarkLayout(frame,mark,kind){
+ const authored=!!PROFILES[frame.routeId],side=mark.side<0?-1:1;
+ // Facades face the carriageway; bridge spans remain across the river view.
+ const facing=authored&&!['guandu','rainbow','lovers','danjiang','gondola','wheel'].includes(kind)?-side*Math.PI/2:0;
+ const geo=districtAt(frame,mark.seg),span=['guandu','rainbow','danjiang'].includes(kind)?geo.waterWidth:0;
+ return {yaw:facing,span,margin:kind==='gate'&&frame.routeId==='1A'?34:kind==='liberty'&&frame.routeId==='1A'?45:7,height:authored?HEIGHTS[kind]:null};
+}
+module.exports={PROFILES,HEIGHTS,districtAt,presentationFrame,landmarkLayout};
+
+  },
   "./TaipeiLandmarks.cjs": function(require, module) {
 'use strict';
+const {landmarkLayout}=require('./DistrictGeography.cjs');
 // Original low-poly interpretations of the authored 2D landmarks. Names/order
 // come from stageLandmarkPlan; this catalog supplies geometry, never route rules.
 const ROUTE_MODELS=Object.freeze({
  '1A':['gate','office','liberty'], '2A':['hotel','trail'], '2B':['digital'],
  '3A':['guandu','spring'], '3B':['wheel','museum'], '3C':['dome','chimney'],
  '4A':['fort','pier'], '4B':['volcano','pavilion'], '4C':['market','tech','rainbow'],
- '4D':['village','skyline'], '5A':['lovers'], '5B':['lighthouse'],
+ '4D':['village','skyline'], '5A':['danjiang','lovers'], '5B':['lighthouse'],
  '5C':['teahouse'], '5D':['101'], '5E':['gondola','tea']
 });
 const C={cream:0xe5d8b8,red:0xb43f38,roof:0x316963,gold:0xdbac52,glass:0x659ba7,
  dark:0x243442,white:0xe7eeea,wood:0x6c4e37,leaf:0x528455,stone:0x77827a,light:0xffcc73};
 function createLandmarkGeometry(T,kind){
- const positions=[],normals=[],colors=[];
+ const positions=[],normals=[],colors=[],roles=[];
  const obj=new T.Object3D(),normal=new T.Matrix3(),p=new T.Vector3(),n=new T.Vector3(),color=new T.Color();
- function part(g,c,x,y,z,sx=1,sy=1,sz=1,rx=0,ry=0,rz=0){
+ function part(g,c,x,y,z,sx=1,sy=1,sz=1,rx=0,ry=0,rz=0,role=null){
   const raw=g.index?g.toNonIndexed():g;if(raw!==g)g.dispose();
   obj.position.set(x,y,z);obj.scale.set(sx,sy,sz);obj.rotation.set(rx,ry,rz);obj.updateMatrix();normal.getNormalMatrix(obj.matrix);color.setHex(c);
   const a=raw.attributes.position,b=raw.attributes.normal;
   for(let i=0;i<a.count;i++){
    p.fromBufferAttribute(a,i).applyMatrix4(obj.matrix);n.fromBufferAttribute(b,i).applyMatrix3(normal).normalize();
    positions.push(p.x,p.y,p.z);normals.push(n.x,n.y,n.z);colors.push(color.r,color.g,color.b);
+   roles.push(role??(c===C.glass?1:c===C.light?4:c===C.leaf?5:c===C.roof?3:c===C.gold||c===C.dark||c===0xaab6b8?2:0));
   }raw.dispose();
  }
  const box=(x,y,z,w,h,d,c=C.cream,ry=0)=>part(new T.BoxGeometry(1,1,1),c,x,y,z,w,h,d,0,ry);
- const roof=(x,y,z,w,d,c=C.roof)=>part(new T.CylinderGeometry(0,1,1,4,1),c,x,y,z,w,1.6,d,0,Math.PI/4);
+ // Hipped roof with projecting eaves, replacing the generic four-sided cone.
+ function roof(x,y,z,w,d,c=C.roof){
+  w*=.75;d*=.75;const rise=Math.max(1.2,Math.min(4,w*.25));
+  const v=[],lower=[[-w,-d],[w,-d],[w,d],[-w,d]],upper=[[-w*.62,-d*.12],[w*.62,-d*.12],[w*.62,d*.12],[-w*.62,d*.12]];
+  for(let i=0;i<4;i++){const j=(i+1)%4,a=lower[i],b=lower[j],q=upper[i],r=upper[j];v.push(a[0],0,a[1],b[0],0,b[1],r[0],rise,r[1],a[0],0,a[1],r[0],rise,r[1],q[0],rise,q[1]);}
+  v.push(-w*.62,rise,-d*.12,w*.62,rise,-d*.12,w*.62,rise,d*.12,-w*.62,rise,-d*.12,w*.62,rise,d*.12,-w*.62,rise,d*.12);
+  for(let i=0;i<v.length;i+=9)for(let j=0;j<3;j++){const a=v[i+3+j];v[i+3+j]=v[i+6+j];v[i+6+j]=a;}
+  const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(v,3));g.computeVertexNormals();part(g,c,x,y,z,1,1,1);
+  box(x,y-.12,z,w*2.06,.20,d*2.06,c);
+ }
+ function bevel(w0,w1,h,d0=w0,d1=w1){
+  const ring=(w,d)=>[[-w*.5,-d*.38],[-w*.38,-d*.5],[w*.38,-d*.5],[w*.5,-d*.38],[w*.5,d*.38],[w*.38,d*.5],[-w*.38,d*.5],[-w*.5,d*.38]];
+  const a=ring(w0,d0),b=ring(w1,d1),v=[];
+  for(let i=0;i<8;i++){const j=(i+1)%8;v.push(a[i][0],-h/2,a[i][1],a[j][0],-h/2,a[j][1],b[j][0],h/2,b[j][1],a[i][0],-h/2,a[i][1],b[j][0],h/2,b[j][1],b[i][0],h/2,b[i][1]);
+   v.push(0,-h/2,0,a[j][0],-h/2,a[j][1],a[i][0],-h/2,a[i][1],0,h/2,0,b[i][0],h/2,b[i][1],b[j][0],h/2,b[j][1]);}
+  for(let i=0;i<v.length;i+=9)for(let j=0;j<3;j++){const a=v[i+3+j];v[i+3+j]=v[i+6+j];v[i+6+j]=a;}
+  const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(v,3));g.computeVertexNormals();return g;
+ }
  const sphere=(x,y,z,w,h,d,c)=>part(new T.SphereGeometry(1,16,10),c,x,y,z,w,h,d);
  const pole=(x,y,z,r,h,c=C.white)=>part(new T.CylinderGeometry(r,r,h,8),c,x,y,z);
  function beam(a,b,r,c=C.white){
@@ -724,28 +799,57 @@ function createLandmarkGeometry(T,kind){
  }
  function tower(x,z,w,h){box(x,h/2,z,w,h,w,C.glass);for(let y=2;y<h;y+=2)box(x,y,z+w*.51,w,.12,.12,C.cream);box(x,h+.3,z,w*.8,.6,w*.8,C.dark);}
  function bridge(type){
-  box(0,2,0,38,.7,4,type==='rainbow'?C.red:C.white);
-  for(const x of [-16,0,16])box(x,.8,0,1.1,2,3,C.stone);
+  const span=type==='lovers'?46:40,half=span/2;
+  box(0,2.2,0,span,.55,4.8,C.stone);
+  for(const x of [-half,half]){box(x,.5,0,4,3,7,C.stone);box(x,2.7,0,6,.35,8,C.cream);}
+  for(const side of [-1,1]){
+   beam([-half,3.3,side*2.35],[half,3.3,side*2.35],.075,C.white);
+   for(let x=-half;x<=half;x+=1.5)beam([x,2.5,side*2.35],[x,3.3,side*2.35],.04,C.white);
+  }
   if(type==='guandu'){
-   for(const x of [-12,0,12])for(const z of [-1.7,1.7]){
-    part(new T.TorusGeometry(5.7,.3,6,24,Math.PI),C.red,x,2.6,z);
-    for(let i=-4;i<=4;i+=2){const y=Math.sqrt(5.7*5.7-i*i);beam([x+i,2.3,z],[x+i,2.6+y,z],.07,C.red);}
+   for(const center of [-13,0,13])for(const side of [-1,1]){
+    const z=side*2.5;
+    for(let i=0;i<24;i++){
+     const a=i*Math.PI/24,b=(i+1)*Math.PI/24;
+     beam([center+6.5*Math.cos(a),2.7+7*Math.sin(a),z],[center+6.5*Math.cos(b),2.7+7*Math.sin(b),z],.23,C.red);
+    }
+    for(let x=-5;x<=5;x+=1.25)beam([center+x,2.5,z],[center+x,2.7+7*Math.sqrt(1-(x/6.5)**2),z],.055,C.red);
    }
+   for(const x of [-6.5,6.5])box(x,.4,0,1.2,4.2,5.7,C.stone);
   }else if(type==='rainbow'){
-   part(new T.TorusGeometry(14,.4,6,32,Math.PI),C.red,0,2.5,0,1,.65,1);
-   for(let x=-12;x<=12;x+=3)beam([x,2.5,0],[x,2.5+Math.sqrt(196-x*x)*.65,0],.06,C.white);
+   for(let i=0;i<32;i++){
+    const a=i*Math.PI/32,b=(i+1)*Math.PI/32;
+    beam([19*Math.cos(a),2.7+11*Math.sin(a),-1],[19*Math.cos(b),2.7+11*Math.sin(b),-1],.32,C.red);
+   }
+   for(let x=-17;x<=17;x+=2.5)beam([x,2.5,1.8],[x,2.7+11*Math.sqrt(1-(x/19)**2),-1],.065,C.white);
   }else{
-   beam([-7,2,0],[-2,17,0],.55);beam([-2,17,0],[4,2,0],.4);
-   for(let x=-17;x<=17;x+=3)beam([-2,16,0],[x,2.5,1.5],.06,C.white);
-   for(let x=-14;x<=14;x+=7){box(x,.8,7,4,.8,2,C.white);pole(x,3,7,.05,4);}
+   beam([-6,2.4,0],[-1,24,0],.52,C.white);beam([4,2.4,0],[-1,24,0],.35,C.white);
+   for(const side of [-1,1])for(let x=-21;x<=21;x+=3)beam([-1,23,side*.15],[x,2.5,side*2.1],.045,C.white);
+   for(const x of [-17,-9,9,17]){box(x,.4,9,5,.7,2.3,C.white);box(x,1.2,9,2.5,1.2,2,C.glass);pole(x,3,9,.045,5,C.dark);}
+   box(-24,.2,0,8,.4,13,C.stone);box(24,.2,0,8,.4,13,C.stone);
   }
  }
+
  switch(kind){
  case 'gate':
   box(0,2,0,13,4,7,C.red);box(0,2,3.6,2.8,3.8,.2,C.dark);box(0,5,0,9,2,5,C.cream);roof(0,6.8,0,9,6,C.gold);roof(0,8,0,6,4,C.gold);break;
  case 'office':
-  for(const s of [-1,1]){box(s*10,3,0,16,6,6,C.red);windows(s*10,3,3.05,15,5,3,9);}
-  box(0,4,0,5,8,7,C.cream);box(0,10,0,3.3,7,3.5,C.red);box(0,14,0,4,1.2,4,C.cream);roof(0,15,0,3,3,C.red);pole(0,17,0,.06,3);break;
+  box(0,.35,0,43,.7,15,C.stone);
+  for(const side of [-1,1]){
+   box(side*12,4.6,0,19,8.4,10,C.red);
+   for(const y of [1.1,3.6,6.1,8.7])box(side*12,y,5.08,19.2,.28,.22,C.cream);
+   windows(side*12,4.5,5.15,17.5,6.8,3,9);
+   for(let x=3;x<=21;x+=3)box(side*x,4.6,5.24,.28,7.8,.18,C.cream);
+   roof(side*12,9,0,13.4,7.6,C.dark);
+   box(side*19.5,5,0,4.2,9,12,C.red);roof(side*19.5,9.7,0,3.6,8.3,C.dark);
+  }
+  box(0,5.1,1,6,9.8,12,C.cream);box(0,12,0,4.8,9,5.6,C.red);
+  for(const y of [8,10,12,14,16])box(0,y,2.9,5.1,.3,.2,C.cream);
+  windows(0,11.8,2.96,3.8,6.6,3,3);box(0,17,0,5.8,1.2,6.3,C.cream);
+  part(new T.CircleGeometry(.7,20),C.cream,0,15.8,3.05);beam([0,15.8,3.12],[0,16.3,3.12],.04,C.dark);beam([0,15.8,3.12],[.35,15.8,3.12],.04,C.dark);
+  roof(0,17.6,0,4.15,4.55,C.dark);pole(0,20.3,0,.055,3,C.dark);
+  box(0,3,6.5,3.6,4.8,1,C.dark);for(const x of [-2.2,2.2])pole(x,3.4,7,.25,5.4,C.cream);
+  box(0,6.3,7,6.2,.45,2.7,C.cream);break;
  case 'liberty':
   for(let x=-12;x<=12;x+=6){box(x,3.5,0,.7,7,1,C.white);roof(x,7.8,0,4,2,C.roof);}
   for(let x=-9;x<=9;x+=6){box(x,6,0,5.5,1.2,.8,C.white);roof(x,7.2,0,5,2,C.roof);}break;
@@ -758,6 +862,15 @@ function createLandmarkGeometry(T,kind){
   box(-7,4,0,12,8,11,C.cream);box(6,6,0,11,12,12,C.glass);
   for(let x=-11;x<=-2;x+=2)box(x,4,5.6,.4,7,.2,C.red);
   for(let y=2;y<12;y+=2)box(6,y,6.1,10,.6,.2,C.light);break;
+ case 'danjiang':
+  box(0,2.5,0,76,.8,7,C.stone);
+  for(const x of [-35,-16,17,35])box(x,.4,0,1.7,4.5,5,C.stone);
+  const towerLegs=[[[-17,2.8,-.8],[-16,11,-.4],[-15,22,0],[-14,30,.1],[-12,34,-.8]],[[-8,2.8,1],[-9,11,1.3],[-10.7,23,1],[-11.5,31,0],[-12,34,-.8]]];
+  for(const [index,leg] of towerLegs.entries())for(let i=0;i<leg.length-1;i++)beam(leg[i],leg[i+1],index?.55:.8,C.white);
+  for(const z of [-3,3])for(let x=-35;x<=35;x+=3.5)beam([-12,32.5,-.8],[x,3,z],.045,C.white);
+  for(const z of [-3.5,3.5])beam([-38,3.8,z],[38,3.8,z],.08,C.white);
+  for(const x of [-38,38])box(x,1.5,0,5,3.2,11,C.stone);
+  break;
  case 'guandu':case 'rainbow':case 'lovers':bridge(kind);break;
  case 'spring':
   sphere(0,0,0,12,1,8,C.stone);sphere(0,.65,0,9,.2,6,0x6cc3b1);
@@ -768,12 +881,22 @@ function createLandmarkGeometry(T,kind){
   for(let i=0;i<16;i++){const a=i*Math.PI/8,x=Math.sin(a)*9,y=11+Math.cos(a)*9;
    beam([0,11,0],[x,y,0],.065,C.white);box(x,y-.5,0,1.2,1.2,1.4,i%2?C.red:C.gold);}
   for(const s of [-1,1])beam([s*5,0,1],[0,11,0],.35,C.cream);box(0,.4,0,13,.8,7,C.dark);break;
- case 'dome':box(0,1.4,0,28,2.8,17,C.cream);sphere(0,2.5,0,15,5,9,0xaab6b8);break;
+ case 'dome':{
+  box(0,.3,0,53,.6,40,C.stone);
+  part(new T.CylinderGeometry(1,1,4.2,64),C.glass,0,2.6,0,23,1,16);
+  part(new T.SphereGeometry(1,48,18,0,Math.PI*2,0,Math.PI/2),0xaab6b8,0,4.7,0,24,8.4,17);
+  const at=(theta,phi)=>[24*Math.sin(theta)*Math.cos(phi),4.7+8.4*Math.cos(theta),17*Math.sin(theta)*Math.sin(phi)];
+  for(let ring=1;ring<=4;ring++)for(let j=0;j<48;j++)beam(at(ring*Math.PI/8,j*Math.PI/24),at(ring*Math.PI/8,(j+1)*Math.PI/24),.045,C.dark);
+  for(let j=0;j<24;j++)for(let k=0;k<10;k++)beam(at(k*Math.PI/20,j*Math.PI/12),at((k+1)*Math.PI/20,j*Math.PI/12),.04,C.white);
+  for(let j=0;j<48;j++){const phi=j*Math.PI/24;pole(22.8*Math.cos(phi),2.5,15.8*Math.sin(phi),.13,4.4,C.cream);}
+  for(const z of [-18,18]){box(0,.8,z,34,.4,3.5,C.cream);box(0,1.2,z,31,.4,2.4,C.stone);}
+  break;}
  case 'chimney':
   box(0,1.6,0,19,3.2,8,C.red);roof(0,3.5,0,14,6,C.dark);pole(6,7,-3,1.0,14,C.red);pole(6,14,-3,1.3,.5,C.cream);windows(0,1.6,4.1,17,2,1,10);break;
  case 'fort':
-  box(0,3,0,14,6,9,C.red);for(const x of [-6,6])for(const z of [-3.7,3.7])box(x,4,z,2,8,2,C.red);
-  windows(0,3,4.6,12,4,2,5);for(let x=-7;x<=7;x+=2)box(x,6.4,4,1,.8,1,C.cream);pole(5,10,0,.08,5);break;
+  box(0,.3,0,20,.6,14,C.stone);box(0,3.4,0,15,6.4,10,C.red);
+  windows(0,3.5,5.06,12.8,4.8,2,6);for(const y of [.9,3.3,6.6])box(0,y,5.12,15.3,.18,.2,C.cream);
+  box(0,6.8,0,15.6,.4,10.6,C.red);box(0,3,5.2,2.4,4,.2,C.dark);pole(5,9,0,.055,4.5,C.dark);break;
  case 'pier':
   box(0,1,0,27,.5,6,C.wood);for(let x=-12;x<=12;x+=3){pole(x,0,2,.18,2,C.wood);pole(x,0,-2,.18,2,C.wood);}
   pavilion(5,0,8);for(const x of [-7,1]){box(x,.4,7,6,.8,2.4,C.white);box(x,1.2,7,3,1,2,C.glass);}break;
@@ -796,27 +919,70 @@ function createLandmarkGeometry(T,kind){
   for(let f=0;f<4;f++){box(0,1.2+f*2.5,f*.6,18-f*2,2.4,7,C.wood);roof(0,2.7+f*2.5,f*.6,14-f*1.4,6,C.roof);
    for(let x=-7+f;x<=7-f;x+=2){box(x,1.8+f*2.5,3.6+f*.6,.7,1.2,.1,C.light);sphere(x,.8+f*2.5,4+f*.6,.4,.6,.4,C.red);}}
   break;
- case '101':
-  box(0,2,0,12,4,12,C.glass);box(0,6,0,7,4,7,C.glass);
-  for(let i=0;i<8;i++){const y=9+i*3.2;part(new T.CylinderGeometry(5.3,4.4,3,4),C.glass,0,y,0,1,1,1,0,Math.PI/4);box(0,y+1.5,0,7.6,.25,7.6,C.cream);}
-  box(0,36,0,3.2,7,3.2,C.glass);pole(0,42,0,.2,6,C.white);break;
- case 'gondola':
-  for(const x of [-13,13]){pole(x,6,0,.35,12);box(x,12,0,5,.4,2,C.white);}
-  for(const z of [-1,1])beam([-18,12,z],[18,12,z],.055,C.dark);
-  for(const x of [-8,0,8]){beam([x,12,1],[x,10,1],.08);box(x,9,1,2,2,2,C.white);box(x,9.5,2.05,1.6,.8,.1,C.glass);}break;
+ case '101':{
+  box(0,.45,0,19,.9,19,C.stone);part(bevel(15,13,5),C.glass,0,3.2,0);part(bevel(9.2,8,5),C.glass,0,8,0);
+  for(let i=0;i<8;i++){
+   const y=12+i*4.9;part(bevel(7.1,8.5,4.7),C.glass,0,y,0);
+   part(bevel(8.65,8.65,.25),C.dark,0,y+2.38,0);
+   for(let row=0;row<7;row++){
+    const yy=y-1.95+row*.60,w=7.25+(yy-y+2.35)/4.7*1.4;
+    for(const side of [-1,1]){box(0,yy,side*w/2,w*.76,.045,.045,C.dark);box(side*w/2,yy,0,.045,.045,w*.76,C.dark);}
+   }
+   for(const side of [-1,1])for(let x=-2.4;x<=2.41;x+=.8){
+    beam([x,y-2.2,side*3.6],[x*1.13,y+2.2,side*4.2],.022,C.white);
+    beam([side*3.6,y-2.2,x],[side*4.2,y+2.2,x*1.13],.022,C.white);
+   }
+  }
+  part(bevel(6,4.8,5),C.glass,0,52,0);box(0,56,0,3,3,3,C.glass);pole(0,61,0,.17,8,C.white);
+  for(const side of [-1,1])for(const z of [-1,1])part(new T.TorusGeometry(.6,.12,6,16),C.gold,side*4.1,10.3,z*3.7);
+  break;}
+ case 'gondola':{
+  const cableY=x=>20+x*.20-2.1*(1-(x/27)**2);
+  for(const x of [-27,0,27]){
+   const top=cableY(x)+.3;
+   for(const z of [-1.5,1.5]){beam([x-1.2,0,z],[x-.4,top,z],.20,C.white);beam([x+1.2,0,z],[x+.4,top,z],.20,C.white);
+    for(let y=2;y<top-1;y+=2.5){beam([x-1,y,z],[x+1,y+2,z],.07,C.dark);beam([x+1,y,z],[x-1,y+2,z],.07,C.dark);}}
+   box(x,top,0,6,.35,6,C.white);
+   for(const z of [-2,2])for(const dx of [-1.8,0,1.8])part(new T.CylinderGeometry(.3,.3,.25,12),C.dark,x+dx,top+.22,z,1,1,1,Math.PI/2);
+  }
+  for(const z of [-2,2])for(let x=-27;x<27;x+=1.5)beam([x,cableY(x),z],[x+1.5,cableY(x+1.5),z],.042,C.dark);
+  for(const x of [-19,-6,9,21])for(const z of [-2,2]){
+   const y=cableY(x)-2.4;
+   beam([x,cableY(x),z],[x,y+.4,z],.07,C.dark);
+   part(bevel(2.1,2.35,1.5,2.3,2.5),C.glass,x,y-.6,z);
+   part(bevel(1.8,2.1,.65,2.1,2.3),x<0?C.white:C.roof,x,y-1.65,z);
+   box(x,y+.2,z,2.45,.18,2.6,C.white);
+   for(const side of [-1,1])box(x+side*.95,y-.55,z+1.24,.10,1.4,.05,C.white);
+   box(x,y-.6,z+1.28,.07,1.5,.05,C.dark);
+  }
+  break;}
  case 'tea':
   for(let i=0;i<7;i++)box(0,.6+i*.32,-i*2,24,1,1.3,C.leaf);
   box(0,2,5,17,.4,5,C.wood);for(let x=-8;x<=8;x+=2)pole(x,2.7,7,.08,1.4,C.wood);beam([-8,3.3,7],[8,3.3,7],.1,C.wood);pavilion(5,4,6);break;
  default:throw new Error('Unknown Taipei landmark: '+kind);
  }
- const geometry=new T.BufferGeometry();
- geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));
- geometry.setAttribute('normal',new T.Float32BufferAttribute(normals,3));
- geometry.setAttribute('color',new T.Float32BufferAttribute(colors,3));geometry.computeBoundingBox();geometry.computeBoundingSphere();return geometry;
+ const geometry=new T.BufferGeometry(),pos=[],nor=[],col=[];
+ for(let role=0;role<6;role++){
+  const start=pos.length/3;
+  for(let i=0;i<roles.length;i++)if(roles[i]===role){pos.push(...positions.slice(i*3,i*3+3));nor.push(...normals.slice(i*3,i*3+3));col.push(...colors.slice(i*3,i*3+3));}
+  if(pos.length/3>start)geometry.addGroup(start,pos.length/3-start,role);
+ }
+ geometry.setAttribute('position',new T.Float32BufferAttribute(pos,3));
+ geometry.setAttribute('normal',new T.Float32BufferAttribute(nor,3));
+ geometry.setAttribute('color',new T.Float32BufferAttribute(col,3));geometry.computeBoundingBox();geometry.computeBoundingSphere();
+ geometry.userData={kind,revision:'V95',source:'original authored geometry'};return geometry;
 }
+function createLandmarkMaterials(T){
+ return [
+  {roughness:.91,metalness:0}, {roughness:.21,metalness:.40,envMapIntensity:1.15},
+  {roughness:.40,metalness:.65,envMapIntensity:.8}, {roughness:.82,metalness:.08},
+  {roughness:.48,metalness:0,emissive:0xffd29a,emissiveIntensity:.25}, {roughness:1,metalness:0}
+ ].map(p=>new T.MeshStandardMaterial({vertexColors:true,transparent:true,...p}));
+}
+
 function createTaipeiLandmarks(T,scene,sample,offset){
  let route=null,items=[],disposed=false;
- const clear=()=>{for(const item of items){scene.remove(item.mesh);item.mesh.geometry.dispose();item.mesh.material.dispose();}items=[];};
+ const clear=()=>{for(const item of items){scene.remove(item.mesh);item.mesh.geometry.dispose();for(const m of item.mesh.material)m.dispose();}items=[];};
  function update(frame,points){
   if(disposed)return;
   const source=frame.landmarks||[],signature=(frame.routeId||'')+':'+source.map(h=>h.id).join('|');
@@ -824,11 +990,13 @@ function createTaipeiLandmarks(T,scene,sample,offset){
    clear();route=signature;
    for(const h of source){const model=ROUTE_MODELS[frame.routeId]?.[h.modelIndex];if(!model)continue;
     const geometry=createLandmarkGeometry(T,model),bounds=geometry.boundingBox;
-    const height=Math.min(68,Math.max(12,(h.heightWorld||5000)/260));
+    const layout=landmarkLayout(frame,h,model);
+    const height=layout.height||Math.min(68,Math.max(12,(h.heightWorld||5000)/260));
     const scale=height/Math.max(1,bounds.max.y-bounds.min.y);
-    const mesh=new T.Mesh(geometry,new T.MeshStandardMaterial({vertexColors:true,roughness:.78,metalness:.12,transparent:true}));
-    mesh.name='Taipei_'+h.id+'_'+model;mesh.userData.landmarkName=h.name;mesh.scale.setScalar(scale);mesh.visible=false;scene.add(mesh);
-    items.push({mesh,id:h.id,scale,halfWidth:Math.max(Math.abs(bounds.min.x),Math.abs(bounds.max.x))*scale,
+    const stretch=layout.span>0?Math.max(1,layout.span/Math.max(1,(bounds.max.x-bounds.min.x)*scale)):1;
+    const mesh=new T.Mesh(geometry,createLandmarkMaterials(T));
+    mesh.name='Taipei_'+h.id+'_'+model;mesh.userData.landmarkName=h.name;mesh.scale.set(scale*stretch,scale,scale);mesh.visible=false;scene.add(mesh);
+    items.push({mesh,id:h.id,kind:model,scale,halfWidth:Math.max(Math.abs(bounds.min.x),Math.abs(bounds.max.x))*scale*stretch,
      halfDepth:Math.max(Math.abs(bounds.min.z),Math.abs(bounds.max.z))*scale,bottom:bounds.min.y*scale});
    }
   }
@@ -838,26 +1006,33 @@ function createTaipeiLandmarks(T,scene,sample,offset){
    const distance=h.seg-frame.segment;
    if(distance< -14||distance>124){item.mesh.visible=false;continue;}
    const i=Math.max(0,Math.min(points.length-2,distance));
-   const radius=Math.ceil(item.halfDepth/2.7)+2;
+   const layout=landmarkLayout(frame,h,item.kind);
+   const extentX=Math.abs(Math.cos(layout.yaw))*item.halfWidth+Math.abs(Math.sin(layout.yaw))*item.halfDepth;
+   const extentZ=Math.abs(Math.sin(layout.yaw))*item.halfWidth+Math.abs(Math.cos(layout.yaw))*item.halfDepth;
+   const radius=Math.ceil(extentZ/2.7)+2;
    const lanes=(frame.corridors||[]).slice(Math.max(0,i-radius),Math.min(points.length,i+radius+1)).flat();
    // Visual-only landmarks never straddle the race surface, even gondolas.
-   const lateral=offset(lanes,h.side<0?-1:1,item.halfWidth*2,5);
+   const lateral=offset(lanes,h.side<0?-1:1,extentX*2,layout.margin);
    const anchor=sample(points,distance,lateral),drop=Math.max(0,Number(h.groundDrop)||0)/260;
-   item.mesh.position.set(anchor.x,anchor.y-item.bottom-drop,anchor.z);item.mesh.rotation.y=-anchor.heading;
-   item.mesh.visible=true;item.mesh.material.opacity=Math.min(1,(125-distance)/14,(distance+15)/8);
-   item.mesh.material.emissive.setHex(frame.night?0x1a2531:0);item.mesh.material.emissiveIntensity=.25;
-   placements.push({id:h.id,lateral,halfWidth:item.halfWidth,distance});
+   item.mesh.position.set(anchor.x,anchor.y-item.bottom-drop,anchor.z);item.mesh.rotation.y=-anchor.heading+layout.yaw;
+   item.mesh.visible=true;
+   for(const [index,material] of item.mesh.material.entries()){
+    material.opacity=Math.min(1,(125-distance)/14,(distance+15)/8);
+    material.emissive.setHex(index===4?0xffd29a:0);material.emissiveIntensity=index===4?(frame.night?.65:.04):0;
+   }
+   placements.push({id:h.id,lateral,halfWidth:extentX,distance,yaw:layout.yaw,kind:item.kind});
   }
   return placements;
  }
  return {update,dispose(){if(disposed)return;disposed=true;clear();},get count(){return items.length;}};
 }
-module.exports={ROUTE_MODELS,createLandmarkGeometry,createTaipeiLandmarks};
+module.exports={ROUTE_MODELS,createLandmarkGeometry,createLandmarkMaterials,createTaipeiLandmarks};
 
   },
   "./RaceEnvironment.cjs": function(require, module) {
 'use strict';
 const {inLandmarkVista}=require('./ScenicVisibility.cjs');
+const {districtAt}=require('./DistrictGeography.cjs');
 // Surface-aware scenery and race readability. All coordinates use the road
 // tangent; every roadside object clears the full authored fork envelope.
 function createRaceEnvironment(T,scene,sample,offset,doc){
@@ -870,11 +1045,13 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
   const mesh=add(new T.Mesh(g,material));mesh.frustumCulled=false;return {mesh,a,used:0};
  }
  const land=ribbon(0x526c51),water=ribbon(0x337f99),walk=ribbon(0x9b9181),deck=ribbon(0x64727e,504);
- deck.mesh.name='Race_ExpresswayDeck';
+ deck.mesh.name='Race_ExpresswayDeck';water.mesh.name='V95_DistrictWater';land.mesh.name='V95_DistrictLand';
+ const surfaceRoad=ribbon(0x45494a,504);surfaceRoad.mesh.name='V95_BelowDeckRoad';
  function quad(r,a,b,c,d){if(r.used+18>r.a.array.length)return;r.a.array.set([a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z,a.x,a.y,a.z,c.x,c.y,c.z,d.x,d.y,d.z],r.used);r.used+=18;}
  const cube=geo(new T.BoxGeometry(1,1,1)),hill=geo(new T.SphereGeometry(1,10,6));
  function pool(g,color,size){const m=add(new T.InstancedMesh(g,mat(new T.MeshStandardMaterial({color,roughness:.9})),size));m.frustumCulled=false;m.instanceMatrix.setUsage(T.DynamicDrawUsage);m.count=0;return m;}
  const rails=pool(cube,0xc3c7be,600),supports=pool(cube,0x77828a,100),hills=pool(hill,0x49705b,40);
+ const bankBlocks=pool(cube,0x919a87,40);bankBlocks.name='V95_OppositeBankBlocks';
  const markerGeo=geo(new T.PlaneGeometry(1,1));let tex=null;
  if(doc?.createElement){const c=doc.createElement('canvas');c.width=128;c.height=128;const ctx=c.getContext('2d');if(ctx){
   ctx.fillStyle='#f8d256';ctx.fillRect(0,0,128,128);ctx.fillStyle='#132632';ctx.beginPath();ctx.moveTo(28,15);ctx.lineTo(68,15);ctx.lineTo(104,64);ctx.lineTo(68,113);ctx.lineTo(28,113);ctx.lineTo(64,64);ctx.closePath();ctx.fill();
@@ -887,12 +1064,12 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
  let disposed=false;
  function update(frame,points,quality){
   if(disposed)return;
-  for(const r of [land,water,walk,deck])r.used=0;
-  for(const m of [rails,supports,hills,arrows])m.count=0;
+  for(const r of [land,water,walk,deck,surfaceRoad])r.used=0;
+  for(const m of [rails,supports,hills,arrows,bankBlocks])m.count=0;
   const arch=frame.archetype,coast=arch==='coastal',highway=arch==='expressway',mountain=arch==='mountain';
   land.mesh.material.color.set(frame.groundColor||'#526c51');
   hills.material.color.set(frame.mountainColor||'#49705b');
-  water.mesh.material.color.setHex(frame.night?0x193d60:0x337f99);water.mesh.material.roughness=.38;
+  water.mesh.material.color.setHex(frame.night?0x193d60:0x337f99);water.mesh.material.roughness=.48;
   const lanesAt=i=>frame.corridors?.[Math.max(0,Math.min(125,i))]||[{center:0,half:1}];
   for(let i=0;i<points.length-1;i++){
    const absolute=(frame.segment||0)+i;
@@ -901,10 +1078,26 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
     const a=offset(lanes,side,0,0),b=offset(next,side,0,0);
     const outer=side*180;
     const p=(index,x,y)=>{const p=sample(points,index,x);p.y+=y;return p;};
-    // Coastal water stays beyond the seawall. Expressway terrain sits below deck.
-    quad(coast&&side<0?water:land,p(i,a+side*1.8,-.25-height),p(i,a+outer,-.25-height),p(i+1,b+outer,-.25-height),p(i+1,b+side*1.8,-.25-height));
+    const district=districtAt(frame,absolute),following=districtAt(frame,absolute+1);
+    const wet=district.waterSide===side&&district.waterWidth>.2;
+    const ground=-.25-height;
+    if(wet){
+     const shore=6,far=Math.min(180,shore+district.waterWidth),farNext=Math.min(180,shore+following.waterWidth);
+     quad(land,p(i,a+side*1.8,ground),p(i,a+side*shore,ground),p(i+1,b+side*shore,-.25-(frame.deckHeights?.[i+1]||0)/260),p(i+1,b+side*1.8,-.25-(frame.deckHeights?.[i+1]||0)/260));
+     quad(water,p(i,a+side*shore,ground-.28),p(i,a+side*far,ground-.28),p(i+1,b+side*farNext,ground-.28),p(i+1,b+side*shore,ground-.28));
+     if(far<180)quad(land,p(i,a+side*far,ground),p(i,a+outer,ground),p(i+1,b+outer,ground),p(i+1,b+side*farNext,ground));
+    }else quad(land,p(i,a+side*1.8,ground),p(i,a+outer,ground),p(i+1,b+outer,ground),p(i+1,b+side*1.8,ground));
+    if(wet&&district.waterWidth<170&&absolute%12===0&&quality!=='LOW'){
+     const far=sample(points,i,a+side*(district.waterWidth+16));far.y-=height+1.5;
+     put(hills,far,14,4+(absolute%5),12);
+     if(absolute%24===0)put(bankBlocks,{...far,y:far.y+2},4,5+(absolute%4),5);
+    }
+    if(district.deck){
+     const y=-height-.22;
+     quad(surfaceRoad,p(i,a+side*2,y),p(i,a+side*13,y),p(i+1,b+side*13,y),p(i+1,b+side*2,y));
+    }
     quad(walk,p(i,a,-.03),p(i,a+side*1.8,-.03),p(i+1,b+side*1.8,-.03),p(i+1,b,-.03));
-    if(highway||coast||mountain){
+    if(highway||wet||(!district.authored&&coast)||(mountain&&district.kind!=='park-city')){
      const here=sample(points,i,a+side*.8),there=sample(points,i+1,b+side*.8),mid={x:(here.x+there.x)/2,y:(here.y+there.y)/2+.57,z:(here.z+there.z)/2};
      const heading=Math.atan2(there.x-here.x,-(there.z-here.z));
      put(rails,mid,.16,.32,Math.hypot(there.x-here.x,there.z-here.z)+.08,heading);
@@ -928,8 +1121,8 @@ function createRaceEnvironment(T,scene,sample,offset,doc){
     }
    }
   }
-  for(const r of [land,water,walk,deck]){r.mesh.geometry.setDrawRange(0,r.used/3);r.a.needsUpdate=true;}
-  for(const m of [rails,supports,hills,arrows])m.instanceMatrix.needsUpdate=true;
+  for(const r of [land,water,walk,deck,surfaceRoad]){r.mesh.geometry.setDrawRange(0,r.used/3);r.a.needsUpdate=true;}
+  for(const m of [rails,supports,hills,arrows,bankBlocks])m.instanceMatrix.needsUpdate=true;
  }
  return {update,dispose(){if(disposed)return;disposed=true;for(const m of meshes)scene.remove(m);for(const g of geometries)g.dispose();for(const m of materials)m.dispose();for(const t of textures)t.dispose();}};
 }
@@ -1149,6 +1342,7 @@ const {createRoadSurfaceTextures}=require('./RoadSurface.cjs');
 const {createEnvironmentLighting}=require('./EnvironmentLighting.cjs');
 const {createStreetFacadeTextures}=require('./StreetFacade.cjs');
 const {createStreetDetailsTextures}=require('./StreetDetails.cjs');
+const {districtAt,presentationFrame}=require('./DistrictGeography.cjs');
 
 // Full WebGL road/world renderer. This is intentionally NOT a Canvas overlay.
 // World coordinates: +X right, +Y up, -Z forward. Camera is behind the car (+Z).
@@ -1478,6 +1672,7 @@ function createFull3DScene(THREE,canvas) {
    r.mesh.geometry.setDrawRange(0,r.used/3);
    if(r.used){r.attr.needsUpdate=true;r.uvAttr.needsUpdate=true;}
   }
+  const geography=districtAt(frame);
   const urban=frame.archetype!=='mountain'&&frame.archetype!=='coastal';
   const routeSeed=frame.seed||1;
   let ib=0,iw=0,ir=0,ic=0,it=0,il=0,is=0,ia=0;
@@ -1498,8 +1693,11 @@ function createFull3DScene(THREE,canvas) {
     const landmarkZone=inLandmarkVista(frame.landmarks,absolute,side);
     if(landmarkZone)continue;
     const anchor=point(c,lateral,-.15);
-    if(urban && frame.archetype!=='expressway'){
+    const district=districtAt(frame,absolute);
+    if((district.authored?district.buildings:urban&&frame.archetype!=='expressway')&&!(district.waterSide===side&&district.waterWidth>1)){
       const height=7+h*23;
+      const streetDrop=district.deck?-(frame.deckHeights?.[i]||0)/260:0;
+      anchor.y+=streetDrop;
       dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
       dummy.rotation.set(0,-c.heading,0);
       dummy.scale.set(width,height,width*.8);
@@ -1507,35 +1705,35 @@ function createFull3DScene(THREE,canvas) {
         swatch.setHex(palette[Math.floor(h*palette.length)]);buildings.setColorAt(ib,swatch);ib++;}
       // Face the street normal, not the direction of travel. The panel sits
       // inside the existing shoulder margin and spans the shell's street wall.
-      const facade=point(c,lateral-side*(width/2+.025),height*.53-.15);
+      const facade=point(c,lateral-side*(width/2+.025),height*.53-.15+streetDrop);
       dummy.position.set(facade.x,facade.y,facade.z);
       dummy.scale.set(.04,height*.76,width*.68);
       dummy.updateMatrix();if(iw<120)windows.setMatrixAt(iw++,dummy.matrix);
       if(quality!=='LOW'){
        // Street-facing shop base and awning remain outside the existing shoulder.
-       const shop=point(c,lateral-side*(width/2+.035),1.3);
+       const shop=point(c,lateral-side*(width/2+.035),1.3+streetDrop);
        dummy.position.set(shop.x,shop.y,shop.z);dummy.scale.set(.05,2.6,width*.74);
        dummy.updateMatrix();if(is<120)shops.setMatrixAt(is++,dummy.matrix);
-       const awning=point(c,lateral-side*(width/2+.25),2.72);
+       const awning=point(c,lateral-side*(width/2+.25),2.72+streetDrop);
        dummy.position.set(awning.x,awning.y,awning.z);dummy.scale.set(.70,.16,width*.76);
        dummy.updateMatrix();if(ia<120)awnings.setMatrixAt(ia++,dummy.matrix);
-       const roofHeight=.7+h*.8,roof=point(c,lateral,height+roofHeight/2-.15);
+       const roofHeight=.7+h*.8,roof=point(c,lateral,height+roofHeight/2-.15+streetDrop);
        dummy.position.set(roof.x,roof.y,roof.z);dummy.scale.set(width*.62,roofHeight,width*.46);
        dummy.updateMatrix();if(ir<120)rooftops.setMatrixAt(ir++,dummy.matrix);
-       const cornice=point(c,lateral,height-.15);
+       const cornice=point(c,lateral,height-.15+streetDrop);
        dummy.position.set(cornice.x,cornice.y,cornice.z);dummy.scale.set(width*.98,.22,width*.78);
        dummy.updateMatrix();if(ic<120)cornices.setMatrixAt(ic++,dummy.matrix);
       }
       if(quality!=='LOW'&&absolute%6===0){
        const signIndex=Math.floor(hash(absolute*13+side*41+routeSeed)*signs.length),n=signCounts[signIndex];
        if(n<40){
-        const sign=point(c,lateral-side*(width/2+.15),6.5);
+        const sign=point(c,lateral-side*(width/2+.15),6.5+streetDrop);
         dummy.position.set(sign.x,sign.y,sign.z);
         dummy.rotation.set(0,side>0?-Math.PI/2-c.heading:Math.PI/2-c.heading,0);
         dummy.scale.set(1.3,5.2,1);dummy.updateMatrix();signs[signIndex].setMatrixAt(n,dummy.matrix);signs[signIndex].geometry.attributes.v93StreetAlpha.setX(n,fade);signCounts[signIndex]++;
        }
       }
-    }else if(frame.archetype!=='expressway' && !(frame.archetype==='coastal'&&side<0)){
+    }else if(!district.deck && !(district.waterSide===side&&district.waterWidth>1)){
       const height=7+h*9;
       dummy.position.set(anchor.x,anchor.y+height/2,anchor.z);
       dummy.rotation.set(0,0,0);dummy.scale.set(2.7+h*2,height,2.7+h*2);
@@ -1603,12 +1801,14 @@ function createFull3DScene(THREE,canvas) {
  }
  function prepareTrafficVisibility(frame,width=960,height=540){
   if(!active||lost||!ready)return [];
+  frame=presentationFrame(frame);
   const points=previewPoints(frame);updateTraffic(frame,points);
   return trafficVisibility(frame,points,width,height);
  }
  function render(frame,dt=0,width=960,height=540,quality='STANDARD'){
   if(!active||lost)return false;
   if(!frame?.curves?.length) return false;
+  frame=presentationFrame(frame);
   const points=previewPoints(frame);
   if(width!==lastW||height!==lastH){
    renderer.setSize(width,height,false);lastW=width;lastH=height;
