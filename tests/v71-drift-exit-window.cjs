@@ -85,6 +85,6 @@ for(const key of ['steeringCancelled','modeCancelled','pauseCancelled',
 assert.equal(result.afterSteer,1,'partial steering exit cannot be counted');
 assert.deepEqual(result.cleared,{pending:false,left:0,right:0,old68:0});
 assert.equal(result.denied,false,'arcade must never arm cruise-only telemetry');
-assert.equal(result.competition,'93.0');
+assert.equal(result.competition,'94.0');
 assert.equal(result.key,result.finalKey,'record namespace must not change');
 console.log('V71: two completed 0.42s A/B exit windows, invalidation, clear, closure, competition isolation passed');

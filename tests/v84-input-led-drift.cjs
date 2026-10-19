@@ -4,6 +4,8 @@ const {load}=require('./canvas-harness.cjs');
 const legacyFactory=require('./fixtures/v82-motion.cjs');
 const game=load(path.join(__dirname,'../index.html'));
 // Historical tuning regression; current V93 authority is covered by v93-drift-flow.cjs.
+// Freeze V94 fine-input scaling too: V82/V84 historical grip equivalence predates the approved normal-steering change.
+game.run('v94FineSteeringGain=()=>1');
 game.run('v90DriftCommand=('+require('./fixtures/v92-drift-command.cjs').toString()+')()');
 const out=JSON.parse(game.run(`(()=>{
  const motion=stepArcadeMotion;
@@ -64,8 +66,8 @@ const out=JSON.parse(game.run(`(()=>{
  return JSON.stringify({cases,commands,direct,probes,sustained,rates,version:COMPETITION.version,
   record:bestRecordKey(),board:arcadeBoardKey()});
 })()`));
-assert.equal(out.version,'93.0');
-assert(out.record.endsWith(':93.0')&&out.board.endsWith(':93.0'));
+assert.equal(out.version,'94.0');
+assert(out.record.endsWith(':94.0')&&out.board.endsWith(':94.0'));
 assert(!out.record.endsWith(':61.0'),'old records must remain separate');
 for(const c of out.commands){
  assert.equal(c.neutral,0,'yaw alone must not pull neutral drift toward the apex');

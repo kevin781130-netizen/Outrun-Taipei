@@ -48,7 +48,7 @@ async function startDrift(page,side,stock){
  await page.keyboard.down('ShiftLeft');
  await tick(page,30);
  const state=await physics(page),gpu=await draw(page);
- assert.equal(state.competition,'93.0','ranked rules revision must be explicit');
+ assert.equal(state.competition,'94.0','ranked rules revision must be explicit');
  assert(state.isDrifting&&state.nitro>0,'actual keyboard drift must charge nitro');
  assert(Math.abs(state.slipAngle)>2&&Math.abs(state.yaw)>5,'actual drift needs slip and yaw');
  assert(gpu&&Number.isFinite(gpu.carX)&&Number.isFinite(gpu.yawRad),'GPU did not render car');

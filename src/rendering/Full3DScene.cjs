@@ -11,6 +11,7 @@ const {inLandmarkVista}=require('./ScenicVisibility.cjs');
 const {createRoadSurfaceTextures}=require('./RoadSurface.cjs');
 const {createEnvironmentLighting}=require('./EnvironmentLighting.cjs');
 const {createStreetFacadeTextures}=require('./StreetFacade.cjs');
+const {createStreetDetailsTextures}=require('./StreetDetails.cjs');
 
 // Full WebGL road/world renderer. This is intentionally NOT a Canvas overlay.
 // World coordinates: +X right, +Y up, -Z forward. Camera is behind the car (+Z).
@@ -120,8 +121,8 @@ function createFull3DScene(THREE,canvas) {
  let lastW=0,lastH=0,lastDpr=0;
  const surfaces=createRoadSurfaceTextures(THREE);textures.push(...Object.values(surfaces));
  const roadMaterials=[
-  material(new THREE.MeshStandardMaterial({color:0xffffff,map:surfaces.asphalt_color,roughnessMap:surfaces.asphalt_rough,normalMap:surfaces.asphalt_normal,normalScale:new THREE.Vector2(.28,.28),roughness:1,metalness:0,side:THREE.DoubleSide})),
-  material(new THREE.MeshStandardMaterial({color:0xffffff,map:surfaces.pavement_color,roughnessMap:surfaces.pavement_rough,normalMap:surfaces.pavement_normal,normalScale:new THREE.Vector2(.22,.22),roughness:1,metalness:0,side:THREE.DoubleSide})),
+  material(new THREE.MeshStandardMaterial({color:0xffffff,map:surfaces.asphalt_color,roughnessMap:surfaces.asphalt_rough,normalMap:surfaces.asphalt_normal,normalScale:new THREE.Vector2(.19,.19),roughness:1,metalness:0,side:THREE.DoubleSide})),
+  material(new THREE.MeshStandardMaterial({color:0xffffff,map:surfaces.pavement_color,roughnessMap:surfaces.pavement_rough,normalMap:surfaces.pavement_normal,normalScale:new THREE.Vector2(.14,.14),roughness:1,metalness:0,side:THREE.DoubleSide})),
   material(new THREE.MeshBasicMaterial({color:0xecefe6,side:THREE.DoubleSide})),
   material(new THREE.MeshBasicMaterial({color:0x2ad9e7,side:THREE.DoubleSide}))
  ];
@@ -190,6 +191,13 @@ function createFull3DScene(THREE,canvas) {
  for(const mat of [facadeMat,roofMat,corniceMat])streetFade(mat);
  buildings.name='V89_BuildingShells';windows.name='V89_StreetWindows';
  rooftops.name='V89_RoofSetbacks';cornices.name='V89_Cornices';
+ const details=createStreetDetailsTextures(THREE);textures.push(...Object.values(details));
+ const shopMat=material(new THREE.MeshStandardMaterial({map:details.shopColor,emissiveMap:details.shopEmission,emissive:0xffddb1,emissiveIntensity:.16,roughness:.52,metalness:.12}));
+ const awningMat=material(new THREE.MeshStandardMaterial({color:0x526a60,roughness:.86}));
+ for(const mat of [shopMat,awningMat])streetFade(mat);
+ const shops=new THREE.InstancedMesh(boxG,shopMat,120),awnings=new THREE.InstancedMesh(boxG,awningMat,120);
+ shops.name='V94_Storefronts';awnings.name='V94_ShopAwnings';
+ for(const mesh of [shops,awnings]){mesh.frustumCulled=false;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(mesh);}
  const trees=new THREE.InstancedMesh(coneG,treesMat,120);
  const lights=new THREE.InstancedMesh(boxG,polesMat,50);
  for(const mesh of [buildings,windows,rooftops,cornices,trees,lights]){
@@ -231,8 +239,11 @@ function createFull3DScene(THREE,canvas) {
  const driftRig=createDriftVisualRig();
  const chaseRig=createChaseRig();
  const effects=createDrivingEffects(THREE);scene.add(camera);
- const contactShadow=new THREE.Mesh(geometry(new THREE.CircleGeometry(1,24)),material(new THREE.MeshBasicMaterial({color:0x071016,transparent:true,opacity:.28,depthWrite:false})));
+ const contactShadow=new THREE.Mesh(geometry(new THREE.CircleGeometry(1,24)),material(new THREE.MeshBasicMaterial({color:0xffffff,map:details.contact,transparent:true,opacity:.48,depthWrite:false})));
  contactShadow.name='V58_ContactShadow';contactShadow.rotation.x=-Math.PI/2;contactShadow.scale.set(1.12*.97,1.95*.97,1);scene.add(contactShadow);
+ const tyreContacts=new THREE.InstancedMesh(contactShadow.geometry,contactShadow.material,4);
+ tyreContacts.name='V94_TyreContacts';tyreContacts.frustumCulled=false;tyreContacts.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(tyreContacts);
+ const wheelPosition=new THREE.Vector3();
  const gripFrame=createDrivingVisualSnapshot();
  let lastCarColor='',renderRandomSeed=0x6f34ac19;
  function with3DOnlyRandom(callback){
@@ -332,7 +343,7 @@ function createFull3DScene(THREE,canvas) {
   }
   const urban=frame.archetype!=='mountain'&&frame.archetype!=='coastal';
   const routeSeed=frame.seed||1;
-  let ib=0,iw=0,ir=0,ic=0,it=0,il=0;
+  let ib=0,iw=0,ir=0,ic=0,it=0,il=0,is=0,ia=0;
   const signCounts=Array(signs.length).fill(0);
   for(let i=5;i<COUNT;i++){
    const c=pts[i];
@@ -364,6 +375,13 @@ function createFull3DScene(THREE,canvas) {
       dummy.scale.set(.04,height*.76,width*.68);
       dummy.updateMatrix();if(iw<120)windows.setMatrixAt(iw++,dummy.matrix);
       if(quality!=='LOW'){
+       // Street-facing shop base and awning remain outside the existing shoulder.
+       const shop=point(c,lateral-side*(width/2+.035),1.3);
+       dummy.position.set(shop.x,shop.y,shop.z);dummy.scale.set(.05,2.6,width*.74);
+       dummy.updateMatrix();if(is<120)shops.setMatrixAt(is++,dummy.matrix);
+       const awning=point(c,lateral-side*(width/2+.25),2.72);
+       dummy.position.set(awning.x,awning.y,awning.z);dummy.scale.set(.70,.16,width*.76);
+       dummy.updateMatrix();if(ia<120)awnings.setMatrixAt(ia++,dummy.matrix);
        const roofHeight=.7+h*.8,roof=point(c,lateral,height+roofHeight/2-.15);
        dummy.position.set(roof.x,roof.y,roof.z);dummy.scale.set(width*.62,roofHeight,width*.46);
        dummy.updateMatrix();if(ir<120)rooftops.setMatrixAt(ir++,dummy.matrix);
@@ -394,7 +412,7 @@ function createFull3DScene(THREE,canvas) {
     }
    }
   }
-  const assignments=[[buildings,ib],[windows,iw],[rooftops,ir],[cornices,ic],[trees,it],[lights,il],...signs.map((m,i)=>[m,signCounts[i]])];
+  const assignments=[[shops,is],[awnings,ia],[buildings,ib],[windows,iw],[rooftops,ir],[cornices,ic],[trees,it],[lights,il],...signs.map((m,i)=>[m,signCounts[i]])];
   for(const [m,count] of assignments){m.count=count;m.instanceMatrix.needsUpdate=true;if(m.geometry.attributes.v93StreetAlpha)m.geometry.attributes.v93StreetAlpha.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;}
  }
  function updateTraffic(frame,pts){
@@ -494,6 +512,14 @@ function createFull3DScene(THREE,canvas) {
   car.root.scale.set(.92*.97,.83*.97,.92*.97); // V84: 3% smaller visual model only.
   contactShadow.position.set(driftRig.offsetX,.049,PLAYER_Z);
   contactShadow.rotation.set(-Math.PI/2+roadPose.pitch,0,roadPose.yaw+pose.yawRad);
+  car.root.updateMatrixWorld(true);tyreContacts.count=quality==='LOW'?0:4;
+  for(let i=0;i<tyreContacts.count;i++){
+   car.parts.wheelSpinners[i].getWorldPosition(wheelPosition);
+   dummy.position.set(wheelPosition.x,.052-Math.sin(roadPose.pitch)*(wheelPosition.z-PLAYER_Z),wheelPosition.z);
+   dummy.rotation.copy(contactShadow.rotation);dummy.scale.set(.15,.28,1);dummy.updateMatrix();
+   tyreContacts.setMatrixAt(i,dummy.matrix);
+  }
+  tyreContacts.instanceMatrix.needsUpdate=true;
   // Camera sits behind +Z and looks down -Z: the rear (taillights +Z)
   // ALWAYS faces the camera. Do not rotate the car 180 degrees.
   updateChaseRig(chaseRig,points,frame,driftRig.cameraX,Math.max(0,dt));
@@ -502,20 +528,21 @@ function createFull3DScene(THREE,canvas) {
   if(camera.fov!==chaseRig.fov){camera.fov=chaseRig.fov;camera.updateProjectionMatrix();}
   skyDome.position.copy(camera.position);
   skyMaterial.uniforms.top.value.set(frame.skyColors?.[0]||(frame.night?'#08152f':'#53416f'));
-  skyMaterial.uniforms.horizon.value.set(frame.skyColors?.[2]||(frame.night?'#344861':'#f4ae78'));
+  skyMaterial.uniforms.horizon.value.set(frame.skyColors?.[2]||(frame.night?'#344861':'#e5ba91'));
   sun.visible=!frame.night;sun.position.set(camera.position.x-110,camera.position.y+40,camera.position.z-290);
-  sunlight.color.setHex(frame.night?0x9dbbff:0xffc58e);
+  sunlight.color.setHex(frame.night?0x9dbbff:0xffcf9f);
   sunlight.intensity=frame.night?.28:1.35;
   hemisphere.color.setHex(frame.night?0x718ebd:0xb6d5ef);
-  hemisphere.groundColor.setHex(frame.night?0x192335:0x50413c);
+  hemisphere.groundColor.setHex(frame.night?0x192335:0x4b4945);
   hemisphere.intensity=frame.night?.42:.62;
   scene.environment=lighting.environment(!!frame.night,quality);
   car.parts.paint.envMapIntensity=frame.night?.65:.85;
   car.parts.glazing.envMapIntensity=frame.night?.5:.7;
   glassMat.emissiveIntensity=frame.night?.7:.12;
+  shopMat.emissiveIntensity=frame.night?(quality==='LOW'?.25:.65):.16;
   facadeMat.emissiveIntensity=frame.night?(quality==='LOW'?.35:.8):.06;
   scene.background.setHex(frame.night?0x10213b:0xf4ae78);
-  scene.fog.color.setHex(frame.night?0x233b58:0xd69b82);
+  scene.fog.color.setHex(frame.night?0x233b58:0xc7ad98);
   // A flat ground plane must never cover a descending road.
   ground.position.y=Math.min(-.22,...points.map((p,i)=>p.y-.3-(frame.deckHeights?.[i]||0)/260));
   trafficVisibility(frame,points,width,height);

@@ -65,8 +65,8 @@ const v=JSON.parse(game.run(`(()=>{
     before,removed,after,mirrorRemoved,mirrorVelocity,mirrorYaw,
     blocked,live,control,liveLeft,expired,stage,newRun,natural});
 })()`));
-assert.equal(v.rules,'93.0');
-assert(v.key.endsWith(':93.0'));
+assert.equal(v.rules,'94.0');
+assert(v.key.endsWith(':94.0'));
 assert.equal(v.before.time,.42);
 assert(v.removed>0&&v.removed<.15,'gentle physical correction, no snap');
 assert(v.after.lv>.2&&v.after.lv<.85);
