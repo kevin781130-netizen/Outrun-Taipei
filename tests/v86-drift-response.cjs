@@ -2,6 +2,8 @@
 const assert=require('node:assert/strict'),path=require('node:path');
 const {load}=require('./canvas-harness.cjs');
 const game=load(path.join(__dirname,'../index.html'));
+// Historical response isolation at V92 authority; V93 whole-motion tests run separately.
+game.run('v90DriftCommand=('+require('./fixtures/v92-drift-command.cjs').toString()+')()');
 const data=JSON.parse(game.run(`(()=>{
  const response=v86DriftResponseRate;
  function run({speedNow=180,side=1,pulse=false,drifting=true,legacy=false,curve=1.2}){
@@ -40,7 +42,7 @@ const data=JSON.parse(game.run(`(()=>{
  }
  return JSON.stringify({cases,gripBefore,gripAfter,rates,version:COMPETITION.version,record:bestRecordKey()});
 })()`));
-assert.equal(data.version,'92.0');assert(data.record.endsWith(':92.0'));
+assert.equal(data.version,'93.0');assert(data.record.endsWith(':93.0'));
 assert.deepEqual(data.gripAfter,data.gripBefore,'grip steering/motion stays identical');
 for(const rate of data.rates){
  assert(Math.abs(rate.now.response/rate.before.response-1.12)<1e-12,'only 12% response gain');
