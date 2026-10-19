@@ -83,9 +83,9 @@ for(const {scenario,v68,v69} of rows.outputs){
  assert.deepEqual(v68.trace,v69.trace,
   'V69 must never secretly act during continuous active steering: '+JSON.stringify(scenario));
  assert.deepEqual([v68.scoreSame,v68.nitroSame,v68.stockSame,v68.recordSame,v68.rules],
-  [true,true,true,true,'93.0']);
+  [true,true,true,true,'94.0']);
  assert.deepEqual([v69.scoreSame,v69.nitroSame,v69.stockSame,v69.recordSame,v69.rules],
-  [true,true,true,true,'93.0']);
+  [true,true,true,true,'94.0']);
  for(const frame of v68.trace)for(const x of Object.values(frame)){
   assert(Number.isFinite(x),scenario.route+' non-finite replay');
  }
@@ -115,7 +115,7 @@ assert.equal(rows.competitive,true,'competition always selects V69');
 const report={status:'passed',scope:'V73 original-physics player-intent test',
  scenarios:rows.outputs.length,framePairs:frames,neutralTargetErrorChecks:neutralGates,
  activeInputNoAssistChecks:activeGates,invalidConditionChecks:rows.invalid.length,
- competitionVersion:'93.0',
+ competitionVersion:'94.0',
  finding:'active left/right and immediate countersteer reversal are identical across V68 and V69; correction engages only in neutral range',
  limitation:'these are synthetic player commands, not actual recorded gameplay or real WebGL rendering'};
 fs.mkdirSync(path.join(__dirname,'../test-results'),{recursive:true});

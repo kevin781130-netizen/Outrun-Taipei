@@ -70,7 +70,7 @@ world.render({...frame,archetype:'mountain'},0);assert.equal(roofs.count,0);asse
 world.render({...frame,archetype:'expressway'},0);assert.equal(cornices.count,0);assert.equal(shells.count,0);
 let released=0;for(const texture of [map,glow])texture.addEventListener('dispose',()=>released++);
 world.dispose();world.dispose();assert.equal(released,2);
-// Full source audit updated for the deliberate V93 route/handling change.
+// Full source audit updated for the deliberate V94 precision handling change.
 const after=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
-assert.equal(require('node:crypto').createHash('sha256').update(after.replace('V93 FLOW BUILD · 強化修線／長路高速感','V88 DRIFT CONTROL · 修線加強／車流美術')).digest('hex'),'734f660889468a7558007dd2c8a8822c1ba06f6fd57a5cc54a17369e6009521f','V93 reviewed gameplay source audit');
+assert.equal(require('node:crypto').createHash('sha256').update(after.replace('V94 PRECISION BUILD · 細修線／街景質感','V88 DRIFT CONTROL · 修線加強／車流美術')).digest('hex'),'b6ba9666874cba6061ba869845571859ef1a0474fca6a4bbf952b390f51f1313','V94 reviewed gameplay source audit');
 console.log('V89: deterministic 256 KiB facade maps, occupied windows, street-facing panels, roof footprints, quality/route counts, cached resources/disposal and reviewed gameplay source audit passed (GPU mocked).');

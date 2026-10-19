@@ -692,7 +692,7 @@ body{background:radial-gradient(ellipse at 50% 20%,#152a41,#050c14 65%);}
     </div>
   </div>
   <div id="build-version" role="status" aria-label="目前遊戲版本">
-    <span>CURRENT TEST BUILD</span><strong>V56.0</strong><span>V93 FLOW BUILD · 強化修線／長路高速感 · PLAYTEST</span>
+    <span>CURRENT TEST BUILD</span><strong>V56.0</strong><span>V94 PRECISION BUILD · 細修線／街景質感 · PLAYTEST</span>
   </div>
 </div>
 
@@ -5067,7 +5067,7 @@ function drawMiramarWheel(x,y,s){
 }
 
 // V40 competition rules: V39 simulation core + V40 drift calibration; art never changes physics.
-const COMPETITION=Object.freeze({version:'93.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
+const COMPETITION=Object.freeze({version:'94.0',dashWindow:.45,topSpeed:270,boostSpeed:300,lowSpeed:185,accel:72,turn:1.05,brake:125,nitroCharge:50,hitHalfWidth:62});
 // V52 arcade-flow rules (independent): shorter crash interruption, stronger re-entry, Taiwan-style approach signage.
 const V52_FLOW=Object.freeze({
   crashDuration:2.9,crashAnimScale:4.1/2.9,recoverySpeed:118,recoveryGrace:1.6,
@@ -5286,7 +5286,7 @@ function v69ExitSettle(dt,desired,command,grip=roadGrip){
  return Math.abs(before-desired)-Math.abs(lateralVelocity-desired);
 }
 // V70 cruise-only A/B laboratory. No additional physical tuning.
-// Official arcade/sprint uses V69 recovery; V92 progressive acceleration and drift correction has record namespace 93.0.
+// Official arcade/sprint uses V69 recovery; V92 progressive acceleration and drift correction has record namespace 94.0.
 // Statistics are bounded to two in-memory aggregates, never persisted or sent.
 let v70LabEnabled=false,v70ExitMode='v69';
 const v70LabStats={v68:{frames:0,totalLat:0,peakLat:0},v69:{frames:0,totalLat:0,peakLat:0}};
@@ -5901,6 +5901,12 @@ function stepBrakeDrift(dt,brakeHeld,accelHeld,steerTarget,curve){
  for(const trail of slideTrails)trail.life-=dt;slideTrails=slideTrails.filter(p=>p.life>0);
  if(isDrifting&&Math.abs(slipAngle)>2.5&&speed>70){const points=(currentCar.isBike?[1]:currentCar.isTruck?[-75,75]:[-81,81]).map(x=>vehicleProject([x,0,-66],v51DriftVisualYaw()));slideTrails.push({life:.62,y:H-65,points,dir:driftDirection});if(slideTrails.length>32)slideTrails.shift();}
 }
+// V94: fine corrections are softer; strong steering and escape countersteer retain V93 authority.
+function v94FineSteeringGain(command){
+ if(isDrifting&&(driftState==='recover'||command*driftDirection<=0))return 1;
+ const t=clamp((Math.abs(command)-.30)/.50,0,1);
+ return .85+.15*t*t*(3-2*t);
+}
 function stepArcadeMotion(dt,curve,accelHeld=true,brakeHeld=false,steeringIntent=steer){
  const ratio=clamp(speed/COMPETITION.topSpeed,0,1.1),safe=v52SafeCornerSpeed(curve),excess=Math.max(0,speed-safe);
  const profile=v51SteeringProfile(speed,isDrifting);
@@ -5917,7 +5923,7 @@ function stepArcadeMotion(dt,curve,accelHeld=true,brakeHeld=false,steeringIntent
  // V93: compare complete grip motion, with a bounded requested heading contribution.
  // Recovery still uses the V84 law without heading assistance.
  const turnCommand=isDrifting?v90DriftCommand(steer,baseAuthority,steeringIntent,curve):yawTurn+steer*baseAuthority+brakeRotation+turnInBite;
- const turn=Math.min(1,speed/30)*turnCommand*(isDrifting?1:frontGrip);
+ const turn=Math.min(1,speed/30)*turnCommand*(isDrifting?1:frontGrip)*v94FineSteeringGain(steer);
  const outward=curve*.032*ratio*ratio+(isDrifting?0:v52OverspeedPush(speed,curve));
  const desiredLateral=turn-outward;
  lateralVelocity=lerp(lateralVelocity,desiredLateral,1-Math.exp(-dt*v86DriftResponseRate(isDrifting?DRIFT51.driftLateralResponse:17.6,isDrifting)));

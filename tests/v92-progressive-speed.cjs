@@ -57,7 +57,7 @@ const data=JSON.parse(game.run(`(()=>{
  const gripBefore=drift(1,true,true),gripAfter=drift(1,false,true);
  return JSON.stringify({straight,stacked,normal,held,crash,clean,before,activated,after,duration,brakeCancelled,pauseBefore,pauseAfter,reverseCancelled,crossings,drifts,gripBefore,gripAfter,version:COMPETITION.version});
 })()`));
-assert.equal(data.version,'93.0');assert(data.activated);assert.equal(data.before,data.after,'no activation speed jump');assert.equal(data.duration,7);
+assert.equal(data.version,'94.0');assert(data.activated);assert.equal(data.before,data.after,'no activation speed jump');assert.equal(data.duration,7);
 for(const run of [...data.straight,...data.stacked]){
  assert(run.reached>=6.9&&run.reached<=7.1,'200→displayed 300 must take approximately seven seconds');
  assert(run.maxStep<=100/7/run.hz+1e-8,'stacked thrust cannot bypass high-speed acceleration budget');

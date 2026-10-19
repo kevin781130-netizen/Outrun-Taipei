@@ -11,13 +11,13 @@ function createRoadSurfaceTextures(T,size=128){
    const joint=kind==='pavement'&&(x%cell<1||y%cell<1);
    let value;
    if(kind==='asphalt'){
-    value=Math.round(47+(n-.5)*22+3*Math.sin(2*Math.PI*x/size)*Math.cos(4*Math.PI*y/size)+(n>.97?12:0));
+    value=Math.round(47+(n-.5)*12+4*(grain(x>>3,y>>3,905)-.5)+2*Math.sin(2*Math.PI*x/size)*Math.cos(4*Math.PI*y/size)+(n>.985?7:0));
     color.set([value,value+2,value+4,255],k);height[i]=(n-.5)*.1;
    }else{
-    value=Math.round((joint?94:145+grain(Math.floor(x/cell),Math.floor(y/cell),99)*14)+(n-.5)*7);
+    value=Math.round((joint?117:145+grain(Math.floor(x/cell),Math.floor(y/cell),99)*14)+(n-.5)*7);
     color.set([value,value-3,value-9,255],k);height[i]=(joint?-.18:0)+(n-.5)*.01;
    }
-   const r=kind==='asphalt'?Math.round(234+n*12):(joint?246:224);
+   const r=kind==='asphalt'?Math.round(228+n*14):(joint?246:224);
    rough.set([r,r,r,255],k);
   }
   for(let y=0;y<size;y++)for(let x=0;x<size;x++){
